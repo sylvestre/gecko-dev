@@ -4,11 +4,12 @@
         "config:base"
     ],
     "includePaths": [
+        "**",
         "third_party/python/requirements.*"
     ],
     "ignorePaths": [
         "third_party/"
-    ],
+    ]
     "pip_requirements": {
         "fileMatch": ["(^|/)requirements.*\\.(in|txt)$"]
     }
