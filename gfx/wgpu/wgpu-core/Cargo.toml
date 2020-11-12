@@ -22,7 +22,7 @@ serial-pass = ["serde", "wgt/serde", "arrayvec/serde"]
 
 [dependencies]
 arrayvec = "0.5"
-bitflags = "1.0"
+bitflags = "1.2"
 copyless = "0.1"
 fxhash = "0.2"
 hal = { package = "gfx-hal", version = "0.6" }
