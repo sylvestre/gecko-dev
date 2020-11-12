@@ -9,7 +9,7 @@
     ],
     "ignorePaths": [
         "third_party/"
-    ]
+    ],
     "pip_requirements": {
         "fileMatch": ["(^|/)requirements.*\\.(in|txt)$"]
     }
