@@ -3,6 +3,9 @@
     "extends": [
         "config:base"
     ],
+    "includePaths": [
+        "third_party/python/requirements.*"
+    ],
     "ignorePaths": [
         "third_party/"
     ]
