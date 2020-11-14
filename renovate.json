@@ -11,6 +11,6 @@
         "third_party/"
     ],
     "pip_requirements": {
-        "fileMatch": ["(^|/)requirements.*\\.(in|txt)$"]
+        "fileMatch": ["(^|/).*requirements.*\\.(in|txt)$"]
     }
 }
