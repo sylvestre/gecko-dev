@@ -3,6 +3,7 @@
     "extends": [
         "config:base"
     ],
+    "prConcurrentLimit": 0,
     "includePaths": [
         "**",
         "third_party/python/requirements.*"
