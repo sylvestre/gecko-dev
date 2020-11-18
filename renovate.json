@@ -4,6 +4,7 @@
         "config:base"
     ],
     "prConcurrentLimit": 0,
+    "prHourlyLimit": 0,
     "includePaths": [
         "**",
         "third_party/python/requirements.*"
