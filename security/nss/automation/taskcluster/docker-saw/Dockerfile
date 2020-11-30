@@ -1,4 +1,4 @@
-FROM ubuntu:16.04
+FROM ubuntu:16.10
 MAINTAINER Tim Taubert <ttaubert@mozilla.com>
 
 RUN useradd -d /home/worker -s /bin/bash -m worker

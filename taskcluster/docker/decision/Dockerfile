@@ -1,4 +1,4 @@
-FROM          ubuntu:16.04
+FROM          ubuntu:16.10
 MAINTAINER    Dustin Mitchell <dustin@mozilla.com>
 
 # Add worker user

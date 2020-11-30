@@ -4,7 +4,7 @@
 # with Ubuntu 18.04 (see bug 1488148). This image can be removed once a new
 # release of LLVM includes the necessary fixes.
 
-FROM ubuntu:16.04
+FROM ubuntu:16.10
 LABEL maintainer="Martin Thomson <martin.thomson@gmail.com>"
 
 RUN dpkg --add-architecture i386
