@@ -2,7 +2,7 @@
 # default image, so it's a fair bit bigger.  Only use this for builds where
 # the smaller docker image is missing something.  These builds will run on
 # the leaner configuration.
-FROM ubuntu:18.04
+FROM ubuntu:18.10
 LABEL maintainer="Martin Thomson <martin.thomson@gmail.com>"
 
 RUN dpkg --add-architecture i386
