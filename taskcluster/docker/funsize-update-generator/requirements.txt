@@ -234,10 +234,9 @@ s3transfer==0.3.3 \
     --hash=sha256:2482b4259524933a022d59da830f51bd746db62f047d6eb213f2f8855dcb8a13 \
     --hash=sha256:921a37e2aefc64145e7b73d50c71bb4f26f46e4c9f414dc648c6245ff92cf7db \
     # via awscli
-scriptworker==32.0.3 \
-    --hash=sha256:a4d428a2c9db1b0dbabb86c0badf850e919ed83ffaba701185370ebe3dd5f7aa \
-    --hash=sha256:d60976a94ba86d0c4b9f23536ce3cb026281c726d00da12b6546a8dd80cb4d1b \
-    # via -r requirements.in
+scriptworker==36.0.0 \
+    --hash=sha256:7d2b1a59fe0cd2f41130591539e95574279fa55a534258154ae1ba861c13cebb \
+    --hash=sha256:c0a263e637dab76ee8c5b20258a8a5691dba804870a04eef44867b318b5ce036
 sh==1.12.14 \
     --hash=sha256:ae3258c5249493cebe73cb4e18253a41ed69262484bad36fdb3efcb8ad8870bb \
     --hash=sha256:b52bf5833ed01c7b5c5fb73a7f71b3d98d48e9b9b8764236237bdc7ecae850fc \
