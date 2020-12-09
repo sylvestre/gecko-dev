@@ -91,7 +91,7 @@
     "jest-localstorage-mock": "^2.2.0",
     "jest-serializer-babel-ast": "^0.0.5",
     "redux": "^4.0.5",
-    "webpack": "^3.5.5",
+    "webpack": "5.10.0",
     "workerjs": "github:jasonLaster/workerjs#1944c8b753cc9e84b6ed0cb2fbcaa25600706446"
   }
 }

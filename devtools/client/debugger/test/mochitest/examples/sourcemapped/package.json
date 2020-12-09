@@ -11,6 +11,6 @@
   "dependencies": {
     "babel-polyfill": "^6.26.0",
     "lodash": "^4.17.5",
-    "webpack": "^3.7.1"
+    "webpack": "5.10.0"
   }
 }
