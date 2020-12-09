@@ -34,9 +34,9 @@
     "lodash.kebabcase": "^4.1.1",
     "parse-script-tags": "github:loganfsmyth/parse-script-tags#d771732ca47e1b3554fe67d609fd18cc785c5f26",
     "pretty-fast": "^0.2.4",
-    "react": "16.8.6",
+    "react": "17.0.1",
     "react-aria-components": "^0.0.4",
-    "react-dom": "16.8.6",
+    "react-dom": "17.0.1",
     "react-redux": "^5.0.7",
     "react-transition-group": "^2.2.1",
     "wasmparser": "^3.1.1"
