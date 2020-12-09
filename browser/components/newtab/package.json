@@ -60,7 +60,7 @@
     "shelljs": "0.8.3",
     "sinon": "7.3.2",
     "webpack": "4.41.6",
-    "webpack-cli": "3.3.11",
+    "webpack-cli": "4.2.0",
     "yamscripts": "0.1.0"
   },
   "engines": {
