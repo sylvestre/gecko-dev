@@ -8,7 +8,7 @@ publish = false
 [dependencies]
 bits = { path = "./bits" }
 comedy = "0.1.0"
-guid_win = "0.1.0"
+guid_win = "0.2.0"
 
 [dependencies.failure]
 version = "0.1.3"
