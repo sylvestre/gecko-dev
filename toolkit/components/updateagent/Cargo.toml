@@ -10,7 +10,7 @@ edition = "2018"
 bits_client = { path = "../bitsdownload/bits_client"}
 cfg-if = "0.1"
 chrono = "0.4"
-comedy = "0.1"
+comedy = "0.2"
 failure = "0.1"
 percent-encoding = "2.1"
 prefs_parser = { path = "../../../modules/libpref/parser" }
