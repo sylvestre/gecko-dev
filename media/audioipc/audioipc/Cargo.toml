@@ -35,7 +35,7 @@ mio-named-pipes = { git = "https://github.com/kinetiknz/mio-named-pipes", rev = 
 winapi = { version = "0.3.6", features = ["combaseapi", "objbase"] }
 
 [dependencies.error-chain]
-version = "0.11.0"
+version = "0.12.4"
 default-features = false
 
 [build-dependencies]
