@@ -1,4 +1,4 @@
-FROM armv7/armhf-ubuntu:16.04
+FROM armv7/armhf-ubuntu:16.10
 MAINTAINER Franziskus Kiefer <franziskuskiefer@gmail.com>
 
 RUN useradd -d /home/worker -s /bin/bash -m worker
