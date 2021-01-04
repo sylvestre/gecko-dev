@@ -61,7 +61,7 @@ gleam = "0.13"
 glutin = "0.21"
 rayon = "1"
 webrender = { path = "../webrender" }
-winit = "0.19"
+winit = "0.24"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation = "0.7"
