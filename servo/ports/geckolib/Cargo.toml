@@ -25,7 +25,7 @@ nsstring = {path = "../../../xpcom/rust/nsstring/"}
 num-traits = "0.2"
 selectors = {path = "../../components/selectors"}
 servo_arc = {path = "../../components/servo_arc"}
-smallvec = "1.0"
+smallvec = "1.6"
 style = {path = "../../components/style", features = ["gecko"]}
 style_traits = {path = "../../components/style_traits"}
 to_shmem = {path = "../../components/to_shmem"}

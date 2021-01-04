@@ -27,7 +27,7 @@ log = "0.4"
 phf = "0.8"
 precomputed-hash = "0.1"
 servo_arc = { version = "0.1", path = "../servo_arc" }
-smallvec = "1.0"
+smallvec = "1.6"
 to_shmem = { path = "../to_shmem" }
 to_shmem_derive = { path = "../to_shmem_derive" }
 
