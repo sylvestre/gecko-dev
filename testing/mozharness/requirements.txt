@@ -2,7 +2,7 @@
 # Output from 'pip freeze'; we may be able to use other versions of the below packages.
 Cython==0.14.1
 Fabric==1.6.0
-coverage==3.6
+coverage==3.7.1
 distribute==0.6.35
 dulwich==0.19.6
 hg-git==0.4.0
