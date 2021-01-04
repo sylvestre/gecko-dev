@@ -10,7 +10,7 @@ neqo-common = { tag = "v0.4.19", git = "https://github.com/mozilla/neqo" }
 neqo-http3 = { tag = "v0.4.19", git = "https://github.com/mozilla/neqo" }
 neqo-qpack = { tag = "v0.4.19", git = "https://github.com/mozilla/neqo" }
 mio = "0.6.17"
-mio-extras = "2.0.5"
+mio-extras = "2.0.6"
 log = "0.4.0"
 
 [dependencies.neqo-crypto]
