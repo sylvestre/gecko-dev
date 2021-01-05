@@ -46,7 +46,7 @@
     "loader-utils": "1.2.3",
     "lodash": "4.17.15",
     "minimist": "1.2.0",
-    "mocha": "7.0.1",
+    "mocha": "7.2.0",
     "mock-raf": "1.0.1",
     "node-fetch": "2.6.0",
     "node-sass": "4.13.1",
