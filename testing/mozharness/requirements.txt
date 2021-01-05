@@ -7,7 +7,7 @@ distribute==0.6.35
 dulwich==0.19.6
 hg-git==0.4.0
 logilab-astng==0.24.2
-logilab-common==1.4.2
+logilab-common==1.8.1
 mercurial==4.3.1
 mock==1.0.1
 nose==1.2.1
