@@ -1,5 +1,5 @@
 lxml
-pyasn1 == 0.3.7
+pyasn1==0.4.8
 pyasn1_modules == 0.1.5
 ecc
 mock
