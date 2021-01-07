@@ -1206,10 +1206,10 @@ detect-newline@^2.1.0:
   resolved "https://registry.yarnpkg.com/detect-newline/-/detect-newline-2.1.0.tgz#f41f1c10be4b00e87b5f13da680759f2c5bfd3e2"
   integrity sha1-9B8cEL5LAOh7XxPaaAdZ8sW/0+I=
 
-devtools-modules@1.1.5:
-  version "1.1.5"
-  resolved "https://registry.yarnpkg.com/devtools-modules/-/devtools-modules-1.1.5.tgz#55e71233692b4095f0277a00e6bfe3ff374d37f1"
-  integrity sha512-JVdZeQNKhABOeED5tDF6dlQck9SIyR9mq78X13sF3rj1pM87UqP81gfY+ALUqwD3lME0aUpKb3BVIzpIwHuyjQ==
+devtools-modules@1.1.9:
+  version "1.1.9"
+  resolved "https://registry.yarnpkg.com/devtools-modules/-/devtools-modules-1.1.9.tgz#b095ff634229ae7f27fc1883757dbb5ca8b830db"
+  integrity sha512-Gpwene1bA1vuLi4lu/1jqXZDjLijFCR/O08JXMcxls30dabctaav7XiU3mrg/bro/LrJoPxFro0OM1M7DRY0Vg==
   dependencies:
     devtools-services "0.0.1"
     punycode "^2.1.0"
