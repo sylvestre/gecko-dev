@@ -6,7 +6,7 @@ edition = "2018"
 license = "MPL-2.0"
 
 [dependencies]
-glean = "33.10.2"
+glean = "33.10.3"
 glean-core = { version = "33.10.2", features = ["rkv-safe-mode"] }
 log = "0.4"
 nserror = { path = "../../../xpcom/rust/nserror" }
