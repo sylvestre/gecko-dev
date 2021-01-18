@@ -164,10 +164,9 @@ immutabledict==0.2.0 \
     --hash=sha256:43dde3e55dcb539537ae6189fb6b09a1d01e94db304e4506e94ca2d45ec14c47 \
     --hash=sha256:7881e44098f13dd12d6fec00551d564433cb46776e8b2f3453128f715df4376a
     # via scriptworker
-importlib-metadata==1.5.0 \
-    --hash=sha256:06f5b3a99029c7134207dd882428a66992a9de2bef7c2b699b5641f9886c3302 \
-    --hash=sha256:b97607a1a18a5100839aec1dc26a1ea17ee0d93b20b0f008d80a5a050afb200b
-    # via jsonschema
+importlib-metadata==1.7.0 \
+    --hash=sha256:90bb658cdbbf6d1735b6341ce708fc7024a3e14e99ffdc5783edea9f9b077f83 \
+    --hash=sha256:dc15b2969b4ce36305c51eebe62d418ac7791e9a157911d58bfb1f9ccd8e2070
 jmespath==0.9.5 \
     --hash=sha256:695cb76fa78a10663425d5b73ddc5714eb711157e52704d69be03b1a02ba4fec \
     --hash=sha256:cca55c8d153173e21baa59983015ad0daf603f9cb799904ff057bfb8ff8dc2d9
