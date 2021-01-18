@@ -78,7 +78,7 @@ to_shmem_derive = {path = "../to_shmem_derive"}
 time = "0.1"
 uluru = "0.4"
 unicode-bidi = "0.3"
-unicode-segmentation = "1.0"
+unicode-segmentation = "1.7"
 void = "1.0.2"
 
 [build-dependencies]
