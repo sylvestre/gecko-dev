@@ -76,7 +76,7 @@ viaduct = { git = "https://github.com/mozilla/application-services", rev = "8a57
 webext_storage_bridge = { path = "../../../components/extensions/storage/webext_storage_bridge" }
 
 [build-dependencies]
-rustc_version = "0.2"
+rustc_version = "0.3"
 
 [features]
 default = []
