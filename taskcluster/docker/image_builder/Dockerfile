@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-FROM golang:1.14 as skopeo
+FROM golang:1.16 as skopeo
 
 WORKDIR /go/src/
 RUN ["git", "clone", "--no-checkout", "--depth=1", "--branch=v1.1.1", "https://github.com/containers/skopeo", "."]
@@ -16,7 +16,7 @@ RUN ["go", "build", \
 	"-ldflags", " -X github.com/containers/image/v5/internal/tmpdir.unixTempDirForBigFiles=/workspace/tmp -X github.com/containers/image/v5/signature.systemDefaultPolicyPath=/kaniko/containers/policy.json -extldflags \"-static\" -w -s", \
 	"./cmd/skopeo"]
 
-FROM golang:1.14 as kaniko
+FROM golang:1.16 as kaniko
 WORKDIR /go/src/
 RUN ["git", "clone", "--no-checkout", "--depth=1", "--branch=v1.0.0", "https://github.com/GoogleContainerTools/kaniko", "."]
 RUN ["git", "checkout", "146ec6a9cd6f87b4a12e8119ded575d5edca35ac"]
