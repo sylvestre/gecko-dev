@@ -21,7 +21,7 @@ mozurl = { path = "../../../../netwerk/base/mozurl" }
 webrender_bindings = { path = "../../../../gfx/webrender_bindings", optional = true }
 cubeb-coreaudio = { git = "https://github.com/ChunMinChang/cubeb-coreaudio-rs", rev = "1e1222d6213e28eabd7f4302d00765ae1153a31e", optional = true }
 cubeb-pulse = { git = "https://github.com/djg/cubeb-pulse-rs", rev="bf31534d08b2c16fb5e4c5834944ae3271efbd63", optional = true, features=["pulse-dlopen"] }
-cubeb-sys = { version = "0.8", optional = true, features=["gecko-in-tree"] }
+cubeb-sys = { version = "0.9", optional = true, features=["gecko-in-tree"] }
 encoding_glue = { path = "../../../../intl/encoding_glue" }
 audioipc-client = { path = "../../../../media/audioipc/client", optional = true }
 audioipc-server = { path = "../../../../media/audioipc/server", optional = true }
