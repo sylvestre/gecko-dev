@@ -82,7 +82,7 @@
     "enzyme-adapter-react-16": "^1.14.0",
     "enzyme-to-json": "3.3.5",
     "extract-text-webpack-plugin": "^3.0.2",
-    "flow-bin": "0.97.0",
+    "flow-bin": "0.145.0",
     "immutable": "^3.8.2",
     "jest": "^23.0.0",
     "jest-environment-jsdom": "^23.0.0",
