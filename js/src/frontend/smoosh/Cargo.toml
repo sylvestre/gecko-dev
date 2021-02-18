@@ -6,7 +6,7 @@ edition = "2018"
 license = "MIT/Apache-2.0"
 
 [dependencies]
-bumpalo = "3.4.0"
+bumpalo = "3.6.1"
 log = "0.4"
 # Setup RUST_LOG logging.
 # Disable regex feature for code size.
