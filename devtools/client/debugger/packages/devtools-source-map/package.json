@@ -19,7 +19,7 @@
   "dependencies": {
     "babel-plugin-transform-async-to-generator": "^6.22.0",
     "babel-plugin-transform-flow-strip-types": "^6.22.0",
-    "devtools-utils": "0.0.14",
+    "devtools-utils": "0.0.13",
     "devtools-wasm-dwarf": "0.0.1",
     "md5": "^2.2.1",
     "regenerator-runtime": "^0.13.0",
