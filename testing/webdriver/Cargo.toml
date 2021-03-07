@@ -26,5 +26,5 @@ serde_derive = "1.0"
 time = "0.1"
 tokio = { version = "0.2", features = ["rt-core"], optional = true}
 unicode-segmentation = "1.2"
-url = "2.0"
+url = "2.2"
 warp = { version = "0.2", default-features = false, optional = true }
