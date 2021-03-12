@@ -23,7 +23,7 @@ libc = { features = ["default", "std", "use_std"], version = "0.2" }
 bindgen = { default-features = false, features = ["runtime"], version = "0.56" }
 
 [target."cfg(windows)".dependencies.winapi]
-version = "0.3.6"
+version = "0.3.9"
 features = [
     "avrt",
     "basetsd",

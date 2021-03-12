@@ -8,7 +8,7 @@ nserror = { path = "../../../xpcom/rust/nserror" }
 xpcom = { path = "../../../xpcom/rust/xpcom" }
 
 [target.'cfg(windows)'.dependencies]
-winapi = "0.3.7"
+winapi = "0.3.9"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
