@@ -88,13 +88,9 @@ imagesize==1.2.0 \
     # via
     #   -r requirements.in
     #   sphinx
-importlib-metadata==2.0.0 \
-    --hash=sha256:77a540690e24b0305878c37ffd421785a6f7e53c8b5720d211b211de8d0e95da \
-    --hash=sha256:cefa1a2f919b866c5beb7c9f7b0ebb4061f30a8a9bf16d609b000e2dfaceb9c3
-    # via
-    #   -r requirements.in
-    #   jsonschema
-    #   markdown
+importlib-metadata==2.1.1 \
+    --hash=sha256:b8de9eff2b35fb037368f28a7df1df4e6436f578fa74423505b6c6a778d5b5dd \
+    --hash=sha256:c2d6341ff566f609e89a2acb2db190e5e1d23d5409d6cc8d2fe34d72443876d4
 importlib-resources==3.0.0 \
     --hash=sha256:19f745a6eca188b490b1428c8d1d4a0d2368759f32370ea8fb89cad2ab1106c3 \
     --hash=sha256:d028f66b66c0d5732dae86ba4276999855e162a749c92620a38c1d779ed138a7
