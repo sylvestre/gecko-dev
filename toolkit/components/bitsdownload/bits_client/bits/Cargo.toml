@@ -13,7 +13,7 @@ comedy = "0.2.0"
 filetime_win = "0.2.0"
 guid_win = "0.2.0"
 serde = { version = "1.0.80", optional = true }
-serde_derive = { version = "1.0.80", optional = true }
+serde_derive = { version = "1.0.125", optional = true }
 
 [dependencies.winapi]
 version = "0.3.7"
