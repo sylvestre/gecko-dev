@@ -54,10 +54,9 @@ click==7.1.2 \
     --hash=sha256:d2b5255c7c6349bc1bd1e59e08cd12acbbd63ce649f2588755783aa94dfb6b1a \
     --hash=sha256:dacca89f4bfadd5de3d7489b7c8a566eee0d3676333fbb50030263894c38c0dc
     # via glean-parser
-diskcache==5.1.0 \
-    --hash=sha256:bc7928df986dbc8a8d6e34c33b0da89d668cfa65e7fcc91298a6959a35076993 \
-    --hash=sha256:d8d608363f1b0ecbc216b5b34b6c8e269a5d4cce338269f3b1c1f8f11816f71d
-    # via glean-parser
+diskcache==5.2.1 \
+    --hash=sha256:1805acd5868ac10ad547208951a1190a0ab7bbff4e70f9a07cde4dbdfaa69f64 \
+    --hash=sha256:6e8137c778fd2752b93c8a8f944e939b3665d645b46774d8537dd3528ac3baa1
 glean-parser==2.5.0 \
     --hash=sha256:50d53cb23c7b2ecdfed497187c63ea03bff8f78a0bbfd32dbaffb0affa0b6d2d \
     --hash=sha256:b2c1b670b73e7df21de335de34e9ece457ef3996110567d7ad6f09fb546e6e5e
