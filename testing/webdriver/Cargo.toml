@@ -16,7 +16,7 @@ server = ["tokio", "warp"]
 
 [dependencies]
 base64 = "0.12"
-bytes = "0.5"
+bytes = "1.0"
 cookie = { version = "0.12", default-features = false }
 http = "0.2"
 log = "0.4"
