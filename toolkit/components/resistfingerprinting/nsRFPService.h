@@ -10,6 +10,7 @@
 #include "ErrorList.h"
 #include "PLDHashTable.h"
 #include "mozilla/BasicEvents.h"
+#include "nsHashtablesFwd.h"
 #include "nsIObserver.h"
 #include "nsISupports.h"
 #include "nsStringFwd.h"
@@ -59,8 +60,6 @@
 #endif
 
 struct JSContext;
-template <class KeyClass, class DataType>
-class nsDataHashtable;
 
 namespace mozilla {
 class WidgetKeyboardEvent;
@@ -251,7 +250,7 @@ class nsRFPService final : public nsIObserver {
                                     const WidgetKeyboardEvent* aKeyboardEvent,
                                     SpoofingKeyboardCode& aOut);
 
-  static nsDataHashtable<KeyboardHashKey, const SpoofingKeyboardCode*>*
+  static nsTHashMap<KeyboardHashKey, const SpoofingKeyboardCode*>*
       sSpoofingKeyboardCodes;
 
   static TimerPrecisionType GetTimerPrecisionType(bool aIsSystemPrincipal,

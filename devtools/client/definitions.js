@@ -125,8 +125,8 @@ Tools.options = {
     return true;
   },
 
-  build: function(iframeWindow, toolbox) {
-    return new OptionsPanel(iframeWindow, toolbox);
+  build: function(iframeWindow, toolbox, commands) {
+    return new OptionsPanel(iframeWindow, toolbox, commands);
   },
 };
 
@@ -148,7 +148,7 @@ Tools.inspector = {
     const ctrlShiftC = "Ctrl+Shift+" + l10n("inspector.commandkey");
     return l10n("inspector.tooltip2", ctrlShiftC);
   },
-  inMenu: true,
+  inMenu: false,
 
   preventClosingOnKey: true,
   // preventRaisingOnKey is used to keep the focus on the content window for shortcuts
@@ -162,8 +162,8 @@ Tools.inspector = {
     return target.hasActor("inspector");
   },
 
-  build: function(iframeWindow, toolbox) {
-    return new InspectorPanel(iframeWindow, toolbox);
+  build: function(iframeWindow, toolbox, commands) {
+    return new InspectorPanel(iframeWindow, toolbox, commands);
   },
 };
 Tools.webConsole = {
@@ -182,7 +182,7 @@ Tools.webConsole = {
         l10n("webconsole.commandkey")
     );
   },
-  inMenu: true,
+  inMenu: false,
 
   preventClosingOnKey: true,
   onkey: function(panel, toolbox) {
@@ -197,8 +197,8 @@ Tools.webConsole = {
   isTargetSupported: function() {
     return true;
   },
-  build: function(iframeWindow, toolbox) {
-    return new WebConsolePanel(iframeWindow, toolbox);
+  build: function(iframeWindow, toolbox, commands) {
+    return new WebConsolePanel(iframeWindow, toolbox, commands);
   },
 };
 
@@ -217,12 +217,12 @@ Tools.jsdebugger = {
         l10n("jsdebugger.commandkey2")
     );
   },
-  inMenu: true,
+  inMenu: false,
   isTargetSupported: function() {
     return true;
   },
-  build: function(iframeWindow, toolbox) {
-    return new DebuggerPanel(iframeWindow, toolbox);
+  build: function(iframeWindow, toolbox, commands) {
+    return new DebuggerPanel(iframeWindow, toolbox, commands);
   },
 };
 
@@ -241,13 +241,13 @@ Tools.styleEditor = {
       "Shift+" + functionkey(l10n("styleeditor.commandkey"))
     );
   },
-  inMenu: true,
+  inMenu: false,
   isTargetSupported: function(target) {
     return target.hasActor("styleSheets");
   },
 
-  build: function(iframeWindow, toolbox) {
-    return new StyleEditorPanel(iframeWindow, toolbox);
+  build: function(iframeWindow, toolbox, commands) {
+    return new StyleEditorPanel(iframeWindow, toolbox, commands);
   },
 };
 
@@ -265,7 +265,7 @@ Tools.performance = {
     );
   },
   accesskey: l10n("performance.accesskey"),
-  inMenu: true,
+  inMenu: false,
 };
 
 function switchPerformancePanel() {
@@ -274,8 +274,8 @@ function switchPerformancePanel() {
   ) {
     Tools.performance.url =
       "chrome://devtools/content/performance-new/index.xhtml";
-    Tools.performance.build = function(frame, target) {
-      return new NewPerformancePanel(frame, target);
+    Tools.performance.build = function(frame, toolbox, commands) {
+      return new NewPerformancePanel(frame, toolbox, commands);
     };
     Tools.performance.isTargetSupported = function(target) {
       // Only use the new performance panel on local tab toolboxes, as they are guaranteed
@@ -287,8 +287,8 @@ function switchPerformancePanel() {
     };
   } else {
     Tools.performance.url = "chrome://devtools/content/performance/index.xhtml";
-    Tools.performance.build = function(frame, target) {
-      return new PerformancePanel(frame, target);
+    Tools.performance.build = function(frame, toolbox, commands) {
+      return new PerformancePanel(frame, toolbox, commands);
     };
     Tools.performance.isTargetSupported = function(target) {
       return target.hasActor("performance");
@@ -327,8 +327,8 @@ Tools.memory = {
     return !target.isAddon && !target.isWorkerTarget;
   },
 
-  build: function(frame, target) {
-    return new MemoryPanel(frame, target);
+  build: function(frame, toolbox, commands) {
+    return new MemoryPanel(frame, toolbox, commands);
   },
 };
 
@@ -348,14 +348,14 @@ Tools.netMonitor = {
         l10n("netmonitor.commandkey")
     );
   },
-  inMenu: true,
+  inMenu: false,
 
   isTargetSupported: function(target) {
     return target.getTrait("networkMonitor") && !target.isWorkerTarget;
   },
 
-  build: function(iframeWindow, toolbox) {
-    return new NetMonitorPanel(iframeWindow, toolbox);
+  build: function(iframeWindow, toolbox, commands) {
+    return new NetMonitorPanel(iframeWindow, toolbox, commands);
   },
 };
 
@@ -375,14 +375,14 @@ Tools.storage = {
       "Shift+" + functionkey(l10n("storage.commandkey"))
     );
   },
-  inMenu: true,
+  inMenu: false,
 
   isTargetSupported: function(target) {
     return target.hasActor("storage");
   },
 
-  build: function(iframeWindow, toolbox) {
-    return new StoragePanel(iframeWindow, toolbox);
+  build: function(iframeWindow, toolbox, commands) {
+    return new StoragePanel(iframeWindow, toolbox, commands);
   },
 };
 
@@ -402,14 +402,14 @@ Tools.dom = {
         l10n("dom.commandkey")
     );
   },
-  inMenu: true,
+  inMenu: false,
 
   isTargetSupported: function(target) {
     return true;
   },
 
-  build: function(iframeWindow, toolbox) {
-    return new DomPanel(iframeWindow, toolbox);
+  build: function(iframeWindow, toolbox, commands) {
+    return new DomPanel(iframeWindow, toolbox, commands);
   },
 };
 
@@ -429,14 +429,14 @@ Tools.accessibility = {
       "Shift+" + functionkey(l10n("accessibilityF12.commandkey"))
     );
   },
-  inMenu: true,
+  inMenu: false,
 
   isTargetSupported(target) {
     return target.hasActor("accessibility");
   },
 
-  build(iframeWindow, toolbox) {
-    return new AccessibilityPanel(iframeWindow, toolbox);
+  build(iframeWindow, toolbox, commands) {
+    return new AccessibilityPanel(iframeWindow, toolbox, commands);
   },
 };
 
@@ -449,14 +449,14 @@ Tools.application = {
   label: l10n("application.label"),
   panelLabel: l10n("application.panellabel"),
   tooltip: l10n("application.tooltip"),
-  inMenu: true,
+  inMenu: false,
 
   isTargetSupported: function(target) {
     return target.hasActor("manifest");
   },
 
-  build: function(iframeWindow, toolbox) {
-    return new ApplicationPanel(iframeWindow, toolbox);
+  build: function(iframeWindow, toolbox, commands) {
+    return new ApplicationPanel(iframeWindow, toolbox, commands);
   },
 };
 
@@ -525,15 +525,18 @@ exports.ToolboxButtons = [
     ),
     isTargetSupported: target => target.isLocalTab,
     onClick(event, toolbox) {
-      const tab = toolbox.target.localTab;
-      const browserWindow = tab.ownerDocument.defaultView;
-      ResponsiveUIManager.toggle(browserWindow, tab, { trigger: "toolbox" });
+      const { localTab } = toolbox.descriptorFront;
+      const browserWindow = localTab.ownerDocument.defaultView;
+      ResponsiveUIManager.toggle(browserWindow, localTab, {
+        trigger: "toolbox",
+      });
     },
     isChecked(toolbox) {
-      if (!toolbox.target.localTab) {
+      const { localTab } = toolbox.descriptorFront;
+      if (!localTab) {
         return false;
       }
-      return ResponsiveUIManager.isActiveForTab(toolbox.target.localTab);
+      return ResponsiveUIManager.isActiveForTab(localTab);
     },
     setup(toolbox, onChange) {
       ResponsiveUIManager.on("on", onChange);

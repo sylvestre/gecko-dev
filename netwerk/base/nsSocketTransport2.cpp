@@ -707,8 +707,7 @@ nsSocketTransport::nsSocketTransport()
       mKeepaliveIdleTimeS(-1),
       mKeepaliveRetryIntervalS(-1),
       mKeepaliveProbeCount(-1),
-      mDoNotRetryToConnect(false),
-      mUsingQuic(false) {
+      mDoNotRetryToConnect(false) {
   this->mNetAddr.raw.family = 0;
   this->mNetAddr.inet = {};
   this->mSelfAddr.raw.family = 0;
@@ -804,14 +803,11 @@ nsresult nsSocketTransport::Init(const nsTArray<nsCString>& types,
     else
       mTypes.AppendElement(types[type++]);
 
-    // quic does not have a socketProvider.
-    if (!mTypes[i].EqualsLiteral("quic")) {
-      nsCOMPtr<nsISocketProvider> provider;
-      rv = spserv->GetSocketProvider(mTypes[i].get(), getter_AddRefs(provider));
-      if (NS_FAILED(rv)) {
-        NS_WARNING("no registered socket provider");
-        return rv;
-      }
+    nsCOMPtr<nsISocketProvider> provider;
+    rv = spserv->GetSocketProvider(mTypes[i].get(), getter_AddRefs(provider));
+    if (NS_FAILED(rv)) {
+      NS_WARNING("no registered socket provider");
+      return rv;
     }
 
     // note if socket type corresponds to a transparent proxy
@@ -1110,42 +1106,16 @@ nsresult nsSocketTransport::BuildSocket(PRFileDesc*& fd, bool& proxyTransparent,
   if (mConnectionFlags & nsISocketTransport::BE_CONSERVATIVE)
     controlFlags |= nsISocketProvider::BE_CONSERVATIVE;
 
+  if (mConnectionFlags &
+      nsISocketTransport::ANONYMOUS_CONNECT_ALLOW_CLIENT_CERT) {
+    controlFlags |= nsISocketProvider::ANONYMOUS_CONNECT_ALLOW_CLIENT_CERT;
+  }
+
   // by setting host to mOriginHost, instead of mHost we send the
   // SocketProvider (e.g. PSM) the origin hostname but can still do DNS
   // on an explicit alternate service host name
   const char* host = mOriginHost.get();
   int32_t port = (int32_t)mOriginPort;
-
-  if (mTypes[0].EqualsLiteral("quic")) {
-    fd = PR_OpenUDPSocket(mNetAddr.raw.family);
-    if (!fd) {
-      SOCKET_LOG(("  error creating UDP nspr socket [rv=%" PRIx32 "]\n",
-                  static_cast<uint32_t>(rv)));
-      return NS_ERROR_OUT_OF_MEMORY;
-    }
-
-    mUsingQuic = true;
-    // Create security control and info object for quic.
-    RefPtr<QuicSocketControl> quicCtrl = new QuicSocketControl(controlFlags);
-    quicCtrl->SetHostName(mHttpsProxy ? mProxyHost.get() : host);
-    quicCtrl->SetPort(mHttpsProxy ? mProxyPort : port);
-    nsCOMPtr<nsISupports> secinfo;
-    quicCtrl->QueryInterface(NS_GET_IID(nsISupports), (void**)(&secinfo));
-
-    // remember security info and give notification callbacks to PSM...
-    nsCOMPtr<nsIInterfaceRequestor> callbacks;
-    {
-      MutexAutoLock lock(mLock);
-      mSecInfo = secinfo;
-      callbacks = mCallbacks;
-      SOCKET_LOG(
-          ("  [secinfo=%p callbacks=%p]\n", mSecInfo.get(), mCallbacks.get()));
-    }
-    // don't call into PSM while holding mLock!!
-    quicCtrl->SetNotificationCallbacks(callbacks);
-
-    return NS_OK;
-  }
 
   nsCOMPtr<nsISocketProviderService> spserv =
       nsSocketProviderService::GetOrCreate();
@@ -1384,79 +1354,67 @@ nsresult nsSocketTransport::InitiateSocket() {
   status = PR_SetSocketOption(fd, &opt);
   NS_ASSERTION(status == PR_SUCCESS, "unable to make socket non-blocking");
 
-  if (mUsingQuic) {
-    opt.option = PR_SockOpt_RecvBufferSize;
-    opt.value.recv_buffer_size =
-        StaticPrefs::network_http_http3_recvBufferSize();
-    status = PR_SetSocketOption(fd, &opt);
+  if (mReuseAddrPort) {
+    SOCKET_LOG(("  Setting port/addr reuse socket options\n"));
+
+    // Set ReuseAddr for TCP sockets to enable having several
+    // sockets bound to same local IP and port
+    PRSocketOptionData opt_reuseaddr;
+    opt_reuseaddr.option = PR_SockOpt_Reuseaddr;
+    opt_reuseaddr.value.reuse_addr = PR_TRUE;
+    status = PR_SetSocketOption(fd, &opt_reuseaddr);
     if (status != PR_SUCCESS) {
-      SOCKET_LOG(("  Couldn't set recv buffer size"));
+      SOCKET_LOG(("  Couldn't set reuse addr socket option: %d\n", status));
+    }
+
+    // And also set ReusePort for platforms supporting this socket option
+    PRSocketOptionData opt_reuseport;
+    opt_reuseport.option = PR_SockOpt_Reuseport;
+    opt_reuseport.value.reuse_port = PR_TRUE;
+    status = PR_SetSocketOption(fd, &opt_reuseport);
+    if (status != PR_SUCCESS &&
+        PR_GetError() != PR_OPERATION_NOT_SUPPORTED_ERROR) {
+      SOCKET_LOG(("  Couldn't set reuse port socket option: %d\n", status));
     }
   }
 
-  if (!mUsingQuic) {
-    if (mReuseAddrPort) {
-      SOCKET_LOG(("  Setting port/addr reuse socket options\n"));
+  // disable the nagle algorithm - if we rely on it to coalesce writes into
+  // full packets the final packet of a multi segment POST/PUT or pipeline
+  // sequence is delayed a full rtt
+  opt.option = PR_SockOpt_NoDelay;
+  opt.value.no_delay = true;
+  PR_SetSocketOption(fd, &opt);
 
-      // Set ReuseAddr for TCP sockets to enable having several
-      // sockets bound to same local IP and port
-      PRSocketOptionData opt_reuseaddr;
-      opt_reuseaddr.option = PR_SockOpt_Reuseaddr;
-      opt_reuseaddr.value.reuse_addr = PR_TRUE;
-      status = PR_SetSocketOption(fd, &opt_reuseaddr);
-      if (status != PR_SUCCESS) {
-        SOCKET_LOG(("  Couldn't set reuse addr socket option: %d\n", status));
-      }
-
-      // And also set ReusePort for platforms supporting this socket option
-      PRSocketOptionData opt_reuseport;
-      opt_reuseport.option = PR_SockOpt_Reuseport;
-      opt_reuseport.value.reuse_port = PR_TRUE;
-      status = PR_SetSocketOption(fd, &opt_reuseport);
-      if (status != PR_SUCCESS &&
-          PR_GetError() != PR_OPERATION_NOT_SUPPORTED_ERROR) {
-        SOCKET_LOG(("  Couldn't set reuse port socket option: %d\n", status));
-      }
-    }
-
-    // disable the nagle algorithm - if we rely on it to coalesce writes into
-    // full packets the final packet of a multi segment POST/PUT or pipeline
-    // sequence is delayed a full rtt
-    opt.option = PR_SockOpt_NoDelay;
-    opt.value.no_delay = true;
+  // if the network.tcp.sendbuffer preference is set, use it to size SO_SNDBUF
+  // The Windows default of 8KB is too small and as of vista sp1, autotuning
+  // only applies to receive window
+  int32_t sndBufferSize;
+  mSocketTransportService->GetSendBufferSize(&sndBufferSize);
+  if (sndBufferSize > 0) {
+    opt.option = PR_SockOpt_SendBufferSize;
+    opt.value.send_buffer_size = sndBufferSize;
     PR_SetSocketOption(fd, &opt);
+  }
 
-    // if the network.tcp.sendbuffer preference is set, use it to size SO_SNDBUF
-    // The Windows default of 8KB is too small and as of vista sp1, autotuning
-    // only applies to receive window
-    int32_t sndBufferSize;
-    mSocketTransportService->GetSendBufferSize(&sndBufferSize);
-    if (sndBufferSize > 0) {
-      opt.option = PR_SockOpt_SendBufferSize;
-      opt.value.send_buffer_size = sndBufferSize;
-      PR_SetSocketOption(fd, &opt);
-    }
-
-    if (mQoSBits) {
-      opt.option = PR_SockOpt_IpTypeOfService;
-      opt.value.tos = mQoSBits;
-      PR_SetSocketOption(fd, &opt);
-    }
+  if (mQoSBits) {
+    opt.option = PR_SockOpt_IpTypeOfService;
+    opt.value.tos = mQoSBits;
+    PR_SetSocketOption(fd, &opt);
+  }
 
 #if defined(XP_WIN)
-    // The linger is turned off by default. This is not a hard close, but
-    // closesocket should return immediately and operating system tries to send
-    // remaining data for certain, implementation specific, amount of time.
-    // https://msdn.microsoft.com/en-us/library/ms739165.aspx
-    //
-    // Turn the linger option on an set the interval to 0. This will cause hard
-    // close of the socket.
-    opt.option = PR_SockOpt_Linger;
-    opt.value.linger.polarity = 1;
-    opt.value.linger.linger = 0;
-    PR_SetSocketOption(fd, &opt);
+  // The linger is turned off by default. This is not a hard close, but
+  // closesocket should return immediately and operating system tries to send
+  // remaining data for certain, implementation specific, amount of time.
+  // https://msdn.microsoft.com/en-us/library/ms739165.aspx
+  //
+  // Turn the linger option on an set the interval to 0. This will cause hard
+  // close of the socket.
+  opt.option = PR_SockOpt_Linger;
+  opt.value.linger.polarity = 1;
+  opt.value.linger.linger = 0;
+  PR_SetSocketOption(fd, &opt);
 #endif
-  }
 
   // inform socket transport about this newly created socket...
   rv = mSocketTransportService->AttachSocket(fd, this);
@@ -1531,18 +1489,6 @@ nsresult nsSocketTransport::InitiateSocket() {
       }
       mEchConfigUsed = true;
     }
-  }
-
-  if (mUsingQuic) {
-    //
-    // we pretend that we are connected!
-    //
-    if (PR_Connect(fd, &prAddr, NS_SOCKET_CONNECT_TIMEOUT) == PR_SUCCESS) {
-      OnSocketConnected();
-      return NS_OK;
-    }
-    PRErrorCode code = PR_GetError();
-    return ErrorAccordingToNSPR(code);
   }
 
   // We use PRIntervalTime here because we need
@@ -2564,10 +2510,6 @@ nsSocketTransport::GetPeerAddr(NetAddr* addr) {
   // we can freely access mNetAddr from any thread without being
   // inside a critical section.
 
-  if (NS_FAILED(mCondition)) {
-    return mCondition;
-  }
-
   if (!mNetAddrIsSet) {
     SOCKET_LOG(
         ("nsSocketTransport::GetPeerAddr [this=%p state=%d] "
@@ -2586,10 +2528,6 @@ nsSocketTransport::GetSelfAddr(NetAddr* addr) {
   // so if we can verify that we are in the connected state, then
   // we can freely access mSelfAddr from any thread without being
   // inside a critical section.
-
-  if (NS_FAILED(mCondition)) {
-    return mCondition;
-  }
 
   if (!mSelfAddrIsSet) {
     SOCKET_LOG(
@@ -3371,6 +3309,14 @@ nsSocketTransport::ResolvedByTRR(bool* aResolvedByTRR) {
 NS_IMETHODIMP
 nsSocketTransport::GetRetryDnsIfPossible(bool* aRetryDns) {
   *aRetryDns = mRetryDnsIfPossible;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsSocketTransport::GetStatus(nsresult* aStatus) {
+  MOZ_ASSERT(OnSocketThread(), "not on socket thread");
+
+  *aStatus = mCondition;
   return NS_OK;
 }
 

@@ -6,7 +6,6 @@
 
 "use strict";
 
-var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 ChromeUtils.defineModuleGetter(
   this,
   "PrivateBrowsingUtils",
@@ -169,10 +168,18 @@ var gMenuBuilder = {
           Infinity,
           false
         );
-        // The extension menu should be rendered at the top, but after the navigation buttons.
-        nextSibling =
-          nextSibling ||
-          this.xulMenu.querySelector(":scope > #context-sep-navigation + *");
+        if (!nextSibling) {
+          // The extension menu should be rendered at the top. If we use
+          // a navigation group (on non-macOS), the extension menu should
+          // come after that to avoid styling issues.
+          if (AppConstants.platform == "macosx") {
+            nextSibling = this.xulMenu.firstElementChild;
+          } else {
+            nextSibling = this.xulMenu.querySelector(
+              ":scope > #context-sep-navigation + *"
+            );
+          }
+        }
         if (
           rootElements.length &&
           showDefaults &&
@@ -286,29 +293,6 @@ var gMenuBuilder = {
       }
     }
     return children;
-  },
-
-  removeSeparatorIfNoTopLevelItems() {
-    // Extension menu items always have have a non-empty ID.
-    let isNonExtensionSeparator = item =>
-      item.nodeName === "menuseparator" && !item.id;
-
-    // itemsToCleanUp contains all top-level menu items. A separator should
-    // only be kept if it is next to an extension menu item.
-    let isExtensionMenuItemSibling = item =>
-      item && this.itemsToCleanUp.has(item) && !isNonExtensionSeparator(item);
-
-    for (let item of this.itemsToCleanUp) {
-      if (isNonExtensionSeparator(item)) {
-        if (
-          !isExtensionMenuItemSibling(item.previousElementSibling) &&
-          !isExtensionMenuItemSibling(item.nextElementSibling)
-        ) {
-          item.remove();
-          this.itemsToCleanUp.delete(item);
-        }
-      }
-    }
   },
 
   buildSingleElement(item, contextData) {
@@ -552,7 +536,8 @@ var gMenuBuilder = {
     if (root) {
       this.createAndInsertTopLevelElements(root, contextData, nextSibling);
     }
-    this.removeSeparatorIfNoTopLevelItems();
+
+    this.xulMenu.showHideSeparators?.();
   },
 
   // This should be called once, after constructing the top-level menus, if any.
@@ -586,6 +571,10 @@ var gMenuBuilder = {
       if (!this.itemsToCleanUp.has(item)) {
         item.hidden = true;
       }
+    }
+
+    if (this.xulMenu.showHideSeparators) {
+      this.xulMenu.showHideSeparators();
     }
   },
 

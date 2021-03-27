@@ -10,6 +10,8 @@
 #include "mozilla/dom/BrowsingContext.h"
 #include "mozilla/dom/MediaControlKeySource.h"
 #include "mozilla/dom/BrowsingContextWebProgress.h"
+#include "mozilla/dom/SessionStoreRestoreData.h"
+#include "mozilla/dom/SessionStoreUtils.h"
 #include "mozilla/dom/ipc/IdType.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/MozPromise.h"
@@ -43,6 +45,15 @@ class MediaController;
 struct LoadingSessionHistoryInfo;
 class SessionHistoryEntry;
 class WindowGlobalParent;
+
+// RemotenessChangeOptions is passed through the methods to store the state
+// of the possible remoteness change.
+struct RemotenessChangeOptions {
+  nsCString mRemoteType;
+  bool mReplaceBrowsingContext = false;
+  uint64_t mSpecificGroupId = 0;
+  bool mTryUseBFCache = false;
+};
 
 // CanonicalBrowsingContext is a BrowsingContext living in the parent
 // process, with whatever extra data that a BrowsingContext in the
@@ -111,6 +122,7 @@ class CanonicalBrowsingContext final : public BrowsingContext {
 
   nsISHistory* GetSessionHistory();
   SessionHistoryEntry* GetActiveSessionHistoryEntry();
+  void SetActiveSessionHistoryEntry(SessionHistoryEntry* aEntry);
 
   UniquePtr<LoadingSessionHistoryInfo> CreateLoadingSessionHistoryEntryForLoad(
       nsDocShellLoadState* aLoadState, nsIChannel* aChannel);
@@ -198,6 +210,10 @@ class CanonicalBrowsingContext final : public BrowsingContext {
   void Reload(uint32_t aReloadFlags);
   void Stop(uint32_t aStopFlags);
 
+  // Get the publicly exposed current URI loaded in this BrowsingContext.
+  already_AddRefed<nsIURI> GetCurrentURI() const;
+  void SetCurrentRemoteURI(nsIURI* aCurrentRemoteURI);
+
   BrowserParent* GetBrowserParent() const;
 
   // Internal method to change which process a BrowsingContext is being loaded
@@ -206,10 +222,8 @@ class CanonicalBrowsingContext final : public BrowsingContext {
   // A NOT_REMOTE_TYPE aRemoteType argument will perform a process switch into
   // the parent process, and the method will resolve with a null BrowserParent.
   using RemotenessPromise = MozPromise<RefPtr<BrowserParent>, nsresult, false>;
-  RefPtr<RemotenessPromise> ChangeRemoteness(const nsACString& aRemoteType,
-                                             uint64_t aPendingSwitchId,
-                                             bool aReplaceBrowsingContext,
-                                             uint64_t aSpecificGroupId);
+  RefPtr<RemotenessPromise> ChangeRemoteness(
+      const RemotenessChangeOptions& aOptions, uint64_t aPendingSwitchId);
 
   // Return a media controller from the top-level browsing context that can
   // control all media belonging to this browsing context tree. Return nullptr
@@ -247,7 +261,8 @@ class CanonicalBrowsingContext final : public BrowsingContext {
   // process).
   // aNewContext is the newly created BrowsingContext that is replacing
   // us.
-  void ReplacedBy(CanonicalBrowsingContext* aNewContext);
+  void ReplacedBy(CanonicalBrowsingContext* aNewContext,
+                  const RemotenessChangeOptions& aRemotenessOptions);
 
   bool HasHistoryEntry(nsISHEntry* aEntry);
 
@@ -268,6 +283,9 @@ class CanonicalBrowsingContext final : public BrowsingContext {
   FeaturePolicy* GetContainerFeaturePolicy() const {
     return mContainerFeaturePolicy;
   }
+
+  void SetRestoreData(SessionStoreRestoreData* aData);
+  void RequestRestoreTabContent(WindowGlobalParent* aWindow);
 
  protected:
   // Called when the browsing context is being discarded.
@@ -293,7 +311,7 @@ class CanonicalBrowsingContext final : public BrowsingContext {
     PendingRemotenessChange(CanonicalBrowsingContext* aTarget,
                             RemotenessPromise::Private* aPromise,
                             uint64_t aPendingSwitchId,
-                            bool aReplaceBrowsingContext);
+                            const RemotenessChangeOptions& aOptions);
 
     void Cancel(nsresult aRv);
 
@@ -312,7 +330,7 @@ class CanonicalBrowsingContext final : public BrowsingContext {
     RefPtr<BrowsingContextGroup> mSpecificGroup;
 
     uint64_t mPendingSwitchId;
-    bool mReplaceBrowsingContext;
+    RemotenessChangeOptions mOptions;
   };
 
   friend class net::DocumentLoadListener;
@@ -351,6 +369,10 @@ class CanonicalBrowsingContext final : public BrowsingContext {
   // entries are added or replaced.
   void ResetSHEntryHasUserInteractionCache();
 
+  // The current URI loaded in this BrowsingContext. This value is only set for
+  // BrowsingContexts loaded in content processes.
+  nsCOMPtr<nsIURI> mCurrentRemoteURI;
+
   // The current remoteness change which is in a pending state.
   RefPtr<PendingRemotenessChange> mPendingRemotenessChange;
 
@@ -375,6 +397,10 @@ class CanonicalBrowsingContext final : public BrowsingContext {
   RefPtr<nsBrowserStatusFilter> mStatusFilter;
 
   RefPtr<FeaturePolicy> mContainerFeaturePolicy;
+
+  RefPtr<SessionStoreRestoreData> mRestoreData;
+  uint32_t mRequestedContentRestores = 0;
+  uint32_t mCompletedContentRestores = 0;
 };
 
 }  // namespace dom

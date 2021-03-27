@@ -18,11 +18,6 @@ const { ContentTaskUtils } = ChromeUtils.import(
 
 const MESSAGE_CHILD_TEST_DONE = "ChildTest:Done";
 
-const PLATFORM_VERSION = "1.9.2";
-const APP_VERSION = "1";
-const APP_ID = "xpcshell@tests.mozilla.org";
-const APP_NAME = "XPCShell";
-
 const RECORDED_CONTENT_EVENTS = [
   ["telemetry.test", "content_only", "object1"],
   ["telemetry.test", "main_and_content", "object1"],
@@ -89,7 +84,7 @@ add_task(async function() {
 
   // Setup.
   do_get_profile(true);
-  loadAddonManager(APP_ID, APP_NAME, APP_VERSION, PLATFORM_VERSION);
+  await loadAddonManager(APP_ID, APP_NAME, APP_VERSION, PLATFORM_VERSION);
   finishAddonManagerStartup();
   fakeIntlReady();
   await TelemetryController.testSetup();

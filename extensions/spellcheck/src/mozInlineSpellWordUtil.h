@@ -186,6 +186,9 @@ class MOZ_STACK_CLASS mozInlineSpellWordUtil {
   enum DOMMapHint { HINT_BEGIN, HINT_END };
   NodeOffset MapSoftTextOffsetToDOMPosition(int32_t aSoftTextOffset,
                                             DOMMapHint aHint);
+
+  static void ToString(DOMMapHint aHint, nsACString& aResult);
+
   // Finds the index of the real word containing aSoftTextOffset, or -1 if none
   // If it's exactly between two words, then if aHint is HINT_BEGIN, return the
   // later word (favouring the assumption that it's the BEGINning of a word),
@@ -194,7 +197,7 @@ class MOZ_STACK_CLASS mozInlineSpellWordUtil {
   // position, search forward until we do find a word and return that (if
   // found).
   int32_t FindRealWordContaining(int32_t aSoftTextOffset, DOMMapHint aHint,
-                                 bool aSearchForward);
+                                 bool aSearchForward) const;
 
   // build mSoftText and mSoftTextDOMMapping
   void BuildSoftText();

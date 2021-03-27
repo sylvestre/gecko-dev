@@ -14,21 +14,29 @@ const CHROME_PREFIX = "chrome://mochitests/content/browser/";
 const STUBS_FOLDER = "devtools/client/webconsole/test/node/fixtures/stubs/";
 const STUBS_UPDATE_ENV = "WEBCONSOLE_STUBS_UPDATE";
 
-async function createResourceWatcherForTab(tab) {
-  const { TargetFactory } = require("devtools/client/framework/target");
-  const target = await TargetFactory.forTab(tab);
-  const resourceWatcher = await createResourceWatcherForTarget(target);
-  return resourceWatcher;
+async function createCommandsForTab(tab) {
+  const {
+    CommandsFactory,
+  } = require("devtools/shared/commands/commands-factory");
+  const commands = await CommandsFactory.forTab(tab);
+  return commands;
 }
 
-async function createResourceWatcherForTarget(target) {
+async function createCommandsForMainProcess() {
+  const {
+    CommandsFactory,
+  } = require("devtools/shared/commands/commands-factory");
+  const commands = await CommandsFactory.forMainProcess();
+  return commands;
+}
+
+async function createResourceWatcherForCommands(commands) {
   // Avoid mocha to try to load these module and fail while doing it when running node tests
   const {
     ResourceWatcher,
   } = require("devtools/shared/resources/resource-watcher");
-  const { TargetList } = require("devtools/shared/resources/target-list");
 
-  const targetList = new TargetList(target.client.mainRoot, target);
+  const targetList = commands.targetCommand;
   await targetList.startListening();
   return new ResourceWatcher(targetList);
 }
@@ -537,8 +545,9 @@ function parsePacketAndCreateFronts(packet) {
 
 module.exports = {
   STUBS_UPDATE_ENV,
-  createResourceWatcherForTab,
-  createResourceWatcherForTarget,
+  createCommandsForTab,
+  createCommandsForMainProcess,
+  createResourceWatcherForCommands,
   getStubFile,
   getCleanedPacket,
   getSerializedPacket,

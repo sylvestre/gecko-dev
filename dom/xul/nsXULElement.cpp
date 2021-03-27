@@ -160,6 +160,10 @@ nsXULElement* NS_NewBasicXULElement(
 /* static */
 nsXULElement* nsXULElement::Construct(
     already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo) {
+  // NOTE: If you add elements here, you probably also want to change
+  // mozilla::dom::binding_detail::HTMLConstructor in BindingUtils.cpp to take
+  // them into account, otherwise you'll start getting "Illegal constructor"
+  // exceptions in chrome code.
   RefPtr<mozilla::dom::NodeInfo> nodeInfo = aNodeInfo;
   if (nodeInfo->Equals(nsGkAtoms::label) ||
       nodeInfo->Equals(nsGkAtoms::description)) {
@@ -481,8 +485,6 @@ void nsXULElement::OpenMenu(bool aOpenFlag) {
 
 bool nsXULElement::PerformAccesskey(bool aKeyCausesActivation,
                                     bool aIsTrustedEvent) {
-  RefPtr<Element> content(this);
-
   if (IsXULElement(nsGkAtoms::label)) {
     nsAutoString control;
     GetAttr(kNameSpaceID_None, nsGkAtoms::control, control);
@@ -491,59 +493,64 @@ bool nsXULElement::PerformAccesskey(bool aKeyCausesActivation,
     }
 
     // XXXsmaug Should we use ShadowRoot::GetElementById in case
-    //         content is in Shadow DOM?
-    nsCOMPtr<Document> document = content->GetUncomposedDoc();
+    //          element is in Shadow DOM?
+    RefPtr<Document> document = GetUncomposedDoc();
     if (!document) {
       return false;
     }
 
-    content = document->GetElementById(control);
-    if (!content) {
+    RefPtr<Element> element = document->GetElementById(control);
+    if (!element) {
       return false;
     }
+
+    // XXXedgar, This is mainly for HTMLElement which doesn't do visible
+    // check in PerformAccesskey. We probably should always do visible
+    // check on HTMLElement even if the PerformAccesskey is not redirected from
+    // label XULelement per spec.
+    nsIFrame* frame = element->GetPrimaryFrame();
+    if (!frame || !frame->IsVisibleConsideringAncestors()) {
+      return false;
+    }
+
+    return element->PerformAccesskey(aKeyCausesActivation, aIsTrustedEvent);
   }
 
-  nsIFrame* frame = content->GetPrimaryFrame();
+  nsIFrame* frame = GetPrimaryFrame();
   if (!frame || !frame->IsVisibleConsideringAncestors()) {
     return false;
   }
 
   bool focused = false;
-  nsXULElement* elm = FromNode(content);
-  if (elm) {
-    // Define behavior for each type of XUL element.
-    if (!content->IsXULElement(nsGkAtoms::toolbarbutton)) {
-      if (RefPtr<nsFocusManager> fm = nsFocusManager::GetFocusManager()) {
-        nsCOMPtr<Element> elementToFocus;
-        // for radio buttons, focus the radiogroup instead
-        if (content->IsXULElement(nsGkAtoms::radio)) {
-          nsCOMPtr<nsIDOMXULSelectControlItemElement> controlItem =
-              content->AsXULSelectControlItem();
-          if (controlItem) {
-            bool disabled;
-            controlItem->GetDisabled(&disabled);
-            if (!disabled) {
-              controlItem->GetControl(getter_AddRefs(elementToFocus));
-            }
+  // Define behavior for each type of XUL element.
+  if (!IsXULElement(nsGkAtoms::toolbarbutton)) {
+    if (RefPtr<nsFocusManager> fm = nsFocusManager::GetFocusManager()) {
+      RefPtr<Element> elementToFocus = this;
+      // for radio buttons, focus the radiogroup instead
+      if (IsXULElement(nsGkAtoms::radio)) {
+        if (nsCOMPtr<nsIDOMXULSelectControlItemElement> controlItem =
+                AsXULSelectControlItem()) {
+          bool disabled;
+          controlItem->GetDisabled(&disabled);
+          if (!disabled) {
+            controlItem->GetControl(getter_AddRefs(elementToFocus));
           }
-        } else {
-          elementToFocus = content;
-        }
-        if (elementToFocus) {
-          fm->SetFocus(elementToFocus, nsIFocusManager::FLAG_BYKEY);
-
-          // Return true if the element became focused.
-          nsPIDOMWindowOuter* window = OwnerDoc()->GetWindow();
-          focused = (window && window->GetFocusedElement());
         }
       }
+
+      if (elementToFocus) {
+        fm->SetFocus(elementToFocus, nsIFocusManager::FLAG_BYKEY);
+
+        // Return true if the element became focused.
+        nsPIDOMWindowOuter* window = OwnerDoc()->GetWindow();
+        focused = (window && window->GetFocusedElement() == elementToFocus);
+      }
     }
-    if (aKeyCausesActivation && !content->IsXULElement(nsGkAtoms::menulist)) {
-      elm->ClickWithInputSource(MouseEvent_Binding::MOZ_SOURCE_KEYBOARD,
-                                aIsTrustedEvent);
-    }
-  } else {
-    return content->PerformAccesskey(aKeyCausesActivation, aIsTrustedEvent);
+  }
+
+  if (aKeyCausesActivation && !IsXULElement(nsGkAtoms::menulist)) {
+    ClickWithInputSource(MouseEvent_Binding::MOZ_SOURCE_KEYBOARD,
+                         aIsTrustedEvent);
   }
 
   return focused;
@@ -676,6 +683,8 @@ nsresult nsXULElement::BindToTree(BindContext& aContext, nsINode& aParent) {
     XULKeySetGlobalKeyListener::AttachKeyHandler(this);
   }
 
+  RegUnRegAccessKey(true);
+
   if (NeedTooltipSupport(*this)) {
     AddTooltipSupport();
   }
@@ -694,6 +703,8 @@ void nsXULElement::UnbindFromTree(bool aNullParent) {
   if (NodeInfo()->Equals(nsGkAtoms::keyset, kNameSpaceID_XUL)) {
     XULKeySetGlobalKeyListener::DetachKeyHandler(this);
   }
+
+  RegUnRegAccessKey(false);
 
   if (NeedTooltipSupport(*this)) {
     RemoveTooltipSupport();
@@ -735,27 +746,39 @@ void nsXULElement::DoneAddingChildren(bool aHaveNotified) {
   }
 }
 
-void nsXULElement::UnregisterAccessKey(const nsAString& aOldValue) {
-  // If someone changes the accesskey, unregister the old one
-  //
-  Document* doc = GetComposedDoc();
-  if (doc && !aOldValue.IsEmpty()) {
-    if (PresShell* presShell = doc->GetPresShell()) {
-      presShell->GetPresContext()->EventStateManager()->UnregisterAccessKey(
-          this, aOldValue.First());
-    }
+void nsXULElement::RegUnRegAccessKey(bool aDoReg) {
+  // Don't try to register for unsupported elements
+  if (!SupportsAccessKey()) {
+    return;
   }
+
+  nsStyledElement::RegUnRegAccessKey(aDoReg);
+}
+
+bool nsXULElement::SupportsAccessKey() const {
+  if (NodeInfo()->Equals(nsGkAtoms::label) && HasAttr(nsGkAtoms::control)) {
+    return true;
+  }
+
+  // XXX(ntim): check if description[value] or description[accesskey] are
+  // actually used, remove `value` from {Before/After}SetAttr if not the case
+  if (NodeInfo()->Equals(nsGkAtoms::description) && HasAttr(nsGkAtoms::value) &&
+      HasAttr(nsGkAtoms::control)) {
+    return true;
+  }
+
+  return IsAnyOfXULElements(nsGkAtoms::button, nsGkAtoms::toolbarbutton,
+                            nsGkAtoms::checkbox, nsGkAtoms::tab,
+                            nsGkAtoms::radio);
 }
 
 nsresult nsXULElement::BeforeSetAttr(int32_t aNamespaceID, nsAtom* aName,
                                      const nsAttrValueOrString* aValue,
                                      bool aNotify) {
-  if (aNamespaceID == kNameSpaceID_None && aName == nsGkAtoms::accesskey &&
-      IsInUncomposedDoc()) {
-    nsAutoString oldValue;
-    if (GetAttr(aNamespaceID, aName, oldValue)) {
-      UnregisterAccessKey(oldValue);
-    }
+  if (aNamespaceID == kNameSpaceID_None &&
+      (aName == nsGkAtoms::accesskey || aName == nsGkAtoms::control ||
+       aName == nsGkAtoms::value)) {
+    RegUnRegAccessKey(false);
   } else if (aNamespaceID == kNameSpaceID_None &&
              (aName == nsGkAtoms::command || aName == nsGkAtoms::observes) &&
              IsInUncomposedDoc()) {
@@ -806,7 +829,10 @@ nsresult nsXULElement::AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
       AddListenerForAttributeIfNeeded(aName);
     }
 
-    if (aName == nsGkAtoms::tooltip || aName == nsGkAtoms::tooltiptext) {
+    if (aName == nsGkAtoms::accesskey || aName == nsGkAtoms::control ||
+        aName == nsGkAtoms::value) {
+      RegUnRegAccessKey(true);
+    } else if (aName == nsGkAtoms::tooltip || aName == nsGkAtoms::tooltiptext) {
       if (!!aValue != !!aOldValue && IsInComposedDoc() &&
           !NodeInfo()->Equals(nsGkAtoms::treechildren)) {
         if (aValue) {
@@ -883,7 +909,7 @@ void nsXULElement::DestroyContent() {
   nsStyledElement::DestroyContent();
 }
 
-#ifdef DEBUG
+#ifdef MOZ_DOM_LIST
 void nsXULElement::List(FILE* out, int32_t aIndent) const {
   nsCString prefix("XUL");
   if (HasSlots()) {

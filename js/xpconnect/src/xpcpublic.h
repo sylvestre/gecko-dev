@@ -138,6 +138,7 @@ bool AllowContentXBLScope(JS::Realm* realm);
 JSObject* NACScope(JSObject* global);
 
 bool IsSandboxPrototypeProxy(JSObject* obj);
+bool IsWebExtensionContentScriptSandbox(JSObject* obj);
 
 // The JSContext argument represents the Realm that's asking the question.  This
 // is needed to properly answer without exposing information unnecessarily
@@ -551,6 +552,13 @@ nsGlobalWindowInner* WindowOrNull(JSObject* aObj);
  * because CCWs are not associated with a single global/realm.
  */
 nsGlobalWindowInner* WindowGlobalOrNull(JSObject* aObj);
+
+/**
+ * If |aObj| is a Sandbox object associated with a DOMWindow via a
+ * sandboxPrototype, then return that DOMWindow.
+ * |aCx| is used for checked unwrapping of the Window.
+ */
+nsGlobalWindowInner* SandboxWindowOrNull(JSObject* aObj, JSContext* aCx);
 
 /**
  * If |cx| is in a realm whose global is a window, returns the associated

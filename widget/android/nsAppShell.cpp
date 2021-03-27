@@ -26,9 +26,9 @@
 
 #include "mozilla/ArrayUtils.h"
 #include "mozilla/Components.h"
-#include "mozilla/Telemetry.h"
 #include "mozilla/Services.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/ProfilerLabels.h"
 #include "mozilla/Hal.h"
 #include "mozilla/dom/BrowserChild.h"
 #include "mozilla/dom/Document.h"
@@ -47,7 +47,6 @@
 #include <pthread.h>
 #include <wchar.h>
 
-#include "GeckoProfiler.h"
 #ifdef MOZ_ANDROID_HISTORY
 #  include "nsNetUtil.h"
 #  include "nsIURI.h"
@@ -91,9 +90,6 @@ nsIGeolocationUpdate* gLocationCallback = nullptr;
 
 nsAppShell* nsAppShell::sAppShell;
 StaticAutoPtr<Mutex> nsAppShell::sAppShellLock;
-
-uint32_t nsAppShell::Queue::sLatencyCount[];
-uint64_t nsAppShell::Queue::sLatencyTime[];
 
 NS_IMPL_ISUPPORTS_INHERITED(nsAppShell, nsBaseAppShell, nsIObserver)
 
@@ -288,7 +284,6 @@ class GeckoAppShellSupport final
       case hal::SENSOR_LINEAR_ACCELERATION:
       case hal::SENSOR_ACCELERATION:
       case hal::SENSOR_GYROSCOPE:
-      case hal::SENSOR_PROXIMITY:
         values.AppendElement(aX);
         values.AppendElement(aY);
         values.AppendElement(aZ);
@@ -401,7 +396,6 @@ nsAppShell::nsAppShell()
       GeckoThreadSupport::Init();
       GeckoAppShellSupport::Init();
       XPCOMEventTargetWrapper::Init();
-      mozilla::GeckoSystemStateListener::Init();
       mozilla::widget::Telemetry::Init();
       mozilla::widget::GeckoTelemetryDelegate::Init();
 
@@ -479,40 +473,6 @@ nsAppShell::~nsAppShell() {
 
 void nsAppShell::NotifyNativeEvent() { mEventQueue.Signal(); }
 
-void nsAppShell::RecordLatencies() {
-  if (!mozilla::Telemetry::CanRecordExtended()) {
-    return;
-  }
-
-  const mozilla::Telemetry::HistogramID timeIDs[] = {
-      mozilla::Telemetry::HistogramID::FENNEC_LOOP_UI_LATENCY,
-      mozilla::Telemetry::HistogramID::FENNEC_LOOP_OTHER_LATENCY};
-
-  static_assert(ArrayLength(Queue::sLatencyCount) == Queue::LATENCY_COUNT,
-                "Count array length mismatch");
-  static_assert(ArrayLength(Queue::sLatencyTime) == Queue::LATENCY_COUNT,
-                "Time array length mismatch");
-  static_assert(ArrayLength(timeIDs) == Queue::LATENCY_COUNT,
-                "Time ID array length mismatch");
-
-  for (size_t i = 0; i < Queue::LATENCY_COUNT; i++) {
-    if (!Queue::sLatencyCount[i]) {
-      continue;
-    }
-
-    const uint64_t time =
-        Queue::sLatencyTime[i] / 1000ull / Queue::sLatencyCount[i];
-    if (time) {
-      mozilla::Telemetry::Accumulate(
-          timeIDs[i], uint32_t(std::min<uint64_t>(UINT32_MAX, time)));
-    }
-
-    // Reset latency counts.
-    Queue::sLatencyCount[i] = 0;
-    Queue::sLatencyTime[i] = 0;
-  }
-}
-
 nsresult nsAppShell::Init() {
   nsresult rv = nsBaseAppShell::Init();
   nsCOMPtr<nsIObserverService> obsServ =
@@ -523,7 +483,6 @@ nsresult nsAppShell::Init() {
     obsServ->AddObserver(this, "profile-after-change", false);
     obsServ->AddObserver(this, "quit-application", false);
     obsServ->AddObserver(this, "quit-application-granted", false);
-    obsServ->AddObserver(this, "xpcom-shutdown", false);
 
     if (XRE_IsParentProcess()) {
       obsServ->AddObserver(this, "chrome-document-loaded", false);
@@ -540,23 +499,25 @@ nsresult nsAppShell::Init() {
 }
 
 NS_IMETHODIMP
+nsAppShell::Exit(void) {
+  {
+    // Release any thread waiting for a sync call to finish.
+    mozilla::MutexAutoLock shellLock(*sAppShellLock);
+    mSyncRunQuit = true;
+    mSyncRunFinished.NotifyAll();
+  }
+  // We need to ensure no observers stick around after XPCOM shuts down
+  // or we'll see crashes, as the app shell outlives XPConnect.
+  mObserversHash.Clear();
+  return nsBaseAppShell::Exit();
+}
+
+NS_IMETHODIMP
 nsAppShell::Observe(nsISupports* aSubject, const char* aTopic,
                     const char16_t* aData) {
   bool removeObserver = false;
 
-  if (!strcmp(aTopic, "xpcom-shutdown")) {
-    {
-      // Release any thread waiting for a sync call to finish.
-      mozilla::MutexAutoLock shellLock(*sAppShellLock);
-      mSyncRunQuit = true;
-      mSyncRunFinished.NotifyAll();
-    }
-    // We need to ensure no observers stick around after XPCOM shuts down
-    // or we'll see crashes, as the app shell outlives XPConnect.
-    mObserversHash.Clear();
-    return nsBaseAppShell::Observe(aSubject, aTopic, aData);
-
-  } else if (!strcmp(aTopic, "browser-delayed-startup-finished")) {
+  if (!strcmp(aTopic, "browser-delayed-startup-finished")) {
     NS_CreateServicesFromCategory("browser-delayed-startup-finished", nullptr,
                                   "browser-delayed-startup-finished");
   } else if (!strcmp(aTopic, "geckoview-startup-complete")) {
@@ -635,6 +596,8 @@ nsAppShell::Observe(nsISupports* aSubject, const char* aTopic,
     nsCOMPtr<nsIDocShell> docShell = do_QueryInterface(aSubject);
     widget::GeckoEditableSupport::SetOnBrowserChild(
         dom::BrowserChild::GetFrom(docShell));
+  } else {
+    return nsBaseAppShell::Observe(aSubject, aTopic, aData);
   }
 
   if (removeObserver) {
@@ -754,7 +717,7 @@ nsresult nsAppShell::AddObserver(const nsAString& aObserverKey,
                                  nsIObserver* aObserver) {
   NS_ASSERTION(aObserver != nullptr,
                "nsAppShell::AddObserver: aObserver is null!");
-  mObserversHash.Put(aObserverKey, aObserver);
+  mObserversHash.InsertOrUpdate(aObserverKey, aObserver);
   return NS_OK;
 }
 

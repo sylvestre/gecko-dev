@@ -28,7 +28,7 @@
  *          awaitEvent BrowserWindowIterator
  *          navigateTab historyPushState promiseWindowRestored
  *          getIncognitoWindow startIncognitoMonitorExtension
- *          loadTestSubscript awaitBrowserLoaded
+ *          loadTestSubscript awaitBrowserLoaded backgroundColorSetOnRoot
  */
 
 // There are shutdown issues for which multiple rejections are left uncaught.
@@ -60,6 +60,9 @@ const { CustomizableUI } = ChromeUtils.import(
 );
 const { Preferences } = ChromeUtils.import(
   "resource://gre/modules/Preferences.jsm"
+);
+const { ClientEnvironmentBase } = ChromeUtils.import(
+  "resource://gre/modules/components-utils/ClientEnvironment.jsm"
 );
 
 XPCOMUtils.defineLazyGetter(this, "Management", () => {
@@ -361,12 +364,13 @@ function openBrowserActionPanel(extension, win = window, awaitLoad = false) {
 
 async function toggleBookmarksToolbar(visible = true) {
   let bookmarksToolbar = document.getElementById("PersonalToolbar");
-  let visibilityToggledPromise = TestUtils.waitForCondition(() => {
+  // Third parameter is 'persist' and true is the default.
+  // Fourth parameter is 'animated' and we want no animation.
+  setToolbarVisibility(bookmarksToolbar, visible, true, false);
+
+  return TestUtils.waitForCondition(() => {
     return visible ? !bookmarksToolbar.collapsed : bookmarksToolbar.collapsed;
   }, "waiting for toolbar to become " + (visible ? "visible" : "hidden"));
-
-  setToolbarVisibility(bookmarksToolbar, visible);
-  await visibilityToggledPromise;
 }
 
 async function openContextMenuInPopup(extension, selector = "body") {
@@ -934,4 +938,20 @@ async function getIncognitoWindow(url = "about:privatebrowsing") {
   let details = await data;
   await windowWatcher.unload();
   return { win, details };
+}
+
+/**
+ * Windows 7 and 8 set the window's background-color on :root instead of
+ * #navigator-toolbox to avoid bug 1695280. When that bug is fixed, this
+ * function and the assertions it gates can be removed.
+ *
+ * @returns {boolean} True if the window's background-color is set on :root
+ *   rather than #navigator-toolbox.
+ **/
+function backgroundColorSetOnRoot() {
+  const os = ClientEnvironmentBase.os;
+  if (!os.isWindows) {
+    return false;
+  }
+  return os.windowsVersion < 10;
 }

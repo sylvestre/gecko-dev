@@ -112,14 +112,16 @@ var httpObserver = function(subject, topic, state) {
   }
 };
 Services.obs.addObserver(httpObserver, "http-on-modify-request");
+registerCleanupFunction(() => {
+  Services.obs.removeObserver(httpObserver, "http-on-modify-request");
+});
 
 function onMessage({ data }) {
   assertEvent(data.event, data.data);
 }
 
 async function connectAndAttachTab(tab) {
-  const target = await TargetFactory.forTab(tab);
-  await target.attach();
+  const target = await createAndAttachTargetForTab(tab);
   const actorID = target.actorID;
   target.on("tabNavigated", function(packet) {
     assertEvent("tabNavigated", packet);

@@ -399,6 +399,17 @@ class WebConsoleUI {
         continue;
       }
 
+      // Don't show messages emitted from a private window before the Browser Console was
+      // opened to avoid leaking data from past usage of the browser (e.g. content message
+      // from now closed private tabs)
+      if (
+        (this.isBrowserToolboxConsole || this.isBrowserConsole) &&
+        resource.isAlreadyExistingResource &&
+        (resource.pageError?.private || resource.message?.private)
+      ) {
+        continue;
+      }
+
       if (resource.resourceType === TYPES.NETWORK_EVENT_STACKTRACE) {
         this.wrapper.networkDataProvider?.onStackTraceAvailable(resource);
         continue;
@@ -457,7 +468,7 @@ class WebConsoleUI {
 
     // Allow frame, but only in content toolbox, i.e. still ignore them in
     // the context of the browser toolbox as we inspect messages via the process targets
-    const listenForFrames = this.hud.targetList.targetFront.isLocalTab;
+    const listenForFrames = this.hud.targetList.descriptorFront.isLocalTab;
 
     const { TYPES } = this.hud.targetList;
     const isWorkerTarget =

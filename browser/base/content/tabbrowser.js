@@ -64,6 +64,18 @@
       XPCOMUtils.defineLazyModuleGetters(this, {
         E10SUtils: "resource://gre/modules/E10SUtils.jsm",
       });
+      XPCOMUtils.defineLazyServiceGetters(this, {
+        MacSharingService: [
+          "@mozilla.org/widget/macsharingservice;1",
+          "nsIMacSharingService",
+        ],
+      });
+
+      let tabTooltip = document.getElementById("tabbrowser-tab-tooltip");
+      if (gProtonPlacesTooltip) {
+        tabTooltip.setAttribute("position", "after_start");
+        tabTooltip.setAttribute("anchortoclosest", "tab");
+      }
 
       // We take over setting the document title, so remove the l10n id to
       // avoid it being re-translated and overwriting document content if
@@ -79,7 +91,13 @@
 
     ownerDocument: document,
 
-    closingTabsEnum: { ALL: 0, OTHER: 1, TO_END: 2, MULTI_SELECTED: 3 },
+    closingTabsEnum: {
+      ALL: 0,
+      OTHER: 1,
+      TO_START: 2,
+      TO_END: 3,
+      MULTI_SELECTED: 4,
+    },
 
     _visibleTabs: null,
 
@@ -649,6 +667,7 @@
     _updateTabBarForPinnedTabs() {
       this.tabContainer._unlockTabSizing();
       this.tabContainer._positionPinnedTabs();
+      this.tabContainer._setPositionalAttributes();
       this.tabContainer._updateCloseButtons();
     },
 
@@ -788,15 +807,59 @@
       return (aBrowser || this.selectedBrowser).parentNode.parentNode;
     },
 
+    getTabNotificationDeck() {
+      if (!this._tabNotificationDeck) {
+        let template = document.getElementById(
+          "tab-notification-deck-template"
+        );
+        template.replaceWith(template.content);
+        this._tabNotificationDeck = document.getElementById(
+          "tab-notification-deck"
+        );
+      }
+      return this._tabNotificationDeck;
+    },
+
+    _nextNotificationBoxId: 0,
     getNotificationBox(aBrowser) {
       let browser = aBrowser || this.selectedBrowser;
       if (!browser._notificationBox) {
         browser._notificationBox = new MozElements.NotificationBox(element => {
           element.setAttribute("notificationside", "top");
-          this.getBrowserContainer(browser).prepend(element);
+          if (
+            Services.prefs.getBoolPref("browser.proton.infobars.enabled", false)
+          ) {
+            element.setAttribute(
+              "name",
+              `tab-notification-box-${this._nextNotificationBoxId++}`
+            );
+            // With Proton enabled all notification boxes are at the top, built into the browser chrome.
+            this.getTabNotificationDeck().append(element);
+            if (browser == this.selectedBrowser) {
+              this._updateVisibleNotificationBox(browser);
+            }
+          } else {
+            this.getBrowserContainer(browser).prepend(element);
+          }
         });
       }
       return browser._notificationBox;
+    },
+
+    readNotificationBox(aBrowser) {
+      let browser = aBrowser || this.selectedBrowser;
+      return browser._notificationBox || null;
+    },
+
+    _updateVisibleNotificationBox(aBrowser) {
+      if (!this._tabNotificationDeck) {
+        // If the deck hasn't been created we don't need to create it here.
+        return;
+      }
+      let notificationBox = this.readNotificationBox(aBrowser);
+      this.getTabNotificationDeck().selectedViewName = notificationBox
+        ? notificationBox.stack.getAttribute("name")
+        : "";
     },
 
     getTabModalPromptBox(aBrowser) {
@@ -947,7 +1010,7 @@
       // XXX https://bugzilla.mozilla.org/show_bug.cgi?id=22183#c239
       try {
         if (docElement.getAttribute("chromehidden").includes("location")) {
-          const uri = Services.uriFixup.createExposableURI(aBrowser.currentURI);
+          const uri = Services.io.createExposableURI(aBrowser.currentURI);
           let prefix = uri.prePath;
           if (uri.scheme == "about") {
             prefix = uri.spec;
@@ -1050,6 +1113,12 @@
       this.showTab(newTab);
 
       this._appendStatusPanel();
+
+      if (
+        Services.prefs.getBoolPref("browser.proton.infobars.enabled", false)
+      ) {
+        this._updateVisibleNotificationBox(newBrowser);
+      }
 
       let oldBrowserPopupsBlocked = oldBrowser.popupBlocker.getBlockedPopupCount();
       let newBrowserPopupsBlocked = newBrowser.popupBlocker.getBlockedPopupCount();
@@ -2263,7 +2332,7 @@
 
       let { uriIsAboutBlank, usingPreloadedContent } = aTab._browserParams;
       delete aTab._browserParams;
-      delete aTab._cachedCurrentURI;
+      delete browser._cachedCurrentURI;
 
       let panel = this.getPanel(browser);
       let uniqueId = this._generateUniquePanelID();
@@ -2878,18 +2947,17 @@
 
         // Re-use existing selected tab if possible to avoid the overhead of
         // selecting a new tab.
-        if (select && this.selectedTab.userContextId == userContextId) {
+        if (
+          select &&
+          this.selectedTab.userContextId == userContextId &&
+          !SessionStore.isTabRestoring(this.selectedTab)
+        ) {
           tabWasReused = true;
           tab = this.selectedTab;
           if (!tabData.pinned) {
             this.unpinTab(tab);
           } else {
             this.pinTab(tab);
-          }
-          if (gMultiProcessBrowser && !tab.linkedBrowser.isRemoteBrowser) {
-            this.updateBrowserRemoteness(tab.linkedBrowser, {
-              remoteType: E10SUtils.DEFAULT_REMOTE_TYPE,
-            });
           }
         }
 
@@ -3072,7 +3140,7 @@
       // see bug #350299 for more details
       window.focus();
       let warningMessage = gTabBrowserBundle.GetStringFromName(
-        "tabs.closeWarningMultiple"
+        "tabs.closeWarningMultipleTabs"
       );
       warningMessage = PluralForm.get(tabsToClose, warningMessage).replace(
         "#1",
@@ -3083,7 +3151,7 @@
         ps.BUTTON_TITLE_CANCEL * ps.BUTTON_POS_1;
       let checkboxLabel =
         aCloseTabs == this.closingTabsEnum.ALL
-          ? gTabBrowserBundle.GetStringFromName("tabs.closeWarningPromptMe")
+          ? gTabBrowserBundle.GetStringFromName("tabs.closeWarningPrompt")
           : null;
       var buttonPressed = ps.confirmEx(
         window,
@@ -3198,12 +3266,37 @@
       tab.dispatchEvent(evt);
     },
 
+    getTabsToTheStartFrom(aTab) {
+      let tabsToStart = [];
+      let tabs = this.visibleTabs;
+      for (let i = 0; i < tabs.length; ++i) {
+        if (tabs[i] == aTab) {
+          break;
+        }
+        // Ignore pinned tabs.
+        if (tabs[i].pinned) {
+          continue;
+        }
+        // In a multi-select context, select all unselected tabs
+        // starting from the context tab.
+        if (aTab.multiselected && tabs[i].multiselected) {
+          continue;
+        }
+        tabsToStart.push(tabs[i]);
+      }
+      return tabsToStart;
+    },
+
     getTabsToTheEndFrom(aTab) {
       let tabsToEnd = [];
       let tabs = this.visibleTabs;
       for (let i = tabs.length - 1; i >= 0; --i) {
-        if (tabs[i] == aTab || tabs[i].pinned) {
+        if (tabs[i] == aTab) {
           break;
+        }
+        // Ignore pinned tabs.
+        if (tabs[i].pinned) {
+          continue;
         }
         // In a multi-select context, select all unselected tabs
         // starting from the context tab.
@@ -3213,6 +3306,21 @@
         tabsToEnd.push(tabs[i]);
       }
       return tabsToEnd;
+    },
+
+    /**
+     * In a multi-select context, the tabs (except pinned tabs) that are located to the
+     * left of the leftmost selected tab will be removed.
+     */
+    removeTabsToTheStartFrom(aTab) {
+      let tabs = this.getTabsToTheStartFrom(aTab);
+      if (
+        !this.warnAboutClosingTabs(tabs.length, this.closingTabsEnum.TO_START)
+      ) {
+        return;
+      }
+
+      this.removeTabs(tabs);
     },
 
     /**
@@ -3294,7 +3402,9 @@
 
       // Guarantee that _clearMultiSelectionLocked lock gets released.
       try {
-        let tabsWithBeforeUnload = [];
+        let tabsWithBeforeUnloadPrompt = [];
+        let tabsWithoutBeforeUnload = [];
+        let beforeUnloadPromises = [];
         let lastToClose;
         let aParams = { animate, prewarmed: true };
 
@@ -3306,12 +3416,77 @@
               this._getSwitcher().warmupTab(toBlurTo);
             }
           } else if (this._hasBeforeUnload(tab)) {
-            tabsWithBeforeUnload.push(tab);
+            TelemetryStopwatch.start("FX_TAB_CLOSE_PERMIT_UNLOAD_TIME_MS", tab);
+            // We need to block while calling permitUnload() because it
+            // processes the event queue and may lead to another removeTab()
+            // call before permitUnload() returns.
+            tab._pendingPermitUnload = true;
+            beforeUnloadPromises.push(
+              // To save time, we first run the beforeunload event listeners in all
+              // content processes in parallel. Tabs that would have shown a prompt
+              // will be handled again later.
+              tab.linkedBrowser.asyncPermitUnload("dontUnload").then(
+                ({ permitUnload }) => {
+                  tab._pendingPermitUnload = false;
+                  TelemetryStopwatch.finish(
+                    "FX_TAB_CLOSE_PERMIT_UNLOAD_TIME_MS",
+                    tab
+                  );
+                  if (tab.closing) {
+                    // The tab was closed by the user while we were in permitUnload, don't
+                    // attempt to close it a second time.
+                  } else if (permitUnload) {
+                    // OK to close without prompting, do it immediately.
+                    this.removeTab(tab, {
+                      animate,
+                      prewarmed: true,
+                      skipPermitUnload: true,
+                    });
+                  } else {
+                    // We will need to prompt, queue it so it happens sequentially.
+                    tabsWithBeforeUnloadPrompt.push(tab);
+                  }
+                },
+                err => {
+                  console.log("error while calling asyncPermitUnload", err);
+                  tab._pendingPermitUnload = false;
+                  TelemetryStopwatch.finish(
+                    "FX_TAB_CLOSE_PERMIT_UNLOAD_TIME_MS",
+                    tab
+                  );
+                }
+              )
+            );
           } else {
-            this.removeTab(tab, aParams);
+            tabsWithoutBeforeUnload.push(tab);
           }
         }
-        for (let tab of tabsWithBeforeUnload) {
+        // Now that all the beforeunload IPCs have been sent to content processes,
+        // we can queue unload messages for all the tabs without beforeunload listeners.
+        // Doing this first would cause content process main threads to be busy and delay
+        // beforeunload responses, which would be user-visible.
+        for (let tab of tabsWithoutBeforeUnload) {
+          this.removeTab(tab, aParams);
+        }
+
+        // Wait for all the beforeunload events to have been processed by content processes.
+        // The permitUnload() promise will, alas, not call its resolution
+        // callbacks after the browser window the promise lives in has closed,
+        // so we have to check for that case explicitly.
+        let done = false;
+        Promise.all(beforeUnloadPromises).then(() => {
+          done = true;
+        });
+        Services.tm.spinEventLoopUntilOrQuit(
+          "tabbrowser.js:removeTabs",
+          () => done || window.closed
+        );
+        if (!done) {
+          return;
+        }
+
+        // Now run again sequentially the beforeunload listeners that will result in a prompt.
+        for (let tab of tabsWithBeforeUnloadPrompt) {
           this.removeTab(tab, aParams);
         }
 
@@ -3628,6 +3803,9 @@
           "BrowserTab"
         );
       }
+
+      let notificationBox = this.readNotificationBox(browser);
+      notificationBox?.stack.remove();
 
       if (aTab.linkedPanel) {
         if (!adoptedByTab && !gMultiProcessBrowser) {
@@ -3972,6 +4150,15 @@
         aOurTab._sharingState = aOtherTab._sharingState;
         webrtcUI.swapBrowserForNotification(otherBrowser, ourBrowser);
       }
+      if (aOtherTab.hasAttribute("pictureinpicture")) {
+        aOurTab.setAttribute("pictureinpicture", true);
+        modifiedAttrs.push("pictureinpicture");
+
+        let event = new CustomEvent("TabSwapPictureInPicture", {
+          detail: aOurTab,
+        });
+        aOtherTab.dispatchEvent(event);
+      }
 
       SitePermissions.copyTemporaryPermissions(otherBrowser, ourBrowser);
 
@@ -4184,7 +4371,7 @@
       let browser = this.getBrowserForTab(aTab);
       // Reset temporary permissions on the current tab. This is done here
       // because we only want to reset permissions on user reload.
-      SitePermissions.clearTemporaryPermissions(browser);
+      SitePermissions.clearTemporaryBlockPermissions(browser);
       // Also reset DOS mitigations for the basic auth prompt on reload.
       delete browser.authPromptAbuseCounter;
       gIdentityHandler.hidePopup();
@@ -4915,6 +5102,34 @@
       }
     },
 
+    /**
+     * _maybeRequestReplyFromRemoteContent may call
+     * aEvent.requestReplyFromRemoteContent if necessary.
+     *
+     * @param aEvent    The handling event.
+     * @return          true if the handler should wait a reply event.
+     *                  false if the handle can handle the immediately.
+     */
+    _maybeRequestReplyFromRemoteContent(aEvent) {
+      if (aEvent.defaultPrevented) {
+        return false;
+      }
+      // If the event target is a remote browser, and the event has not been
+      // handled by the remote content yet, we should wait a reply event
+      // from the content.
+      if (aEvent.isWaitingReplyFromRemoteContent) {
+        return true; // Somebody called requestReplyFromRemoteContent already.
+      }
+      if (
+        !aEvent.isReplyEventFromRemoteContent &&
+        aEvent.target?.isRemoteBrowser === true
+      ) {
+        aEvent.requestReplyFromRemoteContent();
+        return true;
+      }
+      return false;
+    },
+
     _handleKeyDownEvent(aEvent) {
       if (!aEvent.isTrusted) {
         // Don't let untrusted events mess with tabs.
@@ -4930,6 +5145,9 @@
       // navigation should always work for better user experience.
 
       switch (ShortcutUtils.getSystemActionForEvent(aEvent)) {
+        case ShortcutUtils.TOGGLE_CARET_BROWSING:
+          this._maybeRequestReplyFromRemoteContent(aEvent);
+          return;
         case ShortcutUtils.MOVE_TAB_BACKWARD:
           this.moveTabBackward();
           aEvent.preventDefault();
@@ -5017,9 +5235,13 @@
 
       switch (ShortcutUtils.getSystemActionForEvent(aEvent, { rtl: RTL_UI })) {
         case ShortcutUtils.TOGGLE_CARET_BROWSING:
-          if (!aEvent.defaultPrevented) {
-            this.toggleCaretBrowsing();
+          if (
+            aEvent.defaultPrevented ||
+            this._maybeRequestReplyFromRemoteContent(aEvent)
+          ) {
+            break;
           }
+          this.toggleCaretBrowsing();
           break;
 
         case ShortcutUtils.NEXT_TAB:
@@ -5125,7 +5347,7 @@
       // When Picture-in-Picture is open, we repurpose '.tab-icon-sound' as
       // an inert Picture-in-Picture indicator, so we should display
       // the default tooltip
-      else if (tab._overPlayingIcon && !tab.pictureinpicture) {
+      else if (!gProtonTabs && tab._overPlayingIcon && !tab.pictureinpicture) {
         let stringID;
         if (tab.selected) {
           stringID = tab.linkedBrowser.audioMuted
@@ -5154,7 +5376,20 @@
         label = this.getTabTooltip(tab);
       }
 
-      event.target.setAttribute("label", label);
+      if (!gProtonPlacesTooltip) {
+        event.target.setAttribute("label", label);
+        return;
+      }
+
+      let title = event.target.querySelector(".places-tooltip-title");
+      title.textContent = label;
+      let url = event.target.querySelector(".places-tooltip-uri");
+      url.value = tab.linkedBrowser?.currentURI?.spec.replace(
+        /^https:\/\//,
+        ""
+      );
+      let icon = event.target.querySelector("#places-tooltip-insecure-icon");
+      icon.hidden = !url.value.startsWith("http://");
     },
 
     handleEvent(aEvent) {
@@ -6645,8 +6880,11 @@ var TabContextMenu = {
       "context_duplicateTabs"
     ).hidden = !multiselectionContext;
 
-    // Disable "Close Tabs to the Right" if there are no tabs
-    // following it.
+    // Disable "Close Tabs to the Left/Right" if there are no tabs
+    // preceding/following it.
+    document.getElementById(
+      "context_closeTabsToTheStart"
+    ).disabled = !gBrowser.getTabsToTheStartFrom(this.contextTab).length;
     document.getElementById(
       "context_closeTabsToTheEnd"
     ).disabled = !gBrowser.getTabsToTheEndFrom(this.contextTab).length;
@@ -6735,12 +6973,20 @@ var TabContextMenu = {
     document.getElementById("context_reopenInContainer").hidden =
       !Services.prefs.getBoolPref("privacy.userContext.enabled", false) ||
       PrivateBrowsingUtils.isWindowPrivate(window);
+
+    this.updateShareURLMenuItem();
   },
+
   handleEvent(aEvent) {
     switch (aEvent.type) {
+      case "command":
+        this.onShareURLCommand(aEvent);
+        break;
       case "popuphiding":
-        gBrowser.removeEventListener("TabAttrModified", this);
-        aEvent.target.removeEventListener("popuphiding", this);
+        this.onPopupHiding(aEvent);
+        break;
+      case "popupshowing":
+        this.onPopupShowing(aEvent);
         break;
       case "TabAttrModified":
         let tab = aEvent.target;
@@ -6750,6 +6996,30 @@ var TabContextMenu = {
         break;
     }
   },
+
+  onPopupHiding(event) {
+    // We don't want to rebuild the contents of the "Share" menupopup if only its submenu is
+    // hidden. So only clear its "data-initialized" attribute when the main context menu is
+    // hidden.
+    if (event.target.id === "tabContextMenu") {
+      let menupopup = document.getElementById("context_shareTabURL_popup");
+      menupopup?.removeAttribute("data-initialized");
+    }
+
+    gBrowser.removeEventListener("TabAttrModified", this);
+    event.target.removeEventListener("popuphiding", this);
+  },
+
+  onPopupShowing(event) {
+    let menupopup = document.getElementById("context_shareTabURL_popup");
+    if (
+      event.target === menupopup &&
+      !menupopup.hasAttribute("data-initialized")
+    ) {
+      this.initializeShareURLPopup();
+    }
+  },
+
   createReopenInContainerMenu(event) {
     createUserContextMenu(event, {
       isContextMenu: true,
@@ -6835,6 +7105,142 @@ var TabContextMenu = {
       gBrowser.removeMultiSelectedTabs();
     } else {
       gBrowser.removeTab(this.contextTab, { animate: true });
+    }
+  },
+
+  updateShareURLMenuItem() {
+    // We only support "share URL" on macOS and on Windows 10:
+    if (
+      !gProton ||
+      !(
+        AppConstants.platform == "macosx" ||
+        AppConstants.isPlatformAndVersionAtLeast("win", "6.4")
+      )
+    ) {
+      return;
+    }
+
+    let shareURL = document.getElementById("context_shareTabURL");
+
+    if (!shareURL) {
+      shareURL = this.createShareURLMenuItem();
+    }
+
+    // Don't show the menuitem on non-shareable URLs.
+    let browser = this.contextTab.linkedBrowser;
+    shareURL.hidden = !BrowserUtils.isShareableURL(browser.currentURI);
+  },
+
+  /**
+   * Creates and returns the "Share" menu item.
+   */
+  createShareURLMenuItem() {
+    let menu = document.getElementById("tabContextMenu");
+    let shareURL = null;
+
+    if (AppConstants.platform == "win") {
+      shareURL = this.buildShareURLItem();
+    } else if (AppConstants.platform == "macosx") {
+      shareURL = this.buildShareURLMenu();
+    }
+
+    let sendTabContext = document.getElementById("context_sendTabToDevice");
+    menu.insertBefore(shareURL, sendTabContext.nextSibling);
+    return shareURL;
+  },
+
+  /**
+   * Returns a menu item specifically for accessing Windows sharing services.
+   */
+  buildShareURLItem() {
+    let shareURLMenuItem = document.createXULElement("menuitem");
+    shareURLMenuItem.setAttribute("id", "context_shareTabURL");
+    document.l10n.setAttributes(shareURLMenuItem, "tab-context-share-url");
+
+    shareURLMenuItem.addEventListener("command", this);
+    return shareURLMenuItem;
+  },
+
+  /**
+   * Returns a menu specifically for accessing macOSx sharing services .
+   */
+  buildShareURLMenu() {
+    let menu = document.createXULElement("menu");
+    menu.id = "context_shareTabURL";
+    document.l10n.setAttributes(menu, "tab-context-share-url");
+
+    let menuPopup = document.createXULElement("menupopup");
+    menuPopup.id = "context_shareTabURL_popup";
+    menuPopup.addEventListener("popupshowing", this);
+    menu.appendChild(menuPopup);
+
+    return menu;
+  },
+
+  /**
+   * Populates the "Share" menupopup on macOSx.
+   */
+  initializeShareURLPopup() {
+    if (AppConstants.platform !== "macosx") {
+      return;
+    }
+
+    let menuPopup = document.getElementById("context_shareTabURL_popup");
+
+    // Empty menupopup
+    while (menuPopup.firstChild) {
+      menuPopup.firstChild.remove();
+    }
+
+    let url = this.contextTab.linkedBrowser.currentURI;
+    let sharingService = gBrowser.MacSharingService;
+    let currentURI = gURLBar.makeURIReadable(url).displaySpec;
+    let services = sharingService.getSharingProviders(currentURI);
+
+    services.forEach(share => {
+      let item = document.createXULElement("menuitem");
+      item.classList.add("menuitem-iconic");
+      item.setAttribute("label", share.menuItemTitle);
+      item.setAttribute("share-name", share.name);
+      item.setAttribute("image", share.image);
+      menuPopup.appendChild(item);
+    });
+    let moreItem = document.createXULElement("menuitem");
+    document.l10n.setAttributes(moreItem, "tab-context-share-more");
+    moreItem.classList.add("menuitem-iconic", "share-more-button");
+    menuPopup.appendChild(moreItem);
+
+    menuPopup.addEventListener("command", this);
+    menuPopup.setAttribute("data-initialized", true);
+  },
+
+  onShareURLCommand(event) {
+    // Only call sharing services for the "Share" context menu item. These
+    // services are accessed from a submenu popup for MacOS or the "Share"
+    // menu item for Windows.
+    if (
+      event.target.parentNode.id !== "context_shareTabURL_popup" &&
+      event.target.id !== "context_shareTabURL"
+    ) {
+      return;
+    }
+
+    let browser = this.contextTab.linkedBrowser;
+    let currentURI = gURLBar.makeURIReadable(browser.currentURI).displaySpec;
+
+    if (AppConstants.platform == "win") {
+      WindowsUIUtils.shareUrl(currentURI, browser.contentTitle);
+      return;
+    }
+
+    // On macOSX platforms
+    let sharingService = gBrowser.MacSharingService;
+    let shareName = event.target.getAttribute("share-name");
+
+    if (shareName) {
+      sharingService.shareUrl(shareName, currentURI, browser.contentTitle);
+    } else if (event.target.classList.contains("share-more-button")) {
+      sharingService.openSharingPreferences();
     }
   },
 };

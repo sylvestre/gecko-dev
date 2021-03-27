@@ -472,11 +472,8 @@ partial interface Document {
   [ChromeOnly]
   attribute Node? popupNode;
 
-  // The JS debugger uses DOM mutation events to implement DOM mutation
-  // breakpoints. This is used to avoid logging a warning that the user
-  // cannot address and have no control over.
   [ChromeOnly]
-  attribute boolean dontWarnAboutMutationEventsAndAllowSlowDOMMutations;
+  attribute boolean devToolsWatchingDOMMutations;
 
   /**
    * These attributes correspond to rangeParent and rangeOffset. They will help
@@ -701,4 +698,21 @@ partial interface Document {
 partial interface Document {
   [ChromeOnly, Pure]
   readonly attribute nsIPermissionDelegateHandler permDelegateHandler;
+};
+
+// Extension used by the password manager to infer form submissions.
+partial interface Document {
+  /*
+   * Set whether the document notifies an event when a fetch or
+   * XHR completes successfully.
+   */
+  [ChromeOnly]
+  void setNotifyFetchSuccess(boolean aShouldNotify);
+
+  /*
+   * Set whether a form and a password field notify an event when it is
+   * removed from the DOM tree.
+   */
+  [ChromeOnly]
+  void setNotifyFormOrPasswordRemoved(boolean aShouldNotify);
 };

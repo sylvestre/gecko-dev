@@ -14,12 +14,12 @@
     get editMenuItems() {
       return `
       <menuitem data-l10n-id="text-action-undo" cmd="cmd_undo"></menuitem>
+      <menuitem data-l10n-id="text-action-redo" cmd="cmd_redo"></menuitem>
       <menuseparator></menuseparator>
       <menuitem data-l10n-id="text-action-cut" cmd="cmd_cut"></menuitem>
       <menuitem data-l10n-id="text-action-copy" cmd="cmd_copy"></menuitem>
       <menuitem data-l10n-id="text-action-paste" cmd="cmd_paste"></menuitem>
       <menuitem data-l10n-id="text-action-delete" cmd="cmd_delete"></menuitem>
-      <menuseparator></menuseparator>
       <menuitem data-l10n-id="text-action-select-all" cmd="cmd_selectAll"></menuitem>
     `;
     },

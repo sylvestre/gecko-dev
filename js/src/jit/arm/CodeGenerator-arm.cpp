@@ -1896,7 +1896,6 @@ void CodeGenerator::visitWasmReinterpret(LWasmReinterpret* lir) {
 
 void CodeGenerator::visitAsmJSLoadHeap(LAsmJSLoadHeap* ins) {
   const MAsmJSLoadHeap* mir = ins->mir();
-  MOZ_ASSERT(mir->offset() == 0);
 
   const LAllocation* ptr = ins->ptr();
   const LAllocation* boundsCheckLimit = ins->boundsCheckLimit();
@@ -2138,7 +2137,6 @@ void CodeGenerator::visitWasmUnalignedStoreI64(LWasmUnalignedStoreI64* lir) {
 
 void CodeGenerator::visitAsmJSStoreHeap(LAsmJSStoreHeap* ins) {
   const MAsmJSStoreHeap* mir = ins->mir();
-  MOZ_ASSERT(mir->offset() == 0);
 
   const LAllocation* ptr = ins->ptr();
   const LAllocation* boundsCheckLimit = ins->boundsCheckLimit();
@@ -2722,6 +2720,14 @@ void CodeGenerator::visitSignExtendInt64(LSignExtendInt64* lir) {
   masm.ma_asr(Imm32(31), output.low, output.high);
 }
 
+void CodeGenerator::visitWasmExtendU32Index(LWasmExtendU32Index*) {
+  MOZ_CRASH("64-bit only");
+}
+
+void CodeGenerator::visitWasmWrapU32Index(LWasmWrapU32Index*) {
+  MOZ_CRASH("64-bit only");
+}
+
 void CodeGenerator::visitDivOrModI64(LDivOrModI64* lir) {
   MOZ_ASSERT(gen->compilingWasm());
   MOZ_ASSERT(ToRegister(lir->getOperand(LDivOrModI64::Tls)) == WasmTlsReg);
@@ -3188,5 +3194,13 @@ void CodeGenerator::visitWasmReduceAndBranchSimd128(
 
 void CodeGenerator::visitWasmReduceSimd128ToInt64(
     LWasmReduceSimd128ToInt64* ins) {
+  MOZ_CRASH("No SIMD");
+}
+
+void CodeGenerator::visitWasmLoadLaneSimd128(LWasmLoadLaneSimd128* ins) {
+  MOZ_CRASH("No SIMD");
+}
+
+void CodeGenerator::visitWasmStoreLaneSimd128(LWasmStoreLaneSimd128* ins) {
   MOZ_CRASH("No SIMD");
 }

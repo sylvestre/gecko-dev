@@ -88,7 +88,7 @@ WebRenderUserData::WebRenderUserData(RenderRootStateManager* aManager,
 
 WebRenderUserData::~WebRenderUserData() = default;
 
-void WebRenderUserData::RemoveFromTable() { mTable->RemoveEntry(this); }
+void WebRenderUserData::RemoveFromTable() { mTable->Remove(this); }
 
 WebRenderBridgeChild* WebRenderUserData::WrBridge() const {
   return mManager->WrBridge();
@@ -422,8 +422,8 @@ WebRenderRemoteData::~WebRenderRemoteData() {
 }
 
 void DestroyWebRenderUserDataTable(WebRenderUserDataTable* aTable) {
-  for (auto iter = aTable->Iter(); !iter.Done(); iter.Next()) {
-    iter.UserData()->RemoveFromTable();
+  for (const auto& value : aTable->Values()) {
+    value->RemoveFromTable();
   }
   delete aTable;
 }

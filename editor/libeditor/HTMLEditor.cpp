@@ -69,7 +69,8 @@ namespace mozilla {
 using namespace dom;
 using namespace widget;
 
-using ChildBlockBoundary = HTMLEditUtils::ChildBlockBoundary;
+using LeafNodeType = HTMLEditUtils::LeafNodeType;
+using LeafNodeTypes = HTMLEditUtils::LeafNodeTypes;
 
 const char16_t kNBSP = 160;
 
@@ -2856,7 +2857,7 @@ already_AddRefed<Element> HTMLEditor::GetSelectedElement(const nsAtom* aTagName,
         return nullptr;
       }
       nsIContent* firstEditableLeaf = HTMLEditUtils::GetFirstLeafChild(
-          *nextSibling, ChildBlockBoundary::Ignore);
+          *nextSibling, {LeafNodeType::OnlyLeafNode});
       if (firstEditableLeaf &&
           firstEditableLeaf->IsHTMLElement(nsGkAtoms::br)) {
         return nullptr;
@@ -4252,22 +4253,31 @@ SplitNodeResult HTMLEditor::SplitNodeDeepWithTransaction(
 
   nsCOMPtr<nsIContent> newLeftNodeOfMostAncestor;
   EditorDOMPoint atStartOfRightNode(aStartOfDeepestRightNode);
+  SplitNodeResult lastSplitNodeResult(atStartOfRightNode);
   while (true) {
     // Need to insert rules code call here to do things like not split a list
     // if you are after the last <li> or before the first, etc.  For now we
     // just have some smarts about unneccessarily splitting text nodes, which
     // should be universal enough to put straight in this EditorBase routine.
-    if (NS_WARN_IF(!atStartOfRightNode.GetContainerAsContent())) {
+    nsIContent* currentRightNode = atStartOfRightNode.GetContainerAsContent();
+    if (NS_WARN_IF(!currentRightNode)) {
       return SplitNodeResult(NS_ERROR_FAILURE);
     }
     // If we meet an orphan node before meeting aMostAncestorToSplit, we need
     // to stop splitting.  This is a bug of the caller.
-    if (NS_WARN_IF(atStartOfRightNode.GetContainer() != &aMostAncestorToSplit &&
+    if (NS_WARN_IF(currentRightNode != &aMostAncestorToSplit &&
                    !atStartOfRightNode.GetContainerParentAsContent())) {
       return SplitNodeResult(NS_ERROR_FAILURE);
     }
-
-    nsIContent* currentRightNode = atStartOfRightNode.GetContainerAsContent();
+    // If the container is not splitable node such as comment node, atomic
+    // element, etc, we should keep it as-is, and try to split its parents.
+    if (!HTMLEditUtils::IsSplittableNode(*currentRightNode)) {
+      if (currentRightNode == &aMostAncestorToSplit) {
+        return lastSplitNodeResult;
+      }
+      atStartOfRightNode.Set(currentRightNode);
+      continue;
+    }
 
     // If the split point is middle of the node or the node is not a text node
     // and we're allowed to create empty element node, split it.
@@ -4283,9 +4293,10 @@ SplitNodeResult HTMLEditor::SplitNodeDeepWithTransaction(
         return SplitNodeResult(error.StealNSResult());
       }
 
+      lastSplitNodeResult = SplitNodeResult(newLeftNode, currentRightNode);
       if (currentRightNode == &aMostAncestorToSplit) {
         // Actually, we split aMostAncestorToSplit.
-        return SplitNodeResult(newLeftNode, &aMostAncestorToSplit);
+        return lastSplitNodeResult;
       }
 
       // Then, try to split its parent before current node.
@@ -4294,8 +4305,9 @@ SplitNodeResult HTMLEditor::SplitNodeDeepWithTransaction(
     // If the split point is end of the node and it is a text node or we're not
     // allowed to create empty container node, try to split its parent after it.
     else if (!atStartOfRightNode.IsStartOfContainer()) {
+      lastSplitNodeResult = SplitNodeResult(currentRightNode, nullptr);
       if (currentRightNode == &aMostAncestorToSplit) {
-        return SplitNodeResult(&aMostAncestorToSplit, nullptr);
+        return lastSplitNodeResult;
       }
 
       // Try to split its parent after current node.
@@ -4307,11 +4319,13 @@ SplitNodeResult HTMLEditor::SplitNodeDeepWithTransaction(
     // If the split point is start of the node and it is a text node or we're
     // not allowed to create empty container node, try to split its parent.
     else {
+      lastSplitNodeResult = SplitNodeResult(nullptr, currentRightNode);
       if (currentRightNode == &aMostAncestorToSplit) {
-        return SplitNodeResult(nullptr, &aMostAncestorToSplit);
+        return lastSplitNodeResult;
       }
 
       // Try to split its parent before current node.
+      lastSplitNodeResult = SplitNodeResult(atStartOfRightNode);
       atStartOfRightNode.Set(currentRightNode);
     }
   }
@@ -5103,7 +5117,7 @@ nsIContent* HTMLEditor::GetLastEditableChild(nsINode& aNode) const {
 
 nsIContent* HTMLEditor::GetFirstEditableLeaf(nsINode& aNode) const {
   nsIContent* child =
-      HTMLEditUtils::GetFirstLeafChild(aNode, ChildBlockBoundary::Ignore);
+      HTMLEditUtils::GetFirstLeafChild(aNode, {LeafNodeType::OnlyLeafNode});
   while (child && (!EditorUtils::IsEditableContent(*child, EditorType::HTML) ||
                    child->HasChildren())) {
     child = GetNextEditableHTMLNode(*child);
@@ -5119,7 +5133,7 @@ nsIContent* HTMLEditor::GetFirstEditableLeaf(nsINode& aNode) const {
 
 nsIContent* HTMLEditor::GetLastEditableLeaf(nsINode& aNode) const {
   nsIContent* child =
-      HTMLEditUtils::GetLastLeafChild(aNode, ChildBlockBoundary::Ignore);
+      HTMLEditUtils::GetLastLeafChild(aNode, {LeafNodeType::OnlyLeafNode});
   while (child && (!EditorUtils::IsEditableContent(*child, EditorType::HTML) ||
                    child->HasChildren())) {
     child = GetPreviousEditableHTMLNode(*child);
@@ -6104,7 +6118,9 @@ bool HTMLEditor::IsActiveInDOMWindow() const {
   return true;
 }
 
-Element* HTMLEditor::GetActiveEditingHost() const {
+Element* HTMLEditor::GetActiveEditingHost(
+    LimitInBodyElement aLimitInBodyElement /* = LimitInBodyElement::Yes */)
+    const {
   Document* document = GetDocument();
   if (NS_WARN_IF(!document)) {
     return nullptr;
@@ -6131,7 +6147,17 @@ Element* HTMLEditor::GetActiveEditingHost() const {
       content->HasIndependentSelection()) {
     return nullptr;
   }
-  return content->GetEditingHost();
+  Element* candidateEditingHost = content->GetEditingHost();
+  if (!candidateEditingHost) {
+    return nullptr;
+  }
+  // Currently, we don't support editing outside of `<body>` element.
+  return aLimitInBodyElement != LimitInBodyElement::Yes ||
+                 (document->GetBodyElement() &&
+                  nsContentUtils::ContentIsFlattenedTreeDescendantOf(
+                      candidateEditingHost, document->GetBodyElement()))
+             ? candidateEditingHost
+             : document->GetBodyElement();
 }
 
 void HTMLEditor::NotifyEditingHostMaybeChanged() {
@@ -6394,7 +6420,7 @@ nsresult HTMLEditor::GetPreferredIMEState(IMEState* aState) {
 }
 
 already_AddRefed<Element> HTMLEditor::GetInputEventTargetElement() const {
-  RefPtr<Element> target = GetActiveEditingHost();
+  RefPtr<Element> target = GetActiveEditingHost(LimitInBodyElement::No);
   if (target) {
     return target.forget();
   }

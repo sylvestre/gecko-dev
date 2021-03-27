@@ -9,6 +9,7 @@
 #include "mozilla/Attributes.h"
 #include "mozilla/EditorDOMPoint.h"
 #include "mozilla/EditorUtils.h"
+#include "mozilla/EnumSet.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/dom/AbstractRange.h"
 #include "mozilla/dom/AncestorIterator.h"
@@ -206,6 +207,19 @@ class HTMLEditUtils final {
   }
 
   /**
+   * IsSplittableNode() returns true if aContent can split.
+   */
+  static bool IsSplittableNode(const nsIContent& aContent) {
+    if (aContent.IsElement()) {
+      // XXX Perhaps, instead of using container, we should have "splittable"
+      //     information in the DB.  E.g., `<template>`, `<script>` elements
+      //     can have children, but shouldn't be split.
+      return HTMLEditUtils::IsContainerNode(aContent);
+    }
+    return aContent.IsText() && aContent.Length() > 0;
+  }
+
+  /**
    * See execCommand spec:
    * https://w3c.github.io/editing/execCommand.html#non-list-single-line-container
    * https://w3c.github.io/editing/execCommand.html#single-line-container
@@ -294,24 +308,32 @@ class HTMLEditUtils final {
 
   /**
    * GetLastLeafChild() returns rightmost leaf content in aNode.  It depends on
-   * aChildBlockBoundary whether this scans into a block child or treat
-   * block as a leaf.
+   * aLeafNodeTypes whether this which types of nodes are treated as leaf nodes.
    */
-  enum class ChildBlockBoundary {
+  enum class LeafNodeType {
     // Even if there is a child block, keep scanning a leaf content in it.
-    Ignore,
-    // If there is a child block, return it.
-    TreatAsLeaf,
+    OnlyLeafNode,
+    // If there is a child block, return it too.  Note that this does not
+    // mean that block siblings are not treated as leaf nodes.
+    LeafNodeOrChildBlock,
+    // If there is a non-editable element if and only if scanning from editable
+    // node, return it too.
+    LeafNodeOrNonEditableNode,
   };
+  using LeafNodeTypes = EnumSet<LeafNodeType>;
   static nsIContent* GetLastLeafChild(nsINode& aNode,
-                                      ChildBlockBoundary aChildBlockBoundary) {
+                                      const LeafNodeTypes& aLeafNodeTypes) {
     for (nsIContent* content = aNode.GetLastChild(); content;
          content = content->GetLastChild()) {
-      if (aChildBlockBoundary == ChildBlockBoundary::TreatAsLeaf &&
+      if (aLeafNodeTypes.contains(LeafNodeType::LeafNodeOrChildBlock) &&
           HTMLEditUtils::IsBlockElement(*content)) {
         return content;
       }
       if (!content->HasChildren()) {
+        return content;
+      }
+      if (aLeafNodeTypes.contains(LeafNodeType::LeafNodeOrNonEditableNode) &&
+          aNode.IsEditable() && !content->IsEditable()) {
         return content;
       }
     }
@@ -320,18 +342,22 @@ class HTMLEditUtils final {
 
   /**
    * GetFirstLeafChild() returns leftmost leaf content in aNode.  It depends on
-   * aChildBlockBoundary whether this scans into a block child or treat
+   * aLeafNodeTypes whether this scans into a block child or treat
    * block as a leaf.
    */
   static nsIContent* GetFirstLeafChild(nsINode& aNode,
-                                       ChildBlockBoundary aChildBlockBoundary) {
+                                       const LeafNodeTypes& aLeafNodeTypes) {
     for (nsIContent* content = aNode.GetFirstChild(); content;
          content = content->GetFirstChild()) {
-      if (aChildBlockBoundary == ChildBlockBoundary::TreatAsLeaf &&
+      if (aLeafNodeTypes.contains(LeafNodeType::LeafNodeOrChildBlock) &&
           HTMLEditUtils::IsBlockElement(*content)) {
         return content;
       }
       if (!content->HasChildren()) {
+        return content;
+      }
+      if (aLeafNodeTypes.contains(LeafNodeType::LeafNodeOrNonEditableNode) &&
+          aNode.IsEditable() && !content->IsEditable()) {
         return content;
       }
     }
@@ -348,12 +374,14 @@ class HTMLEditUtils final {
    * @param aCurrentBlock       Must be ancestor of aStartContent.  Dispite
    *                            the name, inline content is allowed if
    *                            aStartContent is in an inline editing host.
+   * @param aLeafNodeTypes      See LeafNodeType.
    * @param aAncestorLimiter    Optional, setting this guarantees the
    *                            result is in aAncestorLimiter unless
    *                            aStartContent is not a descendant of this.
    */
   static nsIContent* GetNextLeafContentOrNextBlockElement(
       const nsIContent& aStartContent, const nsIContent& aCurrentBlock,
+      const LeafNodeTypes& aLeafNodeTypes,
       const Element* aAncestorLimiter = nullptr) {
     if (&aStartContent == aAncestorLimiter) {
       return nullptr;
@@ -389,10 +417,14 @@ class HTMLEditUtils final {
     if (HTMLEditUtils::IsBlockElement(*nextContent)) {
       return nextContent;
     }
+    if (aLeafNodeTypes.contains(LeafNodeType::LeafNodeOrNonEditableNode) &&
+        aStartContent.IsEditable() && !nextContent->IsEditable()) {
+      return nextContent;
+    }
     if (HTMLEditUtils::IsContainerNode(*nextContent)) {
       // Else if it's a container, get deep leftmost child
-      if (nsIContent* child = HTMLEditUtils::GetFirstLeafChild(
-              *nextContent, ChildBlockBoundary::Ignore)) {
+      if (nsIContent* child =
+              HTMLEditUtils::GetFirstLeafChild(*nextContent, aLeafNodeTypes)) {
         return child;
       }
     }
@@ -407,7 +439,7 @@ class HTMLEditUtils final {
   template <typename PT, typename CT>
   static nsIContent* GetNextLeafContentOrNextBlockElement(
       const EditorDOMPointBase<PT, CT>& aStartPoint,
-      const nsIContent& aCurrentBlock,
+      const nsIContent& aCurrentBlock, const LeafNodeTypes& aLeafNodeTypes,
       const Element* aAncestorLimiter = nullptr) {
     MOZ_ASSERT(aStartPoint.IsSet());
 
@@ -416,11 +448,13 @@ class HTMLEditUtils final {
     }
     if (aStartPoint.IsInTextNode()) {
       return HTMLEditUtils::GetNextLeafContentOrNextBlockElement(
-          *aStartPoint.ContainerAsText(), aCurrentBlock, aAncestorLimiter);
+          *aStartPoint.ContainerAsText(), aCurrentBlock, aLeafNodeTypes,
+          aAncestorLimiter);
     }
     if (!HTMLEditUtils::IsContainerNode(*aStartPoint.ContainerAsContent())) {
       return HTMLEditUtils::GetNextLeafContentOrNextBlockElement(
-          *aStartPoint.ContainerAsContent(), aCurrentBlock, aAncestorLimiter);
+          *aStartPoint.ContainerAsContent(), aCurrentBlock, aLeafNodeTypes,
+          aAncestorLimiter);
     }
 
     nsCOMPtr<nsIContent> nextContent = aStartPoint.GetChild();
@@ -432,17 +466,23 @@ class HTMLEditUtils final {
 
       // We are at end of non-block container
       return HTMLEditUtils::GetNextLeafContentOrNextBlockElement(
-          *aStartPoint.ContainerAsContent(), aCurrentBlock, aAncestorLimiter);
+          *aStartPoint.ContainerAsContent(), aCurrentBlock, aLeafNodeTypes,
+          aAncestorLimiter);
     }
 
     // We have a next node.  If it's a block, return it.
     if (HTMLEditUtils::IsBlockElement(*nextContent)) {
       return nextContent;
     }
+    if (aLeafNodeTypes.contains(LeafNodeType::LeafNodeOrNonEditableNode) &&
+        aStartPoint.GetContainer()->IsEditable() &&
+        !nextContent->IsEditable()) {
+      return nextContent;
+    }
     if (HTMLEditUtils::IsContainerNode(*nextContent)) {
       // else if it's a container, get deep leftmost child
-      if (nsIContent* child = HTMLEditUtils::GetFirstLeafChild(
-              *nextContent, ChildBlockBoundary::Ignore)) {
+      if (nsIContent* child =
+              HTMLEditUtils::GetFirstLeafChild(*nextContent, aLeafNodeTypes)) {
         return child;
       }
     }
@@ -461,12 +501,14 @@ class HTMLEditUtils final {
    * @param aCurrentBlock       Must be ancestor of aStartContent.  Dispite
    *                            the name, inline content is allowed if
    *                            aStartContent is in an inline editing host.
+   * @param aLeafNodeTypes      See LeafNodeType.
    * @param aAncestorLimiter    Optional, setting this guarantees the
    *                            result is in aAncestorLimiter unless
    *                            aStartContent is not a descendant of this.
    */
   static nsIContent* GetPreviousLeafContentOrPreviousBlockElement(
       const nsIContent& aStartContent, const nsIContent& aCurrentBlock,
+      const LeafNodeTypes& aLeafNodeTypes,
       const Element* aAncestorLimiter = nullptr) {
     if (&aStartContent == aAncestorLimiter) {
       return nullptr;
@@ -502,10 +544,14 @@ class HTMLEditUtils final {
     if (HTMLEditUtils::IsBlockElement(*previousContent)) {
       return previousContent;
     }
+    if (aLeafNodeTypes.contains(LeafNodeType::LeafNodeOrNonEditableNode) &&
+        aStartContent.IsEditable() && !previousContent->IsEditable()) {
+      return previousContent;
+    }
     if (HTMLEditUtils::IsContainerNode(*previousContent)) {
       // Else if it's a container, get deep rightmost child
-      if (nsIContent* child = HTMLEditUtils::GetLastLeafChild(
-              *previousContent, ChildBlockBoundary::Ignore)) {
+      if (nsIContent* child = HTMLEditUtils::GetLastLeafChild(*previousContent,
+                                                              aLeafNodeTypes)) {
         return child;
       }
     }
@@ -520,7 +566,7 @@ class HTMLEditUtils final {
   template <typename PT, typename CT>
   static nsIContent* GetPreviousLeafContentOrPreviousBlockElement(
       const EditorDOMPointBase<PT, CT>& aStartPoint,
-      const nsIContent& aCurrentBlock,
+      const nsIContent& aCurrentBlock, const LeafNodeTypes& aLeafNodeTypes,
       const Element* aAncestorLimiter = nullptr) {
     MOZ_ASSERT(aStartPoint.IsSet());
 
@@ -529,11 +575,13 @@ class HTMLEditUtils final {
     }
     if (aStartPoint.IsInTextNode()) {
       return HTMLEditUtils::GetPreviousLeafContentOrPreviousBlockElement(
-          *aStartPoint.ContainerAsText(), aCurrentBlock, aAncestorLimiter);
+          *aStartPoint.ContainerAsText(), aCurrentBlock, aLeafNodeTypes,
+          aAncestorLimiter);
     }
     if (!HTMLEditUtils::IsContainerNode(*aStartPoint.ContainerAsContent())) {
       return HTMLEditUtils::GetPreviousLeafContentOrPreviousBlockElement(
-          *aStartPoint.ContainerAsContent(), aCurrentBlock, aAncestorLimiter);
+          *aStartPoint.ContainerAsContent(), aCurrentBlock, aLeafNodeTypes,
+          aAncestorLimiter);
     }
 
     if (aStartPoint.IsStartOfContainer()) {
@@ -544,7 +592,8 @@ class HTMLEditUtils final {
 
       // We are at start of non-block container
       return HTMLEditUtils::GetPreviousLeafContentOrPreviousBlockElement(
-          *aStartPoint.ContainerAsContent(), aCurrentBlock, aAncestorLimiter);
+          *aStartPoint.ContainerAsContent(), aCurrentBlock, aLeafNodeTypes,
+          aAncestorLimiter);
     }
 
     nsCOMPtr<nsIContent> previousContent =
@@ -557,10 +606,15 @@ class HTMLEditUtils final {
     if (HTMLEditUtils::IsBlockElement(*previousContent)) {
       return previousContent;
     }
+    if (aLeafNodeTypes.contains(LeafNodeType::LeafNodeOrNonEditableNode) &&
+        aStartPoint.GetContainer()->IsEditable() &&
+        !previousContent->IsEditable()) {
+      return previousContent;
+    }
     if (HTMLEditUtils::IsContainerNode(*previousContent)) {
       // Else if it's a container, get deep rightmost child
-      if (nsIContent* child = HTMLEditUtils::GetLastLeafChild(
-              *previousContent, ChildBlockBoundary::Ignore)) {
+      if (nsIContent* child = HTMLEditUtils::GetLastLeafChild(*previousContent,
+                                                              aLeafNodeTypes)) {
         return child;
       }
     }

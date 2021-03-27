@@ -17,7 +17,7 @@
 #include "nsISupports.h"
 #include "nsIURI.h"
 #include "nsClassHashtable.h"
-#include "nsDataHashtable.h"
+#include "nsTHashMap.h"
 #include "jsapi.h"
 
 #include "xpcIJSGetFactory.h"
@@ -73,14 +73,6 @@ class mozJSComponentLoader final : public nsIMemoryReporter {
   bool IsLoaderGlobal(JSObject* aObj) { return mLoaderGlobal == aObj; }
 
   size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf);
-
-  /**
-   * Temporary diagnostic function for startup crashes in bug 1403348:
-   *
-   * Annotate the crash report with the contents of the async shutdown
-   * module/component scripts.
-   */
-  nsresult AnnotateCrashReport();
 
  protected:
   mozJSComponentLoader();
@@ -179,10 +171,10 @@ class mozJSComponentLoader final : public nsIMemoryReporter {
                           ModuleEntry* aMod, JS::MutableHandleObject aExports);
 
   // Modules are intentionally leaked, but still cleared.
-  nsDataHashtable<nsCStringHashKey, ModuleEntry*> mModules;
+  nsTHashMap<nsCStringHashKey, ModuleEntry*> mModules;
 
   nsClassHashtable<nsCStringHashKey, ModuleEntry> mImports;
-  nsDataHashtable<nsCStringHashKey, ModuleEntry*> mInProgressImports;
+  nsTHashMap<nsCStringHashKey, ModuleEntry*> mInProgressImports;
 
   // A map of on-disk file locations which are loaded as modules to the
   // pre-resolved URIs they were loaded from. Used to prevent the same file

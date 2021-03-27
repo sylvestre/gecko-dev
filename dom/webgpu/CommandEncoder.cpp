@@ -60,12 +60,12 @@ void CommandEncoder::ConvertExtent3DToFFI(const dom::GPUExtent3D& aExtent,
     const auto& seq = aExtent.GetAsRangeEnforcedUnsignedLongSequence();
     aExtentFFI->width = seq.Length() > 0 ? seq[0] : 0;
     aExtentFFI->height = seq.Length() > 1 ? seq[1] : 0;
-    aExtentFFI->depth = seq.Length() > 2 ? seq[2] : 0;
+    aExtentFFI->depth_or_array_layers = seq.Length() > 2 ? seq[2] : 0;
   } else if (aExtent.IsGPUExtent3DDict()) {
     const auto& dict = aExtent.GetAsGPUExtent3DDict();
     aExtentFFI->width = dict.mWidth;
     aExtentFFI->height = dict.mHeight;
-    aExtentFFI->depth = dict.mDepth;
+    aExtentFFI->depth_or_array_layers = dict.mDepthOrArrayLayers;
   } else {
     MOZ_CRASH("Unexptected extent type");
   }
@@ -168,7 +168,7 @@ already_AddRefed<ComputePassEncoder> CommandEncoder::BeginComputePass(
 already_AddRefed<RenderPassEncoder> CommandEncoder::BeginRenderPass(
     const dom::GPURenderPassDescriptor& aDesc) {
   for (const auto& at : aDesc.mColorAttachments) {
-    auto* targetCanvasElement = at.mAttachment->GetTargetCanvasElement();
+    auto* targetCanvasElement = at.mView->GetTargetCanvasElement();
     if (targetCanvasElement) {
       if (mTargetCanvasElement) {
         NS_WARNING("Command encoder touches more than one canvas");

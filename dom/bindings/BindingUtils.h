@@ -46,11 +46,6 @@
 
 #include "nsWrapperCacheInlines.h"
 
-// XXX(Bug 1674080) Remove this and let Codegen.py generate it instead when
-// needed.
-#include "mozilla/BasePrincipal.h"
-#include "nsJSPrincipals.h"
-
 class nsGlobalWindowInner;
 class nsGlobalWindowOuter;
 class nsIInterfaceRequestor;
@@ -94,7 +89,7 @@ inline bool IsDOMClass(const JSClass* clasp) {
 
 // Return true if the JSClass is used for non-proxy DOM objects.
 inline bool IsNonProxyDOMClass(const JSClass* clasp) {
-  return IsDOMClass(clasp) && !clasp->isProxy();
+  return IsDOMClass(clasp) && clasp->isNativeObject();
 }
 
 // Returns true if the JSClass is used for DOM interface and interface
@@ -1856,9 +1851,9 @@ static inline bool ConvertJSValueToString(
   return ConvertJSValueToString(cx, v, eStringify, eStringify, result);
 }
 
-MOZ_MUST_USE bool NormalizeUSVString(nsAString& aString);
+[[nodiscard]] bool NormalizeUSVString(nsAString& aString);
 
-MOZ_MUST_USE bool NormalizeUSVString(
+[[nodiscard]] bool NormalizeUSVString(
     binding_detail::FakeString<char16_t>& aString);
 
 template <typename T>
@@ -2893,7 +2888,7 @@ bool CreateGlobal(JSContext* aCx, T* aNative, nsWrapperCache* aCache,
   }
 
   JS::Handle<JSObject*> proto = GetProto(aCx);
-  if (!proto || !JS_SplicePrototype(aCx, aGlobal, proto)) {
+  if (!proto || !JS_SetPrototype(aCx, aGlobal, proto)) {
     NS_WARNING("Failed to set proto");
     return false;
   }
@@ -3129,7 +3124,6 @@ namespace binding_detail {
 // reviewed by someone who is sufficiently devious and has a very good
 // understanding of all the code that will run while we're using the return
 // value, including the SpiderMonkey parts.
-JSObject* UnprivilegedJunkScopeOrWorkerGlobal();
 JSObject* UnprivilegedJunkScopeOrWorkerGlobal(const fallible_t&);
 
 // Implementation of the [HTMLConstructor] extended attribute.

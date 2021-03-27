@@ -577,29 +577,76 @@ struct ParamTraits<nsEventStatus>
                                       nsEventStatus_eSentinel> {};
 
 template <>
-struct ParamTraits<mozilla::layers::APZHandledResult>
+struct ParamTraits<mozilla::layers::APZHandledPlace>
     : public ContiguousEnumSerializer<
-          mozilla::layers::APZHandledResult,
-          mozilla::layers::APZHandledResult::Unhandled,
-          mozilla::layers::APZHandledResult::Last> {};
+          mozilla::layers::APZHandledPlace,
+          mozilla::layers::APZHandledPlace::Unhandled,
+          mozilla::layers::APZHandledPlace::Last> {};
+
+template <>
+struct ParamTraits<mozilla::layers::ScrollDirections> {
+  typedef mozilla::layers::ScrollDirections paramType;
+
+  static void Write(Message* aMsg, const paramType& aParam) {
+    WriteParam(aMsg, aParam.serialize());
+  }
+
+  static bool Read(const Message* aMsg, PickleIterator* aIter,
+                   paramType* aResult) {
+    uint8_t value;
+    if (!ReadParam(aMsg, aIter, &value)) {
+      return false;
+    }
+    aResult->deserialize(value);
+    return true;
+  }
+};
+
+template <>
+struct ParamTraits<mozilla::layers::APZHandledResult> {
+  typedef mozilla::layers::APZHandledResult paramType;
+
+  static void Write(Message* aMsg, const paramType& aParam) {
+    WriteParam(aMsg, aParam.mPlace);
+    WriteParam(aMsg, aParam.mScrollableDirections);
+    WriteParam(aMsg, aParam.mOverscrollDirections);
+  }
+
+  static bool Read(const Message* aMsg, PickleIterator* aIter,
+                   paramType* aResult) {
+    return (ReadParam(aMsg, aIter, &aResult->mPlace) &&
+            ReadParam(aMsg, aIter, &aResult->mScrollableDirections) &&
+            ReadParam(aMsg, aIter, &aResult->mOverscrollDirections));
+  }
+};
 
 template <>
 struct ParamTraits<mozilla::layers::APZEventResult> {
   typedef mozilla::layers::APZEventResult paramType;
 
   static void Write(Message* aMsg, const paramType& aParam) {
-    WriteParam(aMsg, aParam.mStatus);
+    WriteParam(aMsg, aParam.GetStatus());
+    WriteParam(aMsg, aParam.GetHandledResult());
     WriteParam(aMsg, aParam.mTargetGuid);
     WriteParam(aMsg, aParam.mInputBlockId);
-    WriteParam(aMsg, aParam.mHandledResult);
   }
 
   static bool Read(const Message* aMsg, PickleIterator* aIter,
                    paramType* aResult) {
-    return (ReadParam(aMsg, aIter, &aResult->mStatus) &&
-            ReadParam(aMsg, aIter, &aResult->mTargetGuid) &&
-            ReadParam(aMsg, aIter, &aResult->mInputBlockId) &&
-            ReadParam(aMsg, aIter, &aResult->mHandledResult));
+    nsEventStatus status;
+    if (!ReadParam(aMsg, aIter, &status)) {
+      return false;
+    }
+    aResult->UpdateStatus(status);
+
+    mozilla::Maybe<mozilla::layers::APZHandledResult> handledResult;
+    if (!ReadParam(aMsg, aIter, &handledResult)) {
+      return false;
+    }
+    aResult->UpdateHandledResult(handledResult);
+
+    return (ReadParam(aMsg, aIter, &aResult->mTargetGuid) &&
+            ReadParam(aMsg, aIter, &aResult->mInputBlockId));
   }
 };
 
@@ -810,6 +857,9 @@ struct ParamTraits<mozilla::layers::CompositorOptions> {
   static void Write(Message* aMsg, const paramType& aParam) {
     WriteParam(aMsg, aParam.mUseAPZ);
     WriteParam(aMsg, aParam.mUseWebRender);
+    WriteParam(aMsg, aParam.mUseSoftwareWebRender);
+    WriteParam(aMsg, aParam.mAllowSoftwareWebRenderD3D11);
+    WriteParam(aMsg, aParam.mAllowSoftwareWebRenderOGL);
     WriteParam(aMsg, aParam.mUseAdvancedLayers);
     WriteParam(aMsg, aParam.mInitiallyPaused);
   }
@@ -818,6 +868,9 @@ struct ParamTraits<mozilla::layers::CompositorOptions> {
                    paramType* aResult) {
     return ReadParam(aMsg, aIter, &aResult->mUseAPZ) &&
            ReadParam(aMsg, aIter, &aResult->mUseWebRender) &&
+           ReadParam(aMsg, aIter, &aResult->mUseSoftwareWebRender) &&
+           ReadParam(aMsg, aIter, &aResult->mAllowSoftwareWebRenderD3D11) &&
+           ReadParam(aMsg, aIter, &aResult->mAllowSoftwareWebRenderOGL) &&
            ReadParam(aMsg, aIter, &aResult->mUseAdvancedLayers) &&
            ReadParam(aMsg, aIter, &aResult->mInitiallyPaused);
   }

@@ -18,6 +18,7 @@
 #include "mozilla/TextEditor.h"
 #include "mozilla/StaticPrefs_html5.h"
 #include "mozilla/StaticPrefs_layout.h"
+#include "mozilla/StaticPrefs_accessibility.h"
 
 #include "nscore.h"
 #include "nsGenericHTMLElement.h"
@@ -247,7 +248,7 @@ static OffsetResult GetUnretargetedOffsetsFor(const Element& aElement) {
     parent = frame;
   } else {
     const bool isPositioned = styleFrame->IsAbsPosContainingBlock();
-    const bool isAbsolutelyPositioned = styleFrame->IsAbsolutelyPositioned();
+    const bool isAbsolutelyPositioned = frame->IsAbsolutelyPositioned();
     origin += frame->GetPositionIgnoringScrolling();
 
     for (; parent; parent = parent->GetParent()) {
@@ -1334,6 +1335,28 @@ void nsGenericHTMLElement::MapHeightAttributeInto(
   }
 }
 
+static void DoMapAspectRatio(const nsAttrValue& aWidth,
+                             const nsAttrValue& aHeight,
+                             MappedDeclarations& aDecls) {
+  Maybe<double> w;
+  if (aWidth.Type() == nsAttrValue::eInteger) {
+    w.emplace(aWidth.GetIntegerValue());
+  } else if (aWidth.Type() == nsAttrValue::eDoubleValue) {
+    w.emplace(aWidth.GetDoubleValue());
+  }
+
+  Maybe<double> h;
+  if (aHeight.Type() == nsAttrValue::eInteger) {
+    h.emplace(aHeight.GetIntegerValue());
+  } else if (aHeight.Type() == nsAttrValue::eDoubleValue) {
+    h.emplace(aHeight.GetDoubleValue());
+  }
+
+  if (w && h) {
+    aDecls.SetAspectRatio(*w, *h);
+  }
+}
+
 void nsGenericHTMLElement::MapImageSizeAttributesInto(
     const nsMappedAttributes* aAttributes, MappedDeclarations& aDecls,
     MapAspectRatio aMapAspectRatio) {
@@ -1345,25 +1368,17 @@ void nsGenericHTMLElement::MapImageSizeAttributesInto(
   if (height) {
     MapDimensionAttributeInto(aDecls, eCSSProperty_height, *height);
   }
-  if (StaticPrefs::layout_css_width_and_height_map_to_aspect_ratio_enabled() &&
-      aMapAspectRatio == MapAspectRatio::Yes && width && height) {
-    Maybe<double> w;
-    if (width->Type() == nsAttrValue::eInteger) {
-      w.emplace(width->GetIntegerValue());
-    } else if (width->Type() == nsAttrValue::eDoubleValue) {
-      w.emplace(width->GetDoubleValue());
-    }
+  if (aMapAspectRatio == MapAspectRatio::Yes && width && height) {
+    DoMapAspectRatio(*width, *height, aDecls);
+  }
+}
 
-    Maybe<double> h;
-    if (height->Type() == nsAttrValue::eInteger) {
-      h.emplace(height->GetIntegerValue());
-    } else if (height->Type() == nsAttrValue::eDoubleValue) {
-      h.emplace(height->GetDoubleValue());
-    }
-
-    if (w && h && *w != 0 && *h != 0) {
-      aDecls.SetAspectRatio(*w, *h);
-    }
+void nsGenericHTMLElement::MapAspectRatioInto(
+    const nsMappedAttributes* aAttributes, MappedDeclarations& aDecls) {
+  auto* width = aAttributes->GetAttr(nsGkAtoms::width);
+  auto* height = aAttributes->GetAttr(nsGkAtoms::height);
+  if (width && height) {
+    DoMapAspectRatio(*width, *height, aDecls);
   }
 }
 
@@ -1587,6 +1602,21 @@ already_AddRefed<nsINodeList> nsGenericHTMLElement::Labels() {
 bool nsGenericHTMLElement::LegacyTouchAPIEnabled(JSContext* aCx,
                                                  JSObject* aGlobal) {
   return TouchEvent::LegacyAPIEnabled(aCx, aGlobal);
+}
+
+bool nsGenericHTMLElement::IsFormControlDefaultFocusable(
+    bool aWithMouse) const {
+  if (!aWithMouse) {
+    return true;
+  }
+  switch (StaticPrefs::accessibility_mouse_focuses_formcontrol()) {
+    case 0:
+      return false;
+    case 1:
+      return true;
+    default:
+      return !IsInChromeDocument();
+  }
 }
 
 //----------------------------------------------------------------------
@@ -1962,10 +1992,7 @@ bool nsGenericHTMLFormElement::IsHTMLFocusable(bool aWithMouse,
     return true;
   }
 
-#ifdef XP_MACOSX
-  *aIsFocusable = (!aWithMouse || nsFocusManager::sMouseFocusesFormControl) &&
-                  *aIsFocusable;
-#endif
+  *aIsFocusable = *aIsFocusable && IsFormControlDefaultFocusable(aWithMouse);
   return false;
 }
 
@@ -2378,29 +2405,6 @@ bool nsGenericHTMLElement::IsHTMLFocusable(bool aWithMouse, bool* aIsFocusable,
   return disallowOverridingFocusability;
 }
 
-void nsGenericHTMLElement::RegUnRegAccessKey(bool aDoReg) {
-  // first check to see if we have an access key
-  nsAutoString accessKey;
-  GetAttr(kNameSpaceID_None, nsGkAtoms::accesskey, accessKey);
-  if (accessKey.IsEmpty()) {
-    return;
-  }
-
-  // We have an access key, so get the ESM from the pres context.
-  nsPresContext* presContext = GetPresContext(eForUncomposedDoc);
-
-  if (presContext) {
-    EventStateManager* esm = presContext->EventStateManager();
-
-    // Register or unregister as appropriate.
-    if (aDoReg) {
-      esm->RegisterAccessKey(this, (uint32_t)accessKey.First());
-    } else {
-      esm->UnregisterAccessKey(this, (uint32_t)accessKey.First());
-    }
-  }
-}
-
 bool nsGenericHTMLElement::PerformAccesskey(bool aKeyCausesActivation,
                                             bool aIsTrustedEvent) {
   nsPresContext* presContext = GetPresContext(eForUncomposedDoc);
@@ -2414,11 +2418,8 @@ bool nsGenericHTMLElement::PerformAccesskey(bool aKeyCausesActivation,
     fm->SetFocus(this, nsIFocusManager::FLAG_BYKEY);
 
     // Return true if the element became the current focus within its window.
-    //
-    // FIXME(emilio): Shouldn't this check `window->GetFocusedElement() == this`
-    // based on the above comment?
     nsPIDOMWindowOuter* window = OwnerDoc()->GetWindow();
-    focused = window && window->GetFocusedElement();
+    focused = window && window->GetFocusedElement() == this;
   }
 
   if (aKeyCausesActivation) {

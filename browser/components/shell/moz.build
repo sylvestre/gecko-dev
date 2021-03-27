@@ -8,7 +8,6 @@
 LOCAL_INCLUDES += ["/xpcom/build"]
 
 BROWSER_CHROME_MANIFESTS += ["test/browser.ini"]
-MOCHITEST_CHROME_MANIFESTS += ["test/chrome.ini"]
 XPCSHELL_TESTS_MANIFESTS += ["test/unit/xpcshell.ini"]
 
 JAR_MANIFESTS += ["jar.mn"]
@@ -56,6 +55,9 @@ elif CONFIG["OS_ARCH"] == "WINNT":
     LOCAL_INCLUDES += [
         "../../../other-licenses/nsis/Contrib/CityHash/cityhash",
     ]
+    OS_LIBS += [
+        "propsys",
+    ]
 
 XPIDL_MODULE = "shellservice"
 
@@ -68,7 +70,7 @@ EXTRA_JS_MODULES += [
     "ShellService.jsm",
 ]
 
-for var in ("MOZ_APP_NAME", "MOZ_APP_VERSION"):
+for var in ("MOZ_APP_DISPLAYNAME", "MOZ_APP_NAME", "MOZ_APP_VERSION"):
     DEFINES[var] = '"%s"' % CONFIG[var]
 
 CXXFLAGS += CONFIG["TK_CFLAGS"]

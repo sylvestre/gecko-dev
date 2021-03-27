@@ -9,6 +9,14 @@
 
 const EXPORTED_SYMBOLS = ["LoginTestUtils"];
 
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+
+XPCOMUtils.defineLazyModuleGetters(this, {
+  RemoteSettings: "resource://services-settings/remote-settings.js",
+});
+
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 let { Assert: AssertCls } = ChromeUtils.import(
@@ -19,6 +27,8 @@ let Assert = AssertCls;
 const { TestUtils } = ChromeUtils.import(
   "resource://testing-common/TestUtils.jsm"
 );
+
+const { setTimeout } = ChromeUtils.import("resource://gre/modules/Timer.jsm");
 
 const { FileTestUtils } = ChromeUtils.import(
   "resource://testing-common/FileTestUtils.jsm"
@@ -571,6 +581,9 @@ LoginTestUtils.telemetry = {
     category = "pwmgr",
     method = undefined
   ) {
+    // The test is already unreliable (see bug 1627419 and 1605494) and relied on
+    // the implicit 100ms initial timer of waitForCondition that bug 1596165 removed.
+    await new Promise(resolve => setTimeout(resolve, 100));
     let events = await TestUtils.waitForCondition(() => {
       let events = Services.telemetry.snapshotEvents(
         Ci.nsITelemetry.DATASET_PRERELEASE_CHANNELS,
@@ -609,5 +622,29 @@ LoginTestUtils.file = {
       new TextEncoder().encode(csvLines.join("\r\n"))
     );
     return tmpFile;
+  },
+};
+
+LoginTestUtils.remoteSettings = {
+  relatedRealmsCollection: "websites-with-shared-credential-backends",
+  async setupWebsitesWithSharedCredentials(
+    relatedRealms = [["other-example.com", "example.com", "example.co.uk"]]
+  ) {
+    let db = await RemoteSettings(this.relatedRealmsCollection).db;
+    await db.clear();
+    await db.create({
+      id: "some-fake-ID-abc",
+      relatedRealms,
+    });
+    await db.importChanges({}, 1234567);
+  },
+  async cleanWebsitesWithSharedCredentials() {
+    let db = await RemoteSettings(this.relatedRealmsCollection).db;
+    await db.clear();
+    await db.importChanges({}, 1234);
+  },
+  async updateTimestamp() {
+    let db = await RemoteSettings(this.relatedRealmsCollection).db;
+    await db.importChanges({}, 12345678);
   },
 };

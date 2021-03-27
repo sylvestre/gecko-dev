@@ -46,6 +46,7 @@ linux64/opt:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
+            - linux64-sysroot
             - wasi-sysroot
 
 linux64-plain/opt:
@@ -84,6 +85,7 @@ linux64-plain/opt:
             - linux64-node
             - linux64-cbindgen
             - linux64-dump-syms
+            - linux64-sysroot
     optimization:
         skip-unless-expanded: null
 
@@ -102,7 +104,6 @@ linux64-fuzzing/debug:
     worker:
         max-run-time: 5400
         env:
-            MOZ_LOW_PARALLELISM_BUILD: '1'
             PERFHERDER_EXTRA_OPTIONS: fuzzing
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
@@ -131,6 +132,7 @@ linux64-fuzzing/debug:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
+            - linux64-sysroot
             - wasi-sysroot
     optimization:
         skip-unless-expanded: null
@@ -179,6 +181,7 @@ linux64/debug:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
+            - linux64-sysroot
             - wasi-sysroot
 
 linux64/codeql-cpp:
@@ -230,6 +233,7 @@ linux64/codeql-cpp:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
+            - linux64-sysroot
             - wasi-sysroot
     notifications:
         subject: '{task[shipping-product]} {release_config[version]} build{release_config[build_number]}/{config[params][project]} linux64 codeql-cpp status'
@@ -278,6 +282,7 @@ linux64-plain/debug:
             - linux64-node
             - linux64-cbindgen
             - linux64-dump-syms
+            - linux64-sysroot
     optimization:
         skip-unless-expanded: null
 
@@ -331,6 +336,7 @@ linux64-devedition/opt:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
+            - linux64-sysroot
             - wasi-sysroot
 
 linux/opt:
@@ -346,7 +352,6 @@ linux/opt:
         symbol: B
     worker-type: b-linux
     worker:
-        docker-image: {in-tree: debian8-i386-build}
         max-run-time: 7200
     run:
         using: mozharness
@@ -372,6 +377,7 @@ linux/opt:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
+            - linux32-sysroot
             - wasi-sysroot
 
 linux/debug:
@@ -386,7 +392,6 @@ linux/debug:
         symbol: B
     worker-type: b-linux
     worker:
-        docker-image: {in-tree: debian8-i386-build}
         max-run-time: 5400
     run:
         using: mozharness
@@ -414,6 +419,7 @@ linux/debug:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
+            - linux32-sysroot
             - wasi-sysroot
 
 linux-rusttests/opt:
@@ -427,7 +433,6 @@ linux-rusttests/opt:
         tier: 1
     worker-type: b-linux
     worker:
-        docker-image: {in-tree: debian8-i386-build}
         max-run-time: 2700
         env:
             PERFHERDER_EXTRA_OPTIONS: rusttests
@@ -456,6 +461,7 @@ linux-rusttests/opt:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
+            - linux32-sysroot
             - wasi-sysroot
     optimization:
         test-inclusive: [rusttests]
@@ -471,7 +477,6 @@ linux-rusttests/debug:
         tier: 1
     worker-type: b-linux
     worker:
-        docker-image: {in-tree: debian8-i386-build}
         max-run-time: 2700
         env:
             PERFHERDER_EXTRA_OPTIONS: rusttests
@@ -500,6 +505,7 @@ linux-rusttests/debug:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
+            - linux32-sysroot
             - wasi-sysroot
     optimization:
         test-inclusive: [rusttests]
@@ -521,7 +527,6 @@ linux-devedition/opt:
         symbol: B
     worker-type: b-linux
     worker:
-        docker-image: {in-tree: debian8-i386-build}
         max-run-time: 7200
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
@@ -551,6 +556,7 @@ linux-devedition/opt:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
+            - linux32-sysroot
             - wasi-sysroot
 
 linux-shippable/opt:
@@ -570,7 +576,6 @@ linux-shippable/opt:
         symbol: Bpgo(B)
     worker-type: b-linux
     worker:
-        docker-image: {in-tree: debian8-i386-build}
         max-run-time: 9000
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
@@ -597,6 +602,7 @@ linux-shippable/opt:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
+            - linux32-sysroot
             - wasi-sysroot
 
 linux-reproduced/opt:
@@ -612,7 +618,6 @@ linux-reproduced/opt:
         symbol: Bpgo(repr)
     worker-type: b-linux
     worker:
-        docker-image: {in-tree: debian8-i386-build}
         max-run-time: 9000
         env:
             PERFHERDER_EXTRA_OPTIONS: repr
@@ -641,6 +646,7 @@ linux-reproduced/opt:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
+            - linux32-sysroot
             - wasi-sysroot
 
 linux64-reproduced/opt:
@@ -684,6 +690,7 @@ linux64-reproduced/opt:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
+            - linux64-sysroot
             - wasi-sysroot
 
 linux64-asan/opt:
@@ -727,6 +734,7 @@ linux64-asan/opt:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
+            - linux64-sysroot
             - wasi-sysroot
 
 linux64-tsan/opt:
@@ -769,6 +777,7 @@ linux64-tsan/opt:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
+            - linux64-sysroot
             - wasi-sysroot
 
 linux64-tsan-fuzzing/opt:
@@ -814,6 +823,7 @@ linux64-tsan-fuzzing/opt:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
+            - linux64-sysroot
             - wasi-sysroot
     optimization:
         skip-unless-expanded: null
@@ -862,6 +872,7 @@ linux64-asan-fuzzing/opt:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
+            - linux64-sysroot
             - wasi-sysroot
     optimization:
         skip-unless-expanded: null
@@ -900,7 +911,10 @@ linux64-asan-fuzzing-ccov/opt:
     fetches:
         toolchain:
             - linux64-binutils
-            - linux64-clang
+            # For linux64-ccov only, start using the clang-12 toolchains ahead
+            # of general builds, due to bug 1692817. This can be reverted once
+            # clang-12 becomes the default (bug 1696917).
+            - linux64-clang-12
             - linux64-rust
             - linux64-rust-size
             - linux64-cbindgen
@@ -910,7 +924,8 @@ linux64-asan-fuzzing-ccov/opt:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
-            - wasi-sysroot
+            - linux64-sysroot
+            - wasi-sysroot-12
 
 linux64-fuzzing-ccov/opt:
     description: "Linux64 Fuzzing Opt w/ Coverage"
@@ -925,7 +940,6 @@ linux64-fuzzing-ccov/opt:
     worker:
         max-run-time: 5400
         env:
-            MOZ_LOW_PARALLELISM_BUILD: '1'
             PERFHERDER_EXTRA_OPTIONS: fuzzing-ccov
             ASAN_OPTIONS: "detect_leaks=0"
             RUSTC_BOOTSTRAP: '1'
@@ -944,7 +958,10 @@ linux64-fuzzing-ccov/opt:
     fetches:
         toolchain:
             - linux64-binutils
-            - linux64-clang
+            # For linux64-ccov only, start using the clang-12 toolchains ahead
+            # of general builds, due to bug 1692817. This can be reverted once
+            # clang-12 becomes the default (bug 1696917).
+            - linux64-clang-12
             - linux64-cbindgen
             - linux64-dump-syms
             - linux64-rust
@@ -953,7 +970,8 @@ linux64-fuzzing-ccov/opt:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
-            - wasi-sysroot
+            - linux64-sysroot
+            - wasi-sysroot-12
     optimization:
         skip-unless-expanded: null
 
@@ -1009,6 +1027,7 @@ linux64-asan-reporter-shippable/opt:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
+            - linux64-sysroot
             - wasi-sysroot
 
 linux64-asan/debug:
@@ -1051,6 +1070,7 @@ linux64-asan/debug:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
+            - linux64-sysroot
             - wasi-sysroot
     optimization:
         skip-unless-expanded: null
@@ -1102,6 +1122,7 @@ linux64-shippable/opt:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
+            - linux64-sysroot
             - wasi-sysroot
 
 linux64-noopt/debug:
@@ -1145,6 +1166,7 @@ linux64-noopt/debug:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
+            - linux64-sysroot
             - wasi-sysroot
 
 linux64-rusttests/opt:
@@ -1186,6 +1208,7 @@ linux64-rusttests/opt:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
+            - linux64-sysroot
             - wasi-sysroot
     optimization:
         test-inclusive: [rusttests]
@@ -1229,6 +1252,7 @@ linux64-rusttests/debug:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
+            - linux64-sysroot
             - wasi-sysroot
     optimization:
         test-inclusive: [rusttests]
@@ -1251,7 +1275,6 @@ linux64-ccov/opt:
               type: file
         max-run-time: 7200
         env:
-            MOZ_LOW_PARALLELISM_BUILD: '1'
             RUSTC_BOOTSTRAP: '1'
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
@@ -1270,7 +1293,10 @@ linux64-ccov/opt:
     fetches:
         toolchain:
             - linux64-binutils
-            - linux64-clang
+            # For linux64-ccov only, start using the clang-12 toolchains ahead
+            # of general builds, due to bug 1692817. This can be reverted once
+            # clang-12 becomes the default (bug 1696917).
+            - linux64-clang-12
             - linux64-rust
             - linux64-cbindgen
             - linux64-dump-syms
@@ -1279,7 +1305,54 @@ linux64-ccov/opt:
             - linux64-node
             - linux64-grcov
             - linux64-lucetc
-            - wasi-sysroot
+            - linux64-sysroot
+            - wasi-sysroot-12
+
+linux64-ccov/debug:
+    description: "Linux64-CCov Debug"
+    index:
+        product: firefox
+        job-name: linux64-ccov-debug
+    treeherder:
+        platform: linux64-ccov/debug
+        symbol: B
+        tier: 2
+    run-on-projects: []
+    worker-type: b-linux
+    worker:
+        max-run-time: 7200
+        env:
+            RUSTC_BOOTSTRAP: '1'
+    run:
+        using: mozharness
+        actions: [get-secrets, build]
+        config:
+            - builds/releng_base_firefox.py
+            - builds/releng_base_linux_64_builds.py
+        script: "mozharness/scripts/fx_desktop_build.py"
+        secrets: true
+        custom-build-variant-cfg: code-coverage-debug
+        mozconfig-variant: code-coverage-debug
+        tooltool-downloads: public
+        need-xvfb: true
+    use-sccache: true
+    fetches:
+        toolchain:
+            - linux64-binutils
+            # For linux64-ccov only, start using the clang-12 toolchains ahead
+            # of general builds, due to bug 1692817. This can be reverted once
+            # clang-12 becomes the default (bug 1696917).
+            - linux64-clang-12
+            - linux64-rust
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-sccache
+            - linux64-nasm
+            - linux64-node
+            - linux64-grcov
+            - linux64-lucetc
+            - linux64-sysroot
+            - wasi-sysroot-12
 
 linux64-add-on-devel/opt:
     description: "Linux64 add-on-devel"
@@ -1319,6 +1392,7 @@ linux64-add-on-devel/opt:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
+            - linux64-sysroot
             - wasi-sysroot
 
 linux64-aarch64/opt:
@@ -1334,7 +1408,6 @@ linux64-aarch64/opt:
         tier: 2
     worker-type: b-linux
     worker:
-        docker-image: {in-tree: debian10-arm64-build}
         max-run-time: 7200
     run:
         using: mozharness
@@ -1362,6 +1435,7 @@ linux64-aarch64/opt:
             - linux64-sccache
             - linux64-node
             - linux64-lucetc
+            - linux64-aarch64-sysroot
             - wasi-sysroot
     optimization:
         skip-unless-expanded: null
@@ -1379,7 +1453,6 @@ linux-gcp/debug:
         tier: 3
     worker-type: b-linux-gcp
     worker:
-        docker-image: {in-tree: debian8-i386-build}
         max-run-time: 5400
         env:
             PERFHERDER_EXTRA_OPTIONS: gcp
@@ -1409,6 +1482,7 @@ linux-gcp/debug:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
+            - linux32-sysroot
             - wasi-sysroot
     optimization:
         skip-unless-backstop: null
@@ -1426,7 +1500,6 @@ linux-gcp/opt:
         tier: 3
     worker-type: b-linux-gcp
     worker:
-        docker-image: {in-tree: debian8-i386-build}
         max-run-time: 7200
         env:
             PERFHERDER_EXTRA_OPTIONS: gcp
@@ -1454,6 +1527,7 @@ linux-gcp/opt:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
+            - linux32-sysroot
             - wasi-sysroot
 
 linux64-gcp/debug:
@@ -1497,6 +1571,7 @@ linux64-gcp/debug:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
+            - linux64-sysroot
             - wasi-sysroot
     optimization:
         skip-unless-backstop: null
@@ -1541,4 +1616,5 @@ linux64-gcp/opt:
             - linux64-nasm
             - linux64-node
             - linux64-lucetc
+            - linux64-sysroot
             - wasi-sysroot

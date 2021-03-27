@@ -10,6 +10,7 @@
 #include "nsNetUtil.h"
 
 #include "mozilla/Atomics.h"
+#include "mozilla/Components.h"
 #include "mozilla/Encoding.h"
 #include "mozilla/LoadContext.h"
 #include "mozilla/LoadInfo.h"
@@ -116,7 +117,7 @@ using mozilla::dom::ServiceWorkerDescriptor;
 #define MAX_RECURSION_COUNT 50
 
 already_AddRefed<nsIIOService> do_GetIOService(nsresult* error /* = 0 */) {
-  nsCOMPtr<nsIIOService> io = mozilla::services::GetIOService();
+  nsCOMPtr<nsIIOService> io = mozilla::components::IO::Service();
   if (error) *error = io ? NS_OK : NS_ERROR_FAILURE;
   return io.forget();
 }
@@ -1166,15 +1167,15 @@ nsresult NS_GetURLSpecFromDir(nsIFile* file, nsACString& url,
 void NS_GetReferrerFromChannel(nsIChannel* channel, nsIURI** referrer) {
   *referrer = nullptr;
 
-  nsCOMPtr<nsIPropertyBag2> props(do_QueryInterface(channel));
-  if (props) {
+  if (nsCOMPtr<nsIPropertyBag2> props = do_QueryInterface(channel)) {
     // We have to check for a property on a property bag because the
     // referrer may be empty for security reasons (for example, when loading
     // an http page with an https referrer).
-    nsresult rv = props->GetPropertyAsInterface(
-        u"docshell.internalReferrer"_ns, NS_GET_IID(nsIURI),
-        reinterpret_cast<void**>(referrer));
+    nsresult rv;
+    nsCOMPtr<nsIURI> uri(
+        do_GetProperty(props, u"docshell.internalReferrer"_ns, &rv));
     if (NS_SUCCEEDED(rv)) {
+      uri.forget(referrer);
       return;
     }
   }
@@ -1195,7 +1196,7 @@ void NS_GetReferrerFromChannel(nsIChannel* channel, nsIURI** referrer) {
 }
 
 already_AddRefed<nsINetUtil> do_GetNetUtil(nsresult* error /* = 0 */) {
-  nsCOMPtr<nsIIOService> io = mozilla::services::GetIOService();
+  nsCOMPtr<nsIIOService> io = mozilla::components::IO::Service();
   nsCOMPtr<nsINetUtil> util;
   if (io) util = do_QueryInterface(io);
 

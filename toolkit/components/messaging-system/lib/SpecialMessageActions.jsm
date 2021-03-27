@@ -80,6 +80,27 @@ const SpecialMessageActions = {
   },
 
   /**
+   * Pin Firefox to taskbar.
+   *
+   * @param {Window} window Reference to a window object
+   */
+  async pinFirefoxToTaskbar(window) {
+    try {
+      // Currently this only works on certain Windows versions.
+      const shell = window
+        .getShellService()
+        .QueryInterface(Ci.nsIWindowsShellService);
+
+      // Avoid re-pinning as that causes the taskbar icon to change.
+      if (!(await shell.isCurrentAppPinnedToTaskbarAsync())) {
+        shell.pinCurrentAppToTaskbar();
+      }
+    } catch (e) {
+      Cu.reportError(e);
+    }
+  },
+
+  /**
    *  Set browser as the operating system default browser.
    *
    *  @param {Window} window Reference to a window object
@@ -228,6 +249,13 @@ const SpecialMessageActions = {
           action.data.url,
           action.data.telemetrySource
         );
+        break;
+      case "PIN_FIREFOX_TO_TASKBAR":
+        this.pinFirefoxToTaskbar(window);
+        break;
+      case "PIN_AND_DEFAULT":
+        this.pinFirefoxToTaskbar(window);
+        this.setDefaultBrowser(window);
         break;
       case "SET_DEFAULT_BROWSER":
         this.setDefaultBrowser(window);

@@ -4,6 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 %endif
 
+%filter substitution
+%define tabIndicatorReplacesIcon :not([pinned], [sharing], [crashed]):is([soundplaying], [muted], [activemedia-blocked])
+
 :root {
   --tab-min-height: 33px;
   --inline-tab-padding: 9px;
@@ -12,10 +15,10 @@
 @supports -moz-bool-pref("browser.proton.tabs.enabled") {
 :root {
   --tab-min-height: 36px;
-  --proton-tab-radius: 4px;
-  --proton-shadow-blur-radius: 6px;
+  --tab-border-radius: 4px;
+  --tab-shadow-max-size: 6px;
   --proton-tab-block-margin: 4px;
-  --inline-tab-padding: 12.5px;
+  --inline-tab-padding: 8px;
 }
 } /*** END proton ***/
 
@@ -70,7 +73,7 @@
   /* Add padding to match the shadow's blur radius so the
     shadow doesn't get clipped when either the first or
     last tab is selected */
-  padding-inline: var(--proton-shadow-blur-radius);
+  padding-inline: var(--tab-shadow-max-size);
 }
 } /*** END proton ***/
 
@@ -100,24 +103,23 @@
 
 @supports -moz-bool-pref("browser.proton.tabs.enabled") {
 .tabbrowser-tab {
-  border-radius: var(--proton-tab-radius);
   min-height: var(--tab-min-height);
-  margin-inline: 2px !important;
+  padding-inline: 2px !important;
 }
 
 .tabbrowser-tab[first-visible-tab] {
-  margin-inline-start: 0 !important;
+  padding-inline-start: var(--tab-shadow-max-size) !important;
 }
 
-.tabbrowser-tab[last-visible-tab] {
-  margin-inline-end: 0 !important;
+#tabbrowser-arrowscrollbox[overflowing][scrolledtoend] .tabbrowser-tab[last-visible-tab] {
+  padding-inline-end: var(--tab-shadow-max-size) !important;
 }
 
 /* tabbrowser-tab keyboard focus */
 .keyboard-focused-tab > .tab-stack > .tab-background,
 .tabbrowser-tab:focus:not([aria-activedescendant]) > .tab-stack > .tab-background {
   outline: var(--focus-outline);
-  -moz-outline-radius: var(--proton-tab-radius);
+  -moz-outline-radius: var(--tab-border-radius);
   outline-offset: -2px;
 }
 } /*** END proton ***/
@@ -134,8 +136,15 @@
 }
 
 :root:not([uidensity=compact]) .tab-content[pinned] {
+  padding: 0 10px;
+}
+
+@supports not -moz-bool-pref("browser.proton.tabs.enabled") {
+:root:not([uidensity=compact]) .tab-content[pinned] {
   padding: 0 12px;
 }
+} /*** END !proton ***/
+
 
 @media (prefers-reduced-motion: no-preference) {
   :root[sessionrestored] .tab-loading-burst {
@@ -201,39 +210,40 @@
 }
 
 @supports not -moz-bool-pref("browser.proton.tabs.enabled") {
-.tab-throbber,
-.tab-icon-pending,
-.tab-icon-image,
+.tab-icon-stack,
 .tab-icon-sound,
-.tab-sharing-icon-overlay,
 .tab-close-button {
   margin-top: 1px;
 }
 } /*** END !proton ***/
 
-.tab-throbber,
+/* Width/height & margins apply on tab icon stack children */
 .tab-throbber-tabslist,
+.tab-throbber,
 .tab-icon-pending,
 .tab-icon-image,
-.tab-sharing-icon-overlay {
+.tab-sharing-icon-overlay,
+.tab-icon-overlay {
   height: 16px;
   width: 16px;
 }
 
 @supports not -moz-bool-pref("browser.proton.tabs.enabled") {
 .tab-throbber:not([pinned]),
-.tab-sharing-icon-overlay:not([pinned]),
 .tab-icon-pending:not([pinned]),
-.tab-icon-image:not([pinned]) {
+.tab-icon-image:not([pinned]),
+.tab-sharing-icon-overlay:not([pinned]),
+.tab-icon-overlay:not([pinned], [sharing]) {
   margin-inline-end: 6px;
 }
 } /*** END !proton ***/
 
 @supports -moz-bool-pref("browser.proton.tabs.enabled") {
 .tab-throbber:not([pinned]),
-.tab-sharing-icon-overlay:not([pinned]),
 .tab-icon-pending:not([pinned]),
-.tab-icon-image:not([pinned]) {
+.tab-icon-image:not([pinned]),
+.tab-sharing-icon-overlay:not([pinned]),
+.tab-icon-overlay:not([pinned]) {
   margin-inline-end: 5.5px;
 }
 } /*** END proton ***/
@@ -314,7 +324,7 @@
 }
 
 .tab-icon-image {
-  list-style-image: url("chrome://mozapps/skin/places/defaultFavicon.svg");
+  list-style-image: url("chrome://global/skin/icons/defaultFavicon.svg");
   -moz-context-properties: fill;
   fill: currentColor;
 }
@@ -338,15 +348,9 @@
 }
 
 .tab-sharing-icon-overlay {
-  /* 16px of the icon + 6px of margin-inline-end of .tab-icon-image */
-  margin-inline-start: -22px;
   position: relative;
   -moz-context-properties: fill;
   fill: rgb(224, 41, 29);
-}
-
-.tab-sharing-icon-overlay[pinned] {
-  margin-inline-start: -16px;
 }
 
 .tab-sharing-icon-overlay[sharing="camera"] {
@@ -364,44 +368,80 @@
 .tab-icon-overlay {
   width: 16px;
   height: 16px;
-  margin-top: -8px;
-  margin-inline: -15px -1px;
   position: relative;
 }
 
-.tab-icon-overlay[pinned] {
-  margin-inline: -6px -10px;
+.tab-icon-overlay:not([crashed]):is([pinned], [sharing]) {
+  top: -4.5px;
+  inset-inline-end: -9px;
+  z-index: 1; /* Overlay tab title */
 }
 
-.tab-icon-overlay[crashed] {
-  list-style-image: url("chrome://browser/skin/tabbrowser/crashed.svg");
+@supports not -moz-bool-pref("browser.proton.tabs.enabled") {
+.tab-icon-overlay[pictureinpicture] {
+  top: -4.5px;
+  inset-inline-end: -9px;
+  z-index: 1; /* Overlay tab title */
 }
+} /*** END !proton ***/
 
-.tab-icon-overlay[soundplaying],
+@supports -moz-bool-pref("browser.proton.tabs.enabled") {
+#toolbar-menubar:not(:hover) + #TabsToolbar:not(:hover) .tab-icon-overlay@tabIndicatorReplacesIcon@,
+:is(#toolbar-menubar:hover + #TabsToolbar, #TabsToolbar:hover) .tab-icon-stack@tabIndicatorReplacesIcon@ > :not(.tab-icon-overlay) {
+  opacity: 0;
+}
+} /*** END proton ***/
+
+.tab-icon-overlay[soundplaying]:not([crashed]),
 .tab-icon-overlay[muted]:not([crashed]),
 .tab-icon-overlay[activemedia-blocked]:not([crashed]) {
   border-radius: 10px;
-  -moz-context-properties: fill;
+  -moz-context-properties: fill, fill-opacity;
   fill: currentColor;
 }
 
-.tab-icon-overlay[soundplaying]:hover,
-.tab-icon-overlay[muted]:not([crashed]):hover,
-.tab-icon-overlay[activemedia-blocked]:not([crashed]):hover {
+.tab-icon-overlay:is([pinned], [sharing]):not([crashed])[soundplaying]:hover,
+.tab-icon-overlay:is([pinned], [sharing]):not([crashed])[muted]:hover,
+.tab-icon-overlay:is([pinned], [sharing]):not([crashed])[activemedia-blocked]:hover {
   background-color: white;
   color: black;
 }
+
+@supports not -moz-bool-pref("browser.proton.tabs.enabled") {
+.tab-icon-overlay[pictureinpicture]:hover {
+  background-color: white;
+  color: black;
+}
+} /*** END !proton ***/
+
+@supports -moz-bool-pref("browser.proton.tabs.enabled") {
+.tab-icon-overlay@tabIndicatorReplacesIcon@ {
+  border-radius: 2px;
+  fill-opacity: 0.75;
+}
+.tab-icon-overlay@tabIndicatorReplacesIcon@:hover {
+  background-color: color-mix(in srgb, currentColor 15%, transparent);
+  fill-opacity: 0.95;
+}
+.tab-icon-overlay@tabIndicatorReplacesIcon@:hover:active {
+  background-color: color-mix(in srgb, currentColor 30%, transparent);
+}
+} /*** END proton ***/
 
 .tab-icon-overlay[soundplaying] {
   list-style-image: url("chrome://browser/skin/tabbrowser/tab-audio-playing-small.svg");
 }
 
-.tab-icon-overlay[muted]:not([crashed]) {
+.tab-icon-overlay[muted] {
   list-style-image: url("chrome://browser/skin/tabbrowser/tab-audio-muted-small.svg");
 }
 
-.tab-icon-overlay[activemedia-blocked]:not([crashed]) {
+.tab-icon-overlay[activemedia-blocked] {
   list-style-image: url("chrome://browser/skin/tabbrowser/tab-audio-blocked-small.svg");
+}
+
+.tab-icon-overlay[crashed] {
+  list-style-image: url("chrome://browser/skin/tabbrowser/crashed.svg");
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -450,8 +490,8 @@
 }
 
 .tab-close-button {
-  -moz-context-properties: fill, fill-opacity, stroke-opacity;
-  stroke-opacity: var(--toolbarbutton-icon-fill-opacity);
+  -moz-context-properties: fill, fill-opacity;
+  fill-opacity: var(--toolbarbutton-icon-fill-opacity);
 }
 
 @supports not -moz-bool-pref("browser.proton.tabs.enabled") {
@@ -467,15 +507,33 @@
 
 @supports -moz-bool-pref("browser.proton.tabs.enabled") {
 .tab-close-button {
-  margin-inline-end: 0;
-  width: 16px;
+  margin-inline-end: calc(var(--inline-tab-padding) / -2);
+  width: 24px;
+  height: 24px;
+  padding: 5px;
+  border-radius: var(--tab-border-radius);
+}
+
+/* The following rulesets allow showing more of the tab title */
+.tabbrowser-tab:not(:hover) > .tab-stack > .tab-content > .tab-close-button {
+  padding-inline-start: 0;
+  width: 19px;
+}
+
+.tabbrowser-tab[visuallyselected=true]:hover,
+#tabbrowser-tabs:not([closebuttons=activetab]) > #tabbrowser-arrowscrollbox > .tabbrowser-tab:not([visuallyselected=true]):hover {
+  --tab-label-mask-size: 1em;
 }
 } /*** END proton ***/
 
+@supports not -moz-bool-pref("browser.proton.tabs.enabled") {
 :root[uidensity=touch] .tab-close-button {
-  margin-inline-end: calc(-1 * var(--inline-tab-padding));
-  padding: 10px calc(var(--inline-tab-padding) - 2px);
+  margin-inline-end: calc(var(--inline-tab-padding) / -2);
+  width: 24px;
+  height: 24px;
+  padding: 4px;
 }
+} /*** END !proton ***/
 
 @supports not -moz-bool-pref("browser.proton.tabs.enabled") {
 .tab-label-container.proton {
@@ -498,27 +556,16 @@
   display: none;
 }
 
-.tab-icon-sound {
-  -moz-box-align: center;
+.tab-secondary-label {
   font-size: .75em;
+  opacity: .8;
 }
 
-.tab-icon-sound-image,
 .tab-icon-sound-label {
   /* Set height back to equivalent of parent's 1em based
      on the .tab-icon-sound having a reduced font-size */
   height: 1.3333em;
-}
-
-.tab-icon-sound-image {
-  padding: 0;
-  -moz-context-properties: fill;
-  fill: currentColor;
-}
-
-.tab-icon-sound-label {
   margin: 0;
-  padding-inline-start: 3px;
 }
 } /*** END proton ***/
 
@@ -532,19 +579,6 @@
 .tab-icon-sound[muted] {
   list-style-image: url(chrome://browser/skin/tabbrowser/tab-audio-muted.svg);
 }
-} /*** END !proton ***/
-
-@supports -moz-bool-pref("browser.proton.tabs.enabled") {
-.tab-icon-sound[soundplaying],
-.tab-icon-sound[muted],
-.tab-icon-sound[activemedia-blocked] {
-  list-style-image: url(chrome://browser/skin/tabbrowser/proton-tab-audio-playing.svg);
-}
-
-.tab-icon-sound[muted] {
-  list-style-image: url(chrome://browser/skin/tabbrowser/proton-tab-audio-muted.svg);
-}
-} /*** END proton ***/
 
 .tab-icon-sound[activemedia-blocked] {
   list-style-image: url(chrome://browser/skin/tabbrowser/tab-audio-blocked.svg);
@@ -574,8 +608,6 @@
 :root[lwtheme-image] .tab-icon-sound:-moz-lwtheme-brighttext[activemedia-blocked] {
   filter: drop-shadow(1px 1px 1px black);
 }
-
-@supports not -moz-bool-pref("browser.proton.tabs.enabled") {
 .tab-icon-sound[soundplaying]:not(:hover),
 .tab-icon-sound[muted]:not(:hover),
 .tab-icon-sound[activemedia-blocked]:not(:hover) {
@@ -590,12 +622,7 @@
 } /*** END !proton ***/
 
 @supports -moz-bool-pref("browser.proton.tabs.enabled") {
-.tab-icon-sound:is([soundplaying], [muted], [activemedia-blocked], [pictureinpicture]) > .tab-icon-sound-image:not(:hover),
-.tab-icon-sound:is([soundplaying], [muted], [activemedia-blocked], [pictureinpicture]) > .tab-icon-sound-label:not(:hover) {
-  opacity: .8;
-}
-
-.tab-icon-sound[soundplaying-scheduledremoval]:not([muted]) > .tab-icon-sound-image:not(:hover),
+.tab-secondary-label[soundplaying-scheduledremoval]:not([muted]):not(:hover),
 .tab-icon-overlay[soundplaying-scheduledremoval]:not([muted], :hover) {
   transition: opacity .3s linear var(--soundplaying-removal-delay);
   opacity: 0;
@@ -605,25 +632,48 @@
 /* Tab Overflow */
 #tabbrowser-arrowscrollbox:not([scrolledtostart])::part(overflow-start-indicator),
 #tabbrowser-arrowscrollbox:not([scrolledtoend])::part(overflow-end-indicator) {
+  width: 7px; /* The width is the sum of the inline margins */
+  background-image: radial-gradient(ellipse at bottom,
+                                    rgba(0,0,0,0.1) 0%,
+                                    rgba(0,0,0,0.1) 7.6%,
+                                    rgba(0,0,0,0) 87.5%);
+  background-repeat: no-repeat;
+  background-position: -3px;
+  border-left: .5px solid rgba(255,255,255,.2);
+  pointer-events: none;
+  position: relative;
+  z-index: 3; /* the selected tab's z-index + 1 */
+  border-bottom: .5px solid transparent;
+}
+
+#tabbrowser-arrowscrollbox:not([scrolledtostart])::part(overflow-start-indicator) {
+  margin-inline: -.5px -6.5px;
+}
+
+#tabbrowser-arrowscrollbox:not([scrolledtoend])::part(overflow-end-indicator) {
+  margin-inline: -6.5px -.5px;
+}
+
+@supports not -moz-bool-pref("browser.proton.tabs.enabled") {
+#tabbrowser-arrowscrollbox:not([scrolledtostart])::part(overflow-start-indicator),
+#tabbrowser-arrowscrollbox:not([scrolledtoend])::part(overflow-end-indicator) {
   width: 18px;
   background-image: url(chrome://browser/skin/tabbrowser/tab-overflow-indicator.png);
   background-size: 17px 100%;
-  background-repeat: no-repeat;
   border-left: 1px solid;
   border-image: linear-gradient(rgba(255,255,255,.2),
                                 rgba(255,255,255,.2) calc(100% - 1px - var(--tabs-navbar-shadow-size)),
                                 transparent calc(100% - 1px - var(--tabs-navbar-shadow-size)));
   border-image-slice: 1;
-  pointer-events: none;
-  position: relative;
-  z-index: 3; /* the selected tab's z-index + 1 */
 }
+} /*** END !proton ***/
 
 #tabbrowser-arrowscrollbox:-moz-locale-dir(rtl)::part(overflow-start-indicator),
 #tabbrowser-arrowscrollbox:-moz-locale-dir(ltr)::part(overflow-end-indicator) {
   transform: scaleX(-1);
 }
 
+@supports not -moz-bool-pref("browser.proton.tabs.enabled") {
 #tabbrowser-arrowscrollbox:not([scrolledtostart])::part(overflow-start-indicator) {
   margin-inline: -1px -17px;
 }
@@ -631,6 +681,7 @@
 #tabbrowser-arrowscrollbox:not([scrolledtoend])::part(overflow-end-indicator) {
   margin-inline: -17px -1px;
 }
+} /*** END !proton ***/
 
 #tabbrowser-arrowscrollbox[scrolledtostart]::part(overflow-start-indicator),
 #tabbrowser-arrowscrollbox[scrolledtoend]::part(overflow-end-indicator) {
@@ -652,15 +703,11 @@
   color: var(--lwt-tab-text, var(--toolbar-color));
 }
 
+@supports not -moz-bool-pref("browser.proton.tabs.enabled") {
 .tab-line {
   height: 2px;
 }
-
-@supports -moz-bool-pref("browser.proton.tabs.enabled") {
-.tab-line {
-  display: none;
-}
-} /*** END proton ***/
+} /* end !proton */
 
 /* Selected tab */
 
@@ -671,7 +718,7 @@
 
 @supports -moz-bool-pref("browser.proton.tabs.enabled") {
 .tab-background {
-  border-radius: var(--proton-tab-radius);
+  border-radius: var(--tab-border-radius);
   margin-block: var(--proton-tab-block-margin);
 }
 
@@ -679,14 +726,16 @@
   margin-top: 0 !important;
 }
 
-.tabbrowser-tab[visuallyselected=true] > .tab-stack > .tab-background {
-  box-shadow: 0 2px var(--proton-shadow-blur-radius) rgba(58,57,68,.2);
-}
-
-.tabbrowser-tab[visuallyselected=true] > .tab-stack > .tab-background:-moz-lwtheme-brighttext {
-  box-shadow: 0 2px var(--proton-shadow-blur-radius) rgba(58,57,68,.1);
+#TabsToolbar:not([brighttext]) .tabbrowser-tab[visuallyselected=true] > .tab-stack > .tab-background {
+  box-shadow: 0 0 1.5px rgba(128,128,142,0.9), 0 0 4px rgba(128,128,142,0.5);
 }
 } /*** END proton ***/
+
+.tab-background-inner {
+  border-radius: inherit;
+}
+
+@supports not -moz-bool-pref("browser.proton.tabs.enabled") {
 
 %ifdef MENUBAR_CAN_AUTOHIDE
 #toolbar-menubar:not([autohide=true]) + #TabsToolbar,
@@ -703,11 +752,12 @@
 :root[extradragspace] .tab-background {
   border-top-style: solid;
 }
+} /*** END !proton ***/
 
 .tab-background[multiselected=true],
 .tab-background[selected=true] {
   border-top-color: var(--tabs-border-color);
-  background-color: var(--toolbar-bgcolor);
+  background-color: var(--tab-selected-bgcolor, var(--toolbar-bgcolor));
   background-image: var(--toolbar-bgimage);
   background-repeat: repeat-x;
 }
@@ -718,10 +768,12 @@
   opacity: .1;
 }
 
+@supports not -moz-bool-pref("browser.proton.tabs.enabled") {
 .tab-line[multiselected],
 .tab-line[selected=true] {
   background-color: var(--tab-line-color);
 }
+} /* end !proton */
 
 /*
  * LightweightThemeConsumer will set the current lightweight theme's header
@@ -743,6 +795,7 @@
 
 /* Tab hover */
 
+@supports not -moz-bool-pref("browser.proton.tabs.enabled") {
 .tabbrowser-tab:hover > .tab-stack > .tab-background:not([selected=true], [multiselected]) {
   background-color: rgba(0,0,0,.1);
 }
@@ -750,7 +803,15 @@
 #TabsToolbar[brighttext] .tabbrowser-tab:hover > .tab-stack > .tab-background:not([selected=true], [multiselected]) {
   background-color: rgba(255,255,255,.1);
 }
+} /* END !proton */
 
+@supports -moz-bool-pref("browser.proton.tabs.enabled") {
+.tabbrowser-tab:hover > .tab-stack > .tab-background:not([selected=true], [multiselected]) {
+  background-color: color-mix(in srgb, currentColor 11%, transparent);
+}
+} /* END proton */
+
+@supports not -moz-bool-pref("browser.proton.tabs.enabled") {
 @media (prefers-reduced-motion: no-preference) {
   .tab-line:not([selected=true], [multiselected]) {
     transition: transform 250ms var(--animation-easing-function), opacity 250ms var(--animation-easing-function);
@@ -775,6 +836,7 @@
 .tabbrowser-tab:hover > .tab-stack > .tab-background > .tab-line[multiselected]:not([selected=true]) {
   opacity: 0.5;
 }
+} /* end !proton */
 
 /* Pinned tabs */
 
@@ -806,7 +868,8 @@
   background-position: center bottom -6px;
 }
 
-#tabbrowser-tabs:not([positionpinnedtabs]) > #tabbrowser-arrowscrollbox > .tabbrowser-tab[pinned] + .tabbrowser-tab:not([pinned]) {
+#tabbrowser-tabs[haspinnedtabs]:not([positionpinnedtabs]) > #tabbrowser-arrowscrollbox > .tabbrowser-tab[first-visible-unpinned-tab] {
+  /* Add a gap between the last pinned tab and the first visible tab */
   margin-inline-start: 12px !important; /* .tabbrowser-tab sets margin: 0 !important; */
 }
 } /*** END proton ***/
@@ -992,7 +1055,7 @@
 }
 
 .all-tabs-button {
-  list-style-image: url("chrome://mozapps/skin/places/defaultFavicon.svg");
+  list-style-image: url("chrome://global/skin/icons/defaultFavicon.svg");
 }
 
 .all-tabs-secondary-button > label {
@@ -1006,14 +1069,6 @@
 
 .all-tabs-secondary-button[muted] {
   list-style-image: url(chrome://browser/skin/tabbrowser/tab-audio-muted.svg);
-}
-
-#allTabsMenu-undoCloseTab {
-  list-style-image: url(chrome://global/skin/icons/undo.svg);
-}
-
-#allTabsMenu-undoCloseTab > .toolbarbutton-icon:-moz-locale-dir(rtl) {
-  transform: scaleX(-1);
 }
 
 #allTabsMenu-searchTabs {

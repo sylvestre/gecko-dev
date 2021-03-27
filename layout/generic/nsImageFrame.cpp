@@ -120,16 +120,16 @@ static bool HaveSpecifiedSize(const nsStylePosition* aStylePosition) {
 
 template <typename SizeOrMaxSize>
 static bool DependsOnIntrinsicSize(const SizeOrMaxSize& aMinOrMaxSize) {
-  if (!aMinOrMaxSize.IsExtremumLength()) {
+  auto length = nsIFrame::ToExtremumLength(aMinOrMaxSize);
+  if (!length) {
     return false;
   }
-  auto keyword = aMinOrMaxSize.AsExtremumLength();
-  switch (keyword) {
-    case StyleExtremumLength::MinContent:
-    case StyleExtremumLength::MaxContent:
-    case StyleExtremumLength::MozFitContent:
+  switch (*length) {
+    case nsIFrame::ExtremumLength::MinContent:
+    case nsIFrame::ExtremumLength::MaxContent:
+    case nsIFrame::ExtremumLength::MozFitContent:
       return true;
-    case StyleExtremumLength::MozAvailable:
+    case nsIFrame::ExtremumLength::MozAvailable:
       return false;
   }
   MOZ_ASSERT_UNREACHABLE("Unknown sizing keyword?");
@@ -312,7 +312,7 @@ void nsImageFrame::MaybeRecordContentUrlOnImageTelemetry() {
     return;
   }
   const auto& item = content.ContentAt(0);
-  if (!item.IsUrl()) {
+  if (!item.IsImage()) {
     return;
   }
   PresContext()->Document()->SetUseCounter(
@@ -397,11 +397,12 @@ void nsImageFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
       contentIndex = static_cast<GeneratedImageContent*>(aContent)->Index();
     }
     MOZ_RELEASE_ASSERT(contentIndex < styleContent->ContentCount());
-    MOZ_RELEASE_ASSERT(styleContent->ContentAt(contentIndex).IsUrl());
-    auto& url = const_cast<StyleComputedUrl&>(
-        styleContent->ContentAt(contentIndex).AsUrl());
+    MOZ_RELEASE_ASSERT(styleContent->ContentAt(contentIndex).IsImage());
+    auto& imageUrl = styleContent->ContentAt(contentIndex).AsImage();
+    MOZ_ASSERT(imageUrl.IsImageRequestType(),
+               "Content image should only parse url() type");
     Document* doc = PresContext()->Document();
-    if (imgRequestProxy* proxy = url.GetImage()) {
+    if (imgRequestProxy* proxy = imageUrl.GetImageRequest()) {
       proxy->Clone(mListener, doc, getter_AddRefs(mContentURLRequest));
       SetupForContentURLRequest();
     }

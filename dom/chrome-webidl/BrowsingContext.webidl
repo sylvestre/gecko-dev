@@ -3,6 +3,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+interface URI;
 interface nsIDocShell;
 interface nsISecureBrowserUI;
 interface nsIWebProgress;
@@ -65,6 +66,8 @@ interface BrowsingContext {
 
   static BrowsingContext? getFromWindow(WindowProxy window);
 
+  static BrowsingContext? getCurrentTopByBrowserId(unsigned long long aId);
+
   sequence<BrowsingContext> getAllBrowsingContextsInSubtree();
 
   BrowsingContext? findChildWithName(DOMString name, BrowsingContext accessor);
@@ -105,6 +108,7 @@ interface BrowsingContext {
 
   readonly attribute DOMString embedderElementType;
 
+  readonly attribute boolean createdDynamically;
   /**
    * The sandbox flags on the browsing context. These reflect the value of the
    * sandbox attribute of the associated IFRAME or CSP-protectable content, if
@@ -198,6 +202,8 @@ interface BrowsingContext {
 
   // Resets the location change rate limit. Used for testing.
   void resetLocationChangeRateLimit();
+
+  readonly attribute long childOffset;
 };
 
 BrowsingContext includes LoadContextMixin;
@@ -265,6 +271,10 @@ interface CanonicalBrowsingContext : BrowsingContext {
   readonly attribute MediaController? mediaController;
 
   void resetScalingZoom();
+
+  // The current URI loaded in this BrowsingContext according to nsDocShell.
+  // This may not match the current window global's document URI in some cases.
+  readonly attribute URI? currentURI;
 };
 
 [Exposed=Window, ChromeOnly]

@@ -44,8 +44,9 @@
 #include "builtin/WeakSetObject.h"
 #include "debugger/DebugAPI.h"
 #include "gc/FreeOp.h"
-#include "js/friend/ErrorMessages.h"  // js::GetErrorMessage, JSMSG_*
-#include "js/friend/WindowProxy.h"    // js::ToWindowProxyIfWindow
+#include "js/friend/ErrorMessages.h"        // js::GetErrorMessage, JSMSG_*
+#include "js/friend/WindowProxy.h"          // js::ToWindowProxyIfWindow
+#include "js/OffThreadScriptCompilation.h"  // js::UseOffThreadParseGlobal
 #include "js/ProtoKey.h"
 #include "vm/AsyncFunction.h"
 #include "vm/AsyncIteration.h"
@@ -513,7 +514,7 @@ bool GlobalObject::resolveOffThreadConstructor(JSContext* cx,
   }
 
   if (key == JSProto_Object &&
-      !JSObject::setFlags(cx, placeholder, BaseShape::IMMUTABLE_PROTOTYPE)) {
+      !JSObject::setFlag(cx, placeholder, ObjectFlag::ImmutablePrototype)) {
     return false;
   }
 
@@ -646,8 +647,8 @@ GlobalObject* GlobalObject::createInternal(JSContext* cx,
     global->setPrivate(nullptr);
   }
 
-  Rooted<LexicalEnvironmentObject*> lexical(
-      cx, LexicalEnvironmentObject::createGlobal(cx, global));
+  Rooted<GlobalLexicalEnvironmentObject*> lexical(
+      cx, GlobalLexicalEnvironmentObject::create(cx, global));
   if (!lexical) {
     return nullptr;
   }
@@ -663,9 +664,6 @@ GlobalObject* GlobalObject::createInternal(JSContext* cx,
   cx->realm()->initGlobal(*global, *lexical);
 
   if (!JSObject::setQualifiedVarObj(cx, global)) {
-    return nullptr;
-  }
-  if (!JSObject::setDelegate(cx, global)) {
     return nullptr;
   }
 
@@ -712,7 +710,7 @@ GlobalObject* GlobalObject::new_(JSContext* cx, const JSClass* clasp,
   return global;
 }
 
-LexicalEnvironmentObject& GlobalObject::lexicalEnvironment() const {
+GlobalLexicalEnvironmentObject& GlobalObject::lexicalEnvironment() const {
   // The lexical environment is marked when marking the global, so we don't need
   // a read barrier here because we know the global is live.
   return *realm()->unbarrieredLexicalEnvironment();
@@ -889,7 +887,7 @@ static NativeObject* CreateBlankProto(JSContext* cx, const JSClass* clasp,
   MOZ_ASSERT(clasp != &JSFunction::class_);
 
   RootedObject blankProto(cx, NewTenuredObjectWithGivenProto(cx, clasp, proto));
-  if (!blankProto || !JSObject::setDelegate(cx, blankProto)) {
+  if (!blankProto) {
     return nullptr;
   }
 
@@ -1079,10 +1077,11 @@ bool GlobalObject::addIntrinsicValue(JSContext* cx,
 
   uint32_t slot = holder->slotSpan();
   RootedShape last(cx, holder->lastProperty());
-  Rooted<UnownedBaseShape*> base(cx, last->base()->unowned());
+  Rooted<BaseShape*> base(cx, last->base());
 
   RootedId id(cx, NameToId(name));
-  Rooted<StackShape> child(cx, StackShape(base, id, slot, 0));
+  Rooted<StackShape> child(cx,
+                           StackShape(base, last->objectFlags(), id, slot, 0));
   Shape* shape = cx->zone()->propertyTree().getChild(cx, last, child);
   if (!shape) {
     return false;
@@ -1098,11 +1097,41 @@ bool GlobalObject::addIntrinsicValue(JSContext* cx,
 
 /* static */
 bool GlobalObject::ensureModulePrototypesCreated(JSContext* cx,
-                                                 Handle<GlobalObject*> global) {
-  return getOrCreateModulePrototype(cx, global) &&
-         getOrCreateImportEntryPrototype(cx, global) &&
-         getOrCreateExportEntryPrototype(cx, global) &&
-         getOrCreateRequestedModulePrototype(cx, global);
+                                                 Handle<GlobalObject*> global,
+                                                 bool setUsedAsPrototype) {
+  // Note: if you arrived here because you're removing UseOffThreadParseGlobal,
+  // please also remove the setUsedAsPrototype argument and the lambda below.
+  MOZ_ASSERT_IF(!UseOffThreadParseGlobal(), !setUsedAsPrototype);
+
+  auto maybeSetUsedAsPrototype = [cx, setUsedAsPrototype](HandleObject proto) {
+    if (!setUsedAsPrototype) {
+      return true;
+    }
+    return JSObject::setIsUsedAsPrototype(cx, proto);
+  };
+
+  RootedObject proto(cx);
+  proto = getOrCreateModulePrototype(cx, global);
+  if (!proto || !maybeSetUsedAsPrototype(proto)) {
+    return false;
+  }
+
+  proto = getOrCreateImportEntryPrototype(cx, global);
+  if (!proto || !maybeSetUsedAsPrototype(proto)) {
+    return false;
+  }
+
+  proto = getOrCreateExportEntryPrototype(cx, global);
+  if (!proto || !maybeSetUsedAsPrototype(proto)) {
+    return false;
+  }
+
+  proto = getOrCreateRequestedModulePrototype(cx, global);
+  if (!proto || !maybeSetUsedAsPrototype(proto)) {
+    return false;
+  }
+
+  return true;
 }
 
 /* static */

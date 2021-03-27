@@ -27,8 +27,8 @@
 --ion-offthread-compile=off
 --ion-osr=off
 --ion-osr=on
---ion-pgo=off
---ion-pgo=on
+--ion-pruning=off
+--ion-pruning=on
 --ion-range-analysis=off
 --ion-range-analysis=on
 --ion-regalloc=testbed
@@ -78,6 +78,9 @@
 --arm-sim-icache-checks
 --arm-asm-nop-fill=1
 --arm-hwcap=vfp
+
+# aarch64 specific, no-ops on other platforms.
+--wasm-force-ion
 
 # Profiling, code coverage, and debugging
 # --dump-bytecode option implies --code-coverage

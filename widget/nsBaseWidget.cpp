@@ -29,6 +29,7 @@
 #include "mozilla/Sprintf.h"
 #include "mozilla/StaticPrefs_apz.h"
 #include "mozilla/StaticPrefs_dom.h"
+#include "mozilla/StaticPrefs_gfx.h"
 #include "mozilla/StaticPrefs_layers.h"
 #include "mozilla/StaticPrefs_layout.h"
 #include "mozilla/TextEventDispatcher.h"
@@ -121,7 +122,7 @@ int32_t nsIWidget::sPointerIdCounter = 0;
 // Some statics from nsIWidget.h
 /*static*/
 uint64_t AutoObserverNotifier::sObserverId = 0;
-/*static*/ nsDataHashtable<nsUint64HashKey, nsCOMPtr<nsIObserver>>
+/*static*/ nsTHashMap<uint64_t, nsCOMPtr<nsIObserver>>
     AutoObserverNotifier::sSavedObservers;
 
 // The maximum amount of time to let the EnableDragDrop runnable wait in the
@@ -826,6 +827,10 @@ bool nsBaseWidget::ComputeShouldAccelerate() {
          WidgetTypeSupportsAcceleration();
 }
 
+bool nsBaseWidget::WidgetTypePrefersSoftwareWebRender() const {
+  return StaticPrefs::gfx_webrender_software_unaccelerated_widget_force();
+}
+
 bool nsBaseWidget::UseAPZ() {
   return (gfxPlatform::AsyncPanZoomEnabled() &&
           (WindowType() == eWindowType_toplevel ||
@@ -951,7 +956,7 @@ nsEventStatus nsBaseWidget::ProcessUntransformedAPZEvent(
   ScrollableLayerGuid targetGuid = aApzResult.mTargetGuid;
   uint64_t inputBlockId = aApzResult.mInputBlockId;
   InputAPZContext context(aApzResult.mTargetGuid, inputBlockId,
-                          aApzResult.mStatus);
+                          aApzResult.GetStatus());
 
   // Make a copy of the original event for the APZCCallbackHelper helpers that
   // we call later, because the event passed to DispatchEvent can get mutated in
@@ -987,7 +992,7 @@ nsEventStatus nsBaseWidget::ProcessUntransformedAPZEvent(
             inputBlockId);
       }
       mAPZEventState->ProcessTouchEvent(*touchEvent, targetGuid, inputBlockId,
-                                        aApzResult.mStatus, status,
+                                        aApzResult.GetStatus(), status,
                                         std::move(allowedTouchBehaviors));
     } else if (WidgetWheelEvent* wheelEvent = aEvent->AsWheelEvent()) {
       MOZ_ASSERT(wheelEvent->mFlags.mHandledByAPZ);
@@ -1049,7 +1054,7 @@ class DispatchInputOnControllerThread : public Runnable {
 
   NS_IMETHOD Run() override {
     APZEventResult result = mAPZC->InputBridge()->ReceiveInputEvent(mInput);
-    if (result.mStatus == nsEventStatus_eConsumeNoDefault) {
+    if (result.GetStatus() == nsEventStatus_eConsumeNoDefault) {
       return NS_OK;
     }
     RefPtr<Runnable> r = new DispatchEventOnMainThread<InputType, EventType>(
@@ -1071,7 +1076,7 @@ void nsBaseWidget::DispatchTouchInput(MultiTouchInput& aInput) {
     MOZ_ASSERT(APZThreadUtils::IsControllerThread());
 
     APZEventResult result = mAPZC->InputBridge()->ReceiveInputEvent(aInput);
-    if (result.mStatus == nsEventStatus_eConsumeNoDefault) {
+    if (result.GetStatus() == nsEventStatus_eConsumeNoDefault) {
       return;
     }
 
@@ -1091,7 +1096,7 @@ void nsBaseWidget::DispatchPanGestureInput(PanGestureInput& aInput) {
     MOZ_ASSERT(APZThreadUtils::IsControllerThread());
 
     APZEventResult result = mAPZC->InputBridge()->ReceiveInputEvent(aInput);
-    if (result.mStatus == nsEventStatus_eConsumeNoDefault) {
+    if (result.GetStatus() == nsEventStatus_eConsumeNoDefault) {
       return;
     }
 
@@ -1110,7 +1115,7 @@ void nsBaseWidget::DispatchPinchGestureInput(PinchGestureInput& aInput) {
     MOZ_ASSERT(APZThreadUtils::IsControllerThread());
     APZEventResult result = mAPZC->InputBridge()->ReceiveInputEvent(aInput);
 
-    if (result.mStatus == nsEventStatus_eConsumeNoDefault) {
+    if (result.GetStatus() == nsEventStatus_eConsumeNoDefault) {
       return;
     }
     WidgetWheelEvent event = aInput.ToWidgetEvent(this);
@@ -1127,8 +1132,8 @@ nsEventStatus nsBaseWidget::DispatchInputEvent(WidgetInputEvent* aEvent) {
   if (mAPZC) {
     if (APZThreadUtils::IsControllerThread()) {
       APZEventResult result = mAPZC->InputBridge()->ReceiveInputEvent(*aEvent);
-      if (result.mStatus == nsEventStatus_eConsumeNoDefault) {
-        return result.mStatus;
+      if (result.GetStatus() == nsEventStatus_eConsumeNoDefault) {
+        return result.GetStatus();
       }
       return ProcessUntransformedAPZEvent(aEvent, result);
     }
@@ -1211,13 +1216,40 @@ already_AddRefed<LayerManager> nsBaseWidget::CreateCompositorSession(
     // EnsureGPUReady(). It could update gfxVars and gfxConfigs.
     gpu->EnsureGPUReady();
 
-    // If widget type does not supports acceleration, we use ClientLayerManager
-    // even when gfxVars::UseWebRender() is true. WebRender could coexist only
-    // with BasicCompositor.
-    bool enableWR =
-        gfx::gfxVars::UseWebRender() && WidgetTypeSupportsAcceleration();
+    // If widget type does not supports acceleration, we may be allowed to use
+    // software WebRender instead. If not, then we use ClientLayerManager even
+    // when gfxVars::UseWebRender() is true. WebRender could coexist only with
+    // BasicCompositor.
+    bool supportsAcceleration = WidgetTypeSupportsAcceleration();
+    bool enableWR;
+    bool enableSWWR;
+    if (supportsAcceleration ||
+        StaticPrefs::gfx_webrender_unaccelerated_widget_force()) {
+      enableWR = gfx::gfxVars::UseWebRender();
+      enableSWWR = gfx::gfxVars::UseSoftwareWebRender();
+    } else if (WidgetTypePrefersSoftwareWebRender()) {
+      enableWR = enableSWWR = gfx::gfxVars::UseWebRender();
+    } else {
+      enableWR = enableSWWR = false;
+    }
     bool enableAPZ = UseAPZ();
-    CompositorOptions options(enableAPZ, enableWR);
+    CompositorOptions options(enableAPZ, enableWR, enableSWWR);
+
+#ifdef XP_WIN
+    if (supportsAcceleration) {
+      options.SetAllowSoftwareWebRenderD3D11(
+          gfx::gfxVars::AllowSoftwareWebRenderD3D11());
+    }
+#elif defined(MOZ_WIDGET_ANDROID)
+    MOZ_ASSERT(supportsAcceleration);
+    options.SetAllowSoftwareWebRenderOGL(
+        StaticPrefs::gfx_webrender_software_opengl_AtStartup());
+#elif defined(MOZ_WIDGET_GTK)
+    if (supportsAcceleration) {
+      options.SetAllowSoftwareWebRenderOGL(
+          StaticPrefs::gfx_webrender_software_opengl_AtStartup());
+    }
+#endif
 
 #ifdef MOZ_WIDGET_ANDROID
     if (!GetNativeData(NS_JAVA_SURFACE)) {
@@ -1792,7 +1824,7 @@ void nsBaseWidget::ZoomToRect(const uint32_t& aPresShellId,
 
 #ifdef ACCESSIBILITY
 
-a11y::Accessible* nsBaseWidget::GetRootAccessible() {
+a11y::LocalAccessible* nsBaseWidget::GetRootAccessible() {
   NS_ENSURE_TRUE(mWidgetListener, nullptr);
 
   PresShell* presShell = mWidgetListener->GetPresShell();
@@ -1803,7 +1835,7 @@ a11y::Accessible* nsBaseWidget::GetRootAccessible() {
   nsPresContext* presContext = presShell->GetPresContext();
   NS_ENSURE_TRUE(presContext->GetContainerWeak(), nullptr);
 
-  // Accessible creation might be not safe so use IsSafeToRunScript to
+  // LocalAccessible creation might be not safe so use IsSafeToRunScript to
   // make sure it's not created at unsafe times.
   nsAccessibilityService* accService = GetOrCreateAccService();
   if (accService) {
@@ -2063,7 +2095,7 @@ void nsBaseWidget::RegisterPluginWindowForRemoteUpdates() {
     return;
   }
   MOZ_ASSERT(sPluginWidgetList);
-  sPluginWidgetList->Put(id, RefPtr{this});
+  sPluginWidgetList->InsertOrUpdate(id, RefPtr{this});
 #endif
 }
 
@@ -2123,9 +2155,9 @@ void nsIWidget::UpdateRegisteredPluginWindowVisibility(
   // Our visible list is associated with a compositor which is associated with
   // a specific top level window. We use the parent widget during iteration
   // to skip the plugin widgets owned by other top level windows.
-  for (auto iter = sPluginWidgetList->Iter(); !iter.Done(); iter.Next()) {
-    const void* windowId = iter.Key();
-    nsIWidget* widget = iter.UserData();
+  for (const auto& entry : *sPluginWidgetList) {
+    const void* windowId = entry.GetKey();
+    nsIWidget* widget = entry.GetWeak();
 
     MOZ_ASSERT(windowId);
     MOZ_ASSERT(widget);
@@ -2148,9 +2180,9 @@ void nsIWidget::CaptureRegisteredPlugins(uintptr_t aOwnerWidget) {
   // Our visible list is associated with a compositor which is associated with
   // a specific top level window. We use the parent widget during iteration
   // to skip the plugin widgets owned by other top level windows.
-  for (auto iter = sPluginWidgetList->Iter(); !iter.Done(); iter.Next()) {
-    DebugOnly<const void*> windowId = iter.Key();
-    nsIWidget* widget = iter.UserData();
+  for (const auto& entry : *sPluginWidgetList) {
+    DebugOnly<const void*> windowId = entry.GetKey();
+    nsIWidget* widget = entry.GetWeak();
 
     MOZ_ASSERT(windowId);
     MOZ_ASSERT(widget);

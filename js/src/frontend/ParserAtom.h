@@ -30,6 +30,7 @@ namespace frontend {
 
 struct CompilationAtomCache;
 struct CompilationStencil;
+class BorrowingCompilationStencil;
 class ParserAtom;
 
 template <typename CharT>
@@ -320,7 +321,6 @@ class alignas(alignof(uint32_t)) ParserAtom {
   // Bit flags inside flags_.
   static constexpr uint32_t HasTwoByteCharsFlag = 1 << 0;
   static constexpr uint32_t UsedByStencilFlag = 1 << 1;
-  static constexpr uint32_t WellKnownOrStaticFlag = 1 << 2;
 
   // Helper routine to read some sequence of two-byte chars, and write them
   // into a target buffer of a particular character width.
@@ -404,14 +404,7 @@ class alignas(alignof(uint32_t)) ParserAtom {
                       CompilationAtomCache& atomCache) const;
 
  private:
-  void markUsedByStencil() {
-    MOZ_ASSERT(!isWellKnownOrStatic());
-    flags_ |= UsedByStencilFlag;
-  }
-
-  bool isWellKnownOrStatic() const { return flags_ & WellKnownOrStaticFlag; }
-
-  constexpr void setWellKnownOrStatic() { flags_ |= WellKnownOrStaticFlag; }
+  void markUsedByStencil() { flags_ |= UsedByStencilFlag; }
 
   constexpr void setHashAndLength(HashNumber hash, uint32_t length) {
     hash_ = hash;
@@ -562,10 +555,12 @@ bool InstantiateMarkedAtoms(JSContext* cx, const ParserAtomSpan& entries,
  * associated with a given compile session.
  */
 class ParserAtomsTable {
+  friend class BorrowingCompilationStencil;
+
  private:
   const WellKnownParserAtoms& wellKnownTable_;
 
-  LifoAlloc& alloc_;
+  LifoAlloc* alloc_;
 
   // The ParserAtom are owned by the LifoAlloc.
   using EntryMap = HashMap<const ParserAtom*, TaggedParserAtomIndex,
@@ -576,6 +571,21 @@ class ParserAtomsTable {
  public:
   ParserAtomsTable(JSRuntime* rt, LifoAlloc& alloc);
   ParserAtomsTable(ParserAtomsTable&&) = default;
+  ParserAtomsTable& operator=(ParserAtomsTable&& other) noexcept {
+    entryMap_ = std::move(other.entryMap_);
+    entries_ = std::move(other.entries_);
+    return *this;
+  }
+
+  void fixupAlloc(LifoAlloc& alloc) { alloc_ = &alloc; }
+
+  size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const {
+    return entryMap_.shallowSizeOfExcludingThis(mallocSizeOf) +
+           entries_.sizeOfExcludingThis(mallocSizeOf);
+  }
+  size_t sizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) const {
+    return mallocSizeOf(this) + sizeOfExcludingThis(mallocSizeOf);
+  }
 
  private:
   // Internal APIs for interning to the table after well-known atoms cases have
@@ -587,6 +597,10 @@ class ParserAtomsTable {
                                         HashNumber hash,
                                         InflatedChar16Sequence<SeqCharT> seq,
                                         uint32_t length);
+
+  template <typename AtomCharT>
+  TaggedParserAtomIndex internExternalParserAtomImpl(JSContext* cx,
+                                                     const ParserAtom* atom);
 
  public:
   TaggedParserAtomIndex internAscii(JSContext* cx, const char* asciiPtr,
@@ -606,6 +620,11 @@ class ParserAtomsTable {
   TaggedParserAtomIndex internJSAtom(JSContext* cx,
                                      CompilationAtomCache& atomCache,
                                      JSAtom* atom);
+
+  TaggedParserAtomIndex internExternalParserAtom(JSContext* cx,
+                                                 const ParserAtom* atom);
+
+  bool addPlaceholder(JSContext* cx);
 
  private:
   const ParserAtom* getWellKnown(WellKnownAtomId atomId) const;
@@ -662,21 +681,16 @@ class ParserAtomsTable {
 // This doesn't support deduplication.
 // Used while decoding XDR.
 class ParserAtomSpanBuilder {
- private:
-  const WellKnownParserAtoms& wellKnownTable_;
   ParserAtomSpan& entries_;
 
  public:
-  ParserAtomSpanBuilder(JSRuntime* rt, ParserAtomSpan& entries);
+  explicit ParserAtomSpanBuilder(ParserAtomSpan& entries) : entries_(entries) {}
 
   bool allocate(JSContext* cx, LifoAlloc& alloc, size_t count);
-  size_t size() const { return entries_.size(); }
 
   void set(ParserAtomIndex index, const ParserAtom* atom) {
     entries_[index] = const_cast<ParserAtom*>(atom);
   }
-
-  const ParserAtom* get(ParserAtomIndex index) const { return entries_[index]; }
 };
 
 template <typename CharT>

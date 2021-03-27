@@ -868,11 +868,7 @@ nsresult EventDispatcher::IterateEvents(JSContext* aCx, JS::HandleValue aEvents,
 
 nsresult EventDispatcher::RegisterEventLocked(
     const nsAString& aEvent, nsIAndroidEventListener* aListener) {
-  ListenersList* list = mListenersMap.Get(aEvent);
-  if (!list) {
-    list = new ListenersList();
-    mListenersMap.Put(aEvent, list);
-  }
+  ListenersList* list = mListenersMap.GetOrInsertNew(aEvent);
 
 #ifdef DEBUG
   for (ssize_t i = 0; i < list->listeners.Count(); i++) {
@@ -953,9 +949,13 @@ void EventDispatcher::Attach(java::EventDispatcher::Param aDispatcher,
   dispatcher->SetAttachedToGecko(java::EventDispatcher::ATTACHED);
 }
 
-void EventDispatcher::Shutdown() {
+NS_IMETHODIMP
+EventDispatcher::Shutdown() {
+  MOZ_ASSERT(NS_IsMainThread());
   mDispatcher = nullptr;
   mDOMWindow = nullptr;
+  mListenersMap.Clear();
+  return NS_OK;
 }
 
 void EventDispatcher::Detach() {

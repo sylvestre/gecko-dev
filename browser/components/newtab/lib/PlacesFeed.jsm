@@ -24,11 +24,6 @@ ChromeUtils.defineModuleGetter(
   "PlacesUtils",
   "resource://gre/modules/PlacesUtils.jsm"
 );
-ChromeUtils.defineModuleGetter(
-  this,
-  "PrivateBrowsingUtils",
-  "resource://gre/modules/PrivateBrowsingUtils.jsm"
-);
 
 const LINK_BLOCKED_EVENT = "newtab-linkBlocked";
 const PLACES_LINKS_CHANGED_DELAY_TIME = 1000; // time in ms to delay timer for places links changed events
@@ -56,10 +51,6 @@ class BookmarksObserver extends Observer {
   }
 
   // Empty functions to make xpconnect happy
-  onBeginUpdateBatch() {}
-
-  onEndUpdateBatch() {}
-
   onItemMoved() {}
 
   // Disabled due to performance cost, see Issue 3203 /
@@ -77,7 +68,8 @@ class PlacesObserver extends Observer {
   }
 
   handlePlacesEvent(events) {
-    const removedURLs = [];
+    const removedPages = [];
+    const removedBookmarks = [];
 
     for (const {
       itemType,
@@ -96,11 +88,7 @@ class PlacesObserver extends Observer {
           break;
         case "page-removed":
           if (isRemovedFromStore) {
-            this.dispatch({ type: at.PLACES_LINKS_CHANGED });
-            this.dispatch({
-              type: at.PLACES_LINK_DELETED,
-              data: { url },
-            });
+            removedPages.push(url);
           }
           break;
         case "bookmark-added":
@@ -138,17 +126,27 @@ class PlacesObserver extends Observer {
               source !== PlacesUtils.bookmarks.SOURCES.RESTORE_ON_STARTUP &&
               source !== PlacesUtils.bookmarks.SOURCES.SYNC)
           ) {
-            removedURLs.push(url);
+            removedBookmarks.push(url);
           }
           break;
       }
     }
 
-    if (removedURLs.length) {
+    if (removedPages.length || removedBookmarks.length) {
       this.dispatch({ type: at.PLACES_LINKS_CHANGED });
+    }
+
+    if (removedPages.length) {
+      this.dispatch({
+        type: at.PLACES_LINKS_DELETED,
+        data: { urls: removedPages },
+      });
+    }
+
+    if (removedBookmarks.length) {
       this.dispatch({
         type: at.PLACES_BOOKMARKS_REMOVED,
-        data: { urls: removedURLs },
+        data: { urls: removedBookmarks },
       });
     }
   }
@@ -381,35 +379,14 @@ class PlacesFeed {
     });
   }
 
-  _getDefaultSearchEngine(isPrivateWindow) {
-    return Services.search[
-      isPrivateWindow ? "defaultPrivateEngine" : "defaultEngine"
-    ];
-  }
-
-  _getSearchPrefix(searchEngine) {
-    const searchAliases = searchEngine.aliases;
-    if (searchAliases && searchAliases.length) {
-      return `${searchAliases[0]} `;
-    }
-    return "";
-  }
-
   handoffSearchToAwesomebar({ _target, data, meta }) {
-    const searchEngine = this._getDefaultSearchEngine(
-      PrivateBrowsingUtils.isBrowserPrivate(_target.browser)
-    );
-    const searchAlias = this._getSearchPrefix(searchEngine);
     const urlBar = _target.browser.ownerGlobal.gURLBar;
     let isFirstChange = true;
 
     if (!data || !data.text) {
       urlBar.setHiddenFocus();
     } else {
-      urlBar.search(searchAlias + data.text, {
-        searchEngine,
-        searchModeEntry: "handoff",
-      });
+      urlBar.search(data.text);
       isFirstChange = false;
     }
 
@@ -420,12 +397,9 @@ class PlacesFeed {
       if (isFirstChange) {
         isFirstChange = false;
         urlBar.removeHiddenFocus();
-        urlBar.search(searchAlias, {
-          searchEngine,
-          searchModeEntry: "handoff",
-        });
+        urlBar.search("");
         this.store.dispatch(
-          ac.OnlyToOneContent({ type: at.HIDE_SEARCH }, meta.fromTarget)
+          ac.OnlyToOneContent({ type: at.DISABLE_SEARCH }, meta.fromTarget)
         );
         urlBar.removeEventListener("compositionstart", checkFirstChange);
         urlBar.removeEventListener("paste", checkFirstChange);

@@ -464,8 +464,8 @@ void RequestContextService::Shutdown() {
   MOZ_ASSERT(NS_IsMainThread());
   // We need to do this to prevent the requests from being scheduled after
   // shutdown.
-  for (auto iter = mTable.Iter(); !iter.Done(); iter.Next()) {
-    iter.Data()->CancelTailPendingRequests(NS_ERROR_ABORT);
+  for (const auto& data : mTable.Values()) {
+    data->CancelTailPendingRequests(NS_ERROR_ABORT);
   }
   mTable.Clear();
   sShutdown = true;
@@ -509,11 +509,10 @@ RequestContextService::GetRequestContext(const uint64_t rcID,
     return NS_ERROR_INVALID_ARG;
   }
 
-  if (!mTable.Get(rcID, rc)) {
-    nsCOMPtr<nsIRequestContext> newSC = new RequestContext(rcID);
-    mTable.Put(rcID, newSC);
-    newSC.swap(*rc);
-  }
+  *rc = do_AddRef(mTable.LookupOrInsertWith(rcID, [&] {
+          nsCOMPtr<nsIRequestContext> newSC = new RequestContext(rcID);
+          return newSC;
+        })).take();
 
   return NS_OK;
 }
@@ -547,7 +546,7 @@ RequestContextService::NewRequestContext(nsIRequestContext** rc) {
       mNextRCID++;
 
   nsCOMPtr<nsIRequestContext> newSC = new RequestContext(rcID);
-  mTable.Put(rcID, newSC);
+  mTable.InsertOrUpdate(rcID, newSC);
   newSC.swap(*rc);
 
   return NS_OK;

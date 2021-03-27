@@ -43,7 +43,7 @@ const { E10SUtils } = ChromeUtils.import(
 
 XPCOMUtils.defineLazyGetter(this, "awExperimentFeature", () => {
   const { ExperimentFeature } = ChromeUtils.import(
-    "resource://messaging-system/experiments/ExperimentAPI.jsm"
+    "resource://nimbus/ExperimentAPI.jsm"
   );
   return new ExperimentFeature("aboutwelcome");
 });
@@ -448,7 +448,12 @@ class BaseAboutNewTabService {
      * This is calculated in the same way the default URL is.
      */
 
-    if (awExperimentFeature.isEnabled({ defaultValue: true })) {
+    if (
+      awExperimentFeature.isEnabled({
+        defaultValue: true,
+        sendExposureEvent: true,
+      })
+    ) {
       return ABOUT_WELCOME_URL;
     }
     return this.defaultURL;

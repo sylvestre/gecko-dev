@@ -141,9 +141,6 @@ class MOZ_RAII WarpCacheIRTranspiler : public WarpBuilderShared {
   JS::Symbol* symbolStubField(uint32_t offset) {
     return reinterpret_cast<JS::Symbol*>(readStubWord(offset));
   }
-  ObjectGroup* groupStubField(uint32_t offset) {
-    return reinterpret_cast<ObjectGroup*>(readStubWord(offset));
-  }
   BaseScript* baseScriptStubField(uint32_t offset) {
     return reinterpret_cast<BaseScript*>(readStubWord(offset));
   }
@@ -213,6 +210,8 @@ class MOZ_RAII WarpCacheIRTranspiler : public WarpBuilderShared {
                                            uint32_t templateObjectOffset);
 
   MInstruction* addBoundsCheck(MDefinition* index, MDefinition* length);
+
+  [[nodiscard]] MInstruction* convertToBoolean(MDefinition* input);
 
   bool emitAddAndStoreSlotShared(MAddAndStoreSlot::Kind kind,
                                  ObjOperandId objId, uint32_t offsetOffset,
@@ -386,19 +385,6 @@ bool WarpCacheIRTranspiler::emitGuardShape(ObjOperandId objId,
   Shape* shape = shapeStubField(shapeOffset);
 
   auto* ins = MGuardShape::New(alloc(), def, shape);
-  add(ins);
-
-  setOperand(objId, ins);
-  return true;
-}
-
-bool WarpCacheIRTranspiler::emitGuardGroup(ObjOperandId objId,
-                                           uint32_t groupOffset) {
-  MDefinition* def = getOperand(objId);
-  ObjectGroup* group = groupStubField(groupOffset);
-
-  auto* ins = MGuardObjectGroup::New(alloc(), def, group,
-                                     /* bailOnEquality = */ false);
   add(ins);
 
   setOperand(objId, ins);
@@ -1625,7 +1611,7 @@ bool WarpCacheIRTranspiler::emitLoadArrayBufferByteLengthDoubleResult(
   return true;
 }
 
-bool WarpCacheIRTranspiler::emitLoadTypedArrayLengthInt32Result(
+bool WarpCacheIRTranspiler::emitLoadArrayBufferViewLengthInt32Result(
     ObjOperandId objId) {
   MDefinition* obj = getOperand(objId);
 
@@ -1643,7 +1629,7 @@ bool WarpCacheIRTranspiler::emitLoadTypedArrayLengthInt32Result(
   return true;
 }
 
-bool WarpCacheIRTranspiler::emitLoadTypedArrayLengthDoubleResult(
+bool WarpCacheIRTranspiler::emitLoadArrayBufferViewLengthDoubleResult(
     ObjOperandId objId) {
   MDefinition* obj = getOperand(objId);
 
@@ -3179,6 +3165,36 @@ bool WarpCacheIRTranspiler::emitCallRegExpTesterResult(
   return resumeAfter(tester);
 }
 
+MInstruction* WarpCacheIRTranspiler::convertToBoolean(MDefinition* input) {
+  // Convert to bool with the '!!' idiom.
+  auto* resultInverted = MNot::New(alloc(), input);
+  add(resultInverted);
+  auto* result = MNot::New(alloc(), resultInverted);
+  add(result);
+
+  return result;
+}
+
+bool WarpCacheIRTranspiler::emitRegExpFlagResult(ObjOperandId regexpId,
+                                                 int32_t flagsMask) {
+  MDefinition* regexp = getOperand(regexpId);
+
+  auto* flags = MLoadFixedSlot::New(alloc(), regexp, RegExpObject::flagsSlot());
+  flags->setResultType(MIRType::Int32);
+  add(flags);
+
+  auto* mask = MConstant::New(alloc(), Int32Value(flagsMask));
+  add(mask);
+
+  auto* maskedFlag = MBitAnd::New(alloc(), flags, mask, MIRType::Int32);
+  add(maskedFlag);
+
+  auto* result = convertToBoolean(maskedFlag);
+
+  pushResult(result);
+  return true;
+}
+
 bool WarpCacheIRTranspiler::emitCallSubstringKernelResult(
     StringOperandId strId, Int32OperandId beginId, Int32OperandId lengthId) {
   MDefinition* str = getOperand(strId);
@@ -3339,7 +3355,7 @@ bool WarpCacheIRTranspiler::emitIsTypedArrayResult(ObjOperandId objId,
   return true;
 }
 
-bool WarpCacheIRTranspiler::emitTypedArrayByteOffsetInt32Result(
+bool WarpCacheIRTranspiler::emitArrayBufferViewByteOffsetInt32Result(
     ObjOperandId objId) {
   MDefinition* obj = getOperand(objId);
 
@@ -3353,7 +3369,7 @@ bool WarpCacheIRTranspiler::emitTypedArrayByteOffsetInt32Result(
   return true;
 }
 
-bool WarpCacheIRTranspiler::emitTypedArrayByteOffsetDoubleResult(
+bool WarpCacheIRTranspiler::emitArrayBufferViewByteOffsetDoubleResult(
     ObjOperandId objId) {
   MDefinition* obj = getOperand(objId);
 
@@ -3367,6 +3383,48 @@ bool WarpCacheIRTranspiler::emitTypedArrayByteOffsetDoubleResult(
   return true;
 }
 
+bool WarpCacheIRTranspiler::emitTypedArrayByteLengthInt32Result(
+    ObjOperandId objId) {
+  MDefinition* obj = getOperand(objId);
+
+  auto* length = MArrayBufferViewLength::New(alloc(), obj);
+  add(length);
+
+  auto* lengthInt32 = MNonNegativeIntPtrToInt32::New(alloc(), length);
+  add(lengthInt32);
+
+  auto* size = MTypedArrayElementSize::New(alloc(), obj);
+  add(size);
+
+  auto* mul = MMul::New(alloc(), lengthInt32, size, MIRType::Int32);
+  mul->setCanBeNegativeZero(false);
+  add(mul);
+
+  pushResult(mul);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitTypedArrayByteLengthDoubleResult(
+    ObjOperandId objId) {
+  MDefinition* obj = getOperand(objId);
+
+  auto* length = MArrayBufferViewLength::New(alloc(), obj);
+  add(length);
+
+  auto* lengthDouble = MIntPtrToDouble::New(alloc(), length);
+  add(lengthDouble);
+
+  auto* size = MTypedArrayElementSize::New(alloc(), obj);
+  add(size);
+
+  auto* mul = MMul::New(alloc(), lengthDouble, size, MIRType::Double);
+  mul->setCanBeNegativeZero(false);
+  add(mul);
+
+  pushResult(mul);
+  return true;
+}
+
 bool WarpCacheIRTranspiler::emitTypedArrayElementSizeResult(
     ObjOperandId objId) {
   MDefinition* obj = getOperand(objId);
@@ -3375,6 +3433,17 @@ bool WarpCacheIRTranspiler::emitTypedArrayElementSizeResult(
   add(ins);
 
   pushResult(ins);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitGuardHasAttachedArrayBuffer(
+    ObjOperandId objId) {
+  MDefinition* obj = getOperand(objId);
+
+  auto* ins = MGuardHasAttachedArrayBuffer::New(alloc(), obj);
+  add(ins);
+
+  setOperand(objId, ins);
   return true;
 }
 
@@ -3800,11 +3869,7 @@ bool WarpCacheIRTranspiler::emitBigIntAsUintNResult(Int32OperandId bitsId,
 bool WarpCacheIRTranspiler::emitLoadValueTruthyResult(ValOperandId inputId) {
   MDefinition* input = getOperand(inputId);
 
-  // Convert to bool with the '!!' idiom.
-  auto* resultInverted = MNot::New(alloc(), input);
-  add(resultInverted);
-  auto* result = MNot::New(alloc(), resultInverted);
-  add(result);
+  auto* result = convertToBoolean(input);
 
   pushResult(result);
   return true;
@@ -4207,7 +4272,6 @@ bool WarpCacheIRTranspiler::emitFunApplyMagicArgs(
 bool WarpCacheIRTranspiler::emitFunApplyArgsObj(WrappedFunction* wrappedTarget,
                                                 CallFlags flags) {
   MOZ_ASSERT(!callInfo_->constructing());
-  MOZ_ASSERT(!builder_->inlineCallInfo());
 
   MDefinition* callee = callInfo_->thisArg();
   MDefinition* thisArg = callInfo_->getArg(0);
@@ -4415,6 +4479,7 @@ MDefinition* WarpCacheIRTranspiler::convertWasmArg(MDefinition* arg,
     case wasm::ValType::F64:
       conversion = MToDouble::New(alloc(), arg);
       break;
+    case wasm::ValType::Rtt:
     case wasm::ValType::V128:
       MOZ_CRASH("Unexpected type for Wasm JitEntry");
     case wasm::ValType::Ref:
@@ -4463,9 +4528,8 @@ bool WarpCacheIRTranspiler::emitCallGetterResult(CallKind kind,
   WrappedFunction* wrappedTarget =
       maybeWrappedFunction(getter, kind, nargs, flags);
 
-  jsbytecode* pc = loc_.toRawBytecode();
-  bool ignoresRval = BytecodeIsPopped(pc);
-  CallInfo callInfo(alloc(), pc, /* constructing = */ false, ignoresRval);
+  bool ignoresRval = loc_.resultIsPopped();
+  CallInfo callInfo(alloc(), /* constructing = */ false, ignoresRval);
   callInfo.initForGetterCall(getter, receiver);
 
   MCall* call = makeCall(callInfo, /* needsThisCheck = */ false, wrappedTarget);
@@ -4536,8 +4600,7 @@ bool WarpCacheIRTranspiler::emitCallSetter(CallKind kind,
   WrappedFunction* wrappedTarget =
       maybeWrappedFunction(setter, kind, nargs, flags);
 
-  jsbytecode* pc = loc_.toRawBytecode();
-  CallInfo callInfo(alloc(), pc, /* constructing = */ false,
+  CallInfo callInfo(alloc(), /* constructing = */ false,
                     /* ignoresReturnValue = */ true);
   callInfo.initForSetterCall(setter, receiver, rhs);
 

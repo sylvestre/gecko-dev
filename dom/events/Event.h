@@ -23,10 +23,6 @@
 #include "nsStringFwd.h"
 #include "nsWrapperCache.h"
 
-// XXX(Bug 1674080) Remove this and let Codegen.py generate it instead when
-// needed.
-#include "mozilla/HoldDropJSObjects.h"
-
 class PickleIterator;
 class nsCycleCollectionTraversalCallback;
 class nsIContent;
@@ -289,6 +285,18 @@ class Event : public nsISupports, public nsWrapperCache {
    * @param aType is a string where to return the type.
    */
   static void GetWidgetEventType(WidgetEvent* aEvent, nsAString& aType);
+
+  void RequestReplyFromRemoteContent() {
+    mEvent->MarkAsWaitingReplyFromRemoteProcess();
+  }
+
+  bool IsWaitingReplyFromRemoteContent() const {
+    return mEvent->IsWaitingReplyFromRemoteProcess();
+  }
+
+  bool IsReplyEventFromRemoteContent() const {
+    return mEvent->IsHandledInRemoteProcess();
+  }
 
  protected:
   // Internal helper functions

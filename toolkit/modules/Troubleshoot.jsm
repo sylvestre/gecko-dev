@@ -114,6 +114,7 @@ const PREFS_BLACKLIST = [
   /^browser[.]fixup[.]domainwhitelist[.]/,
   /^media[.]webrtc[.]debug[.]aec_log_dir/,
   /^media[.]webrtc[.]debug[.]log_file/,
+  /^print[.].*print_to_filename$/,
   /^network[.]proxy[.]/,
 ];
 
@@ -880,6 +881,45 @@ var dataProviders = {
       }
     }
     done(data.modules);
+  },
+
+  async normandy(done) {
+    if (!AppConstants.MOZ_NORMANDY) {
+      done();
+      return;
+    }
+
+    const {
+      PreferenceExperiments: NormandyPreferenceStudies,
+    } = ChromeUtils.import("resource://normandy/lib/PreferenceExperiments.jsm");
+    const { AddonStudies: NormandyAddonStudies } = ChromeUtils.import(
+      "resource://normandy/lib/AddonStudies.jsm"
+    );
+    const {
+      PreferenceRollouts: NormandyPreferenceRollouts,
+    } = ChromeUtils.import("resource://normandy/lib/PreferenceRollouts.jsm");
+
+    // Get Normandy data in parallel, and sort each group by slug.
+    const [addonStudies, prefRollouts, prefStudies] = await Promise.all(
+      [
+        NormandyAddonStudies.getAllActive(),
+        NormandyPreferenceRollouts.getAllActive(),
+        NormandyPreferenceStudies.getAllActive(),
+      ].map(promise =>
+        promise
+          .catch(error => {
+            Cu.reportError(error);
+            return [];
+          })
+          .then(items => items.sort((a, b) => a.slug.localeCompare(b.slug)))
+      )
+    );
+
+    done({
+      addonStudies,
+      prefRollouts,
+      prefStudies,
+    });
   },
 };
 

@@ -501,6 +501,7 @@ nsresult TRRServiceChannel::ContinueOnBeforeConnect() {
 
   if (LoadIsTRRServiceChannel()) {
     mCaps |= NS_HTTP_LARGE_KEEPALIVE;
+    mCaps |= NS_HTTP_DISALLOW_HTTPS_RR;
   }
 
   mCaps |= NS_HTTP_TRR_FLAGS_FROM_MODE(nsIRequest::GetTRRMode());
@@ -1149,6 +1150,12 @@ nsresult TRRServiceChannel::SetupReplacementChannel(nsIURI* aNewURI,
   nsCOMPtr<nsIEncodedChannel> encodedChannel = do_QueryInterface(httpChannel);
   if (encodedChannel) {
     encodedChannel->SetApplyConversion(LoadApplyConversion());
+  }
+
+  // mContentTypeHint is empty when this channel is used to download
+  // ODoHConfigs.
+  if (mContentTypeHint.IsEmpty()) {
+    return NS_OK;
   }
 
   // Make sure we set content-type on the old channel properly.

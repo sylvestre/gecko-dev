@@ -4,11 +4,8 @@
 
 package org.mozilla.geckoview.test
 
-import android.app.ActivityManager
-import android.content.Context
 import android.graphics.SurfaceTexture
 import android.net.Uri
-import android.os.Process
 import org.mozilla.geckoview.GeckoSession.NavigationDelegate.LoadRequest
 import org.mozilla.geckoview.test.rule.GeckoSessionTestRule.AssertCalled
 import org.mozilla.geckoview.test.rule.GeckoSessionTestRule.IgnoreCrash
@@ -24,7 +21,6 @@ import org.json.JSONObject
 import org.junit.Assume.assumeThat
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.mozilla.gecko.GeckoAppShell
 import org.mozilla.geckoview.*
 import org.mozilla.geckoview.test.rule.GeckoSessionTestRule.NullDelegate
 
@@ -118,13 +114,9 @@ class ContentDelegateTest : BaseSessionTest() {
 
     @AnyThread
     fun killAllContentProcesses() {
-        val context = GeckoAppShell.getApplicationContext()
-        val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-        val expr = ".*:tab\\d+$".toRegex()
-        for (info in manager.runningAppProcesses) {
-            if (info.processName.matches(expr)) {
-                Process.killProcess(info.pid)
-            }
+        val contentProcessPids = sessionRule.getAllSessionPids()
+        for (pid in contentProcessPids) {
+            sessionRule.killContentProcess(pid)
         }
     }
 
@@ -350,7 +342,6 @@ class ContentDelegateTest : BaseSessionTest() {
     private fun setHangReportTestPrefs(timeout: Int = 20000) {
         sessionRule.setPrefsUntilTestEnd(mapOf(
                 "dom.max_script_run_time" to 1,
-                "dom.max_script_run_time_without_important_user_input" to 1,
                 "dom.max_chrome_script_run_time" to 1,
                 "dom.max_ext_content_script_run_time" to 1,
                 "dom.ipc.cpow.timeout" to 100,

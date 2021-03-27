@@ -13,7 +13,10 @@ add_task(async function test_appMenu_mainView() {
     return;
   }
 
-  const mainView = document.getElementById("appMenu-mainView");
+  let mainViewID = PanelUI.protonAppMenuEnabled
+    ? "appMenu-protonMainView"
+    : "appMenu-mainView";
+  const mainView = document.getElementById(mainViewID);
 
   let shownPromise = BrowserTestUtils.waitForEvent(mainView, "ViewShown");
   // Should still open the panel when Ctrl key is pressed.
@@ -37,7 +40,11 @@ add_task(async function test_appMenu_libraryView() {
     return;
   }
 
+  if (CustomizableUI.protonToolbarEnabled) {
+    CustomizableUI.addWidgetToArea("library-button", "nav-bar");
+  }
   const button = document.getElementById("library-button");
+  await waitForElementShown(button);
 
   // Should still open the panel when Ctrl key is pressed.
   EventUtils.synthesizeMouseAtCenter(button, { ctrlKey: true });

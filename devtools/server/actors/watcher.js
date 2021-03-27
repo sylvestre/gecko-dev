@@ -5,7 +5,6 @@
 "use strict";
 const protocol = require("devtools/shared/protocol");
 const { watcherSpec } = require("devtools/shared/specs/watcher");
-const Services = require("Services");
 
 const Resources = require("devtools/server/actors/resources/index");
 const {
@@ -43,6 +42,18 @@ loader.lazyRequireGetter(
   this,
   "BreakpointListActor",
   "devtools/server/actors/breakpoint-list",
+  true
+);
+loader.lazyRequireGetter(
+  this,
+  "TargetConfigurationActor",
+  "devtools/server/actors/target-configuration",
+  true
+);
+loader.lazyRequireGetter(
+  this,
+  "ThreadConfigurationActor",
+  "devtools/server/actors/thread-configuration",
   true
 );
 
@@ -107,11 +118,6 @@ exports.WatcherActor = protocol.ActorClassWithSpec(watcherSpec, {
   },
 
   form() {
-    const enableServerWatcher = Services.prefs.getBoolPref(
-      "devtools.testing.enableServerWatcherSupport",
-      false
-    );
-
     const hasBrowserElement = !!this.browserElement;
 
     return {
@@ -141,21 +147,40 @@ exports.WatcherActor = protocol.ActorClassWithSpec(watcherSpec, {
           [Resources.TYPES.CSS_CHANGE]: hasBrowserElement,
           [Resources.TYPES.CSS_MESSAGE]: true,
           [Resources.TYPES.DOCUMENT_EVENT]: hasBrowserElement,
+          [Resources.TYPES.CACHE_STORAGE]: hasBrowserElement,
           [Resources.TYPES.ERROR_MESSAGE]: true,
           [Resources.TYPES.LOCAL_STORAGE]: hasBrowserElement,
           [Resources.TYPES.SESSION_STORAGE]: hasBrowserElement,
           [Resources.TYPES.PLATFORM_MESSAGE]: true,
           [Resources.TYPES.NETWORK_EVENT]: hasBrowserElement,
           [Resources.TYPES.NETWORK_EVENT_STACKTRACE]: hasBrowserElement,
-          [Resources.TYPES.STYLESHEET]:
-            enableServerWatcher && hasBrowserElement,
+          [Resources.TYPES.STYLESHEET]: hasBrowserElement,
           [Resources.TYPES.SOURCE]: hasBrowserElement,
           [Resources.TYPES.THREAD_STATE]: hasBrowserElement,
+          [Resources.TYPES.SERVER_SENT_EVENT]: hasBrowserElement,
+          [Resources.TYPES.WEBSOCKET]: hasBrowserElement,
         },
         // @backward-compat { version 85 } When removing this trait, consumers using
         // the TargetList to retrieve the Breakpoints front should still be careful to check
         // that the Watcher is available
         "set-breakpoints": true,
+        // @backward-compat { version 87 } Starting with FF87, if the watcher is
+        // supported, the TargetConfiguration actor can be used to set configuration
+        // flags which impact BrowsingContext targets.
+        // When removing this trait, consumers should still check that the Watcher is
+        // available.
+        "target-configuration": true,
+        // @backward-compat { version 88 } Starting with FF88, if the watcher is
+        // supported, the ThreadConfiguration actor can be used to maintain thread configuration
+        // options.
+        // When removing this trait, consumers should still check that the Watcher is
+        // available.
+        "thread-configuration": true,
+        // @backward-compat { version 88 } Watcher now supports setting the XHR via
+        // the BreakpointListActor.
+        // When removing this trait, consumers should still check that the Watcher is
+        // available.
+        "set-xhr-breakpoints": true,
       },
     };
   },
@@ -472,6 +497,32 @@ exports.WatcherActor = protocol.ActorClassWithSpec(watcherSpec, {
   },
 
   /**
+   * Returns the target configuration actor.
+   *
+   * @return {Object} actor
+   *        The configuration actor.
+   */
+  getTargetConfigurationActor() {
+    if (!this._targetConfigurationListActor) {
+      this._targetConfigurationListActor = new TargetConfigurationActor(this);
+    }
+    return this._targetConfigurationListActor;
+  },
+
+  /**
+   * Returns the thread configuration actor.
+   *
+   * @return {Object} actor
+   *        The configuration actor.
+   */
+  getThreadConfigurationActor() {
+    if (!this._threadConfigurationListActor) {
+      this._threadConfigurationListActor = new ThreadConfigurationActor(this);
+    }
+    return this._threadConfigurationListActor;
+  },
+
+  /**
    * Server internal API, called by other actors, but not by the client.
    * Used to agrement some new entries for a given data type (watchers target, resources,
    * breakpoints,...)
@@ -486,8 +537,15 @@ exports.WatcherActor = protocol.ActorClassWithSpec(watcherSpec, {
 
     await Promise.all(
       Object.values(Targets.TYPES)
-        .filter(targetType =>
-          WatcherRegistry.isWatchingTargets(this, targetType)
+        .filter(
+          targetType =>
+            // We process frame targets even if we aren't watching them,
+            // because frame target helper codepath handles the top level target, if it runs in the *content* process.
+            // It will do another check to `isWatchingTargets(FRAME)` internally.
+            // Note that the workaround at the end of this method, using TargetActorRegistry
+            // is specific to top level target running in the *parent* process.
+            WatcherRegistry.isWatchingTargets(this, targetType) ||
+            targetType === Targets.TYPES.FRAME
         )
         .map(async targetType => {
           const targetHelperModule = TARGET_HELPERS[targetType];
@@ -520,7 +578,12 @@ exports.WatcherActor = protocol.ActorClassWithSpec(watcherSpec, {
     WatcherRegistry.removeWatcherDataEntry(this, type, entries);
 
     Object.values(Targets.TYPES)
-      .filter(targetType => WatcherRegistry.isWatchingTargets(this, targetType))
+      .filter(
+        targetType =>
+          // See comment in addDataEntry
+          WatcherRegistry.isWatchingTargets(this, targetType) ||
+          targetType === Targets.TYPES.FRAME
+      )
       .forEach(targetType => {
         const targetHelperModule = TARGET_HELPERS[targetType];
         targetHelperModule.removeWatcherDataEntry({
@@ -530,10 +593,20 @@ exports.WatcherActor = protocol.ActorClassWithSpec(watcherSpec, {
         });
       });
 
-    // See comment in watchResources
+    // See comment in addDataEntry
     const targetActor = this._getTargetActorInParentProcess();
     if (targetActor) {
       targetActor.removeWatcherDataEntry(type, entries);
     }
+  },
+
+  /**
+   * Retrieve the current watched data for the provided type.
+   *
+   * @param {String} type
+   *        Data type to retrieve.
+   */
+  getWatchedData(type) {
+    return this.watchedData?.[type];
   },
 });

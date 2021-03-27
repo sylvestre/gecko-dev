@@ -20,16 +20,13 @@
 #include "mozilla/EventForwards.h"
 #include "mozilla/StaticMutex.h"
 #include "mozilla/StaticPtr.h"
+#include "nsIWidget.h"
 
 // Declare the backingScaleFactor method that we want to call
 // on NSView/Window/Screen objects, if they recognize it.
 @interface NSObject (BackingScaleFactorCategory)
 - (CGFloat)backingScaleFactor;
 @end
-
-#if !defined(MAC_OS_X_VERSION_10_8) || MAC_OS_X_VERSION_MAX_ALLOWED < MAC_OS_X_VERSION_10_8
-enum { NSEventPhaseMayBegin = 0x1 << 5 };
-#endif
 
 class nsIWidget;
 
@@ -50,9 +47,15 @@ using mozilla::StaticMutex;
 class nsAutoRetainCocoaObject {
  public:
   explicit nsAutoRetainCocoaObject(id anObject) {
-    mObject = NS_OBJC_TRY_EXPR_ABORT([anObject retain]);
+    NS_OBJC_BEGIN_TRY_IGNORE_BLOCK;
+    mObject = [anObject retain];
+    NS_OBJC_END_TRY_IGNORE_BLOCK;
   }
-  ~nsAutoRetainCocoaObject() { NS_OBJC_TRY_ABORT([mObject release]); }
+  ~nsAutoRetainCocoaObject() {
+    NS_OBJC_BEGIN_TRY_IGNORE_BLOCK;
+    [mObject release];
+    NS_OBJC_END_TRY_IGNORE_BLOCK;
+  }
 
  private:
   id mObject;  // [STRONG]
@@ -187,6 +190,7 @@ class nsCocoaUtils {
   // expected to be desktop pixels, which are equal to Cocoa points
   // (by definition).
   static NSRect GeckoRectToCocoaRect(const mozilla::DesktopIntRect& geckoRect);
+  static NSPoint GeckoPointToCocoaPoint(const mozilla::DesktopPoint& aPoint);
 
   // Converts aGeckoRect in dev pixels to points in Cocoa coordinates
   static NSRect GeckoRectToCocoaRectDevPix(const mozilla::LayoutDeviceIntRect& aGeckoRect,
@@ -213,15 +217,7 @@ class nsCocoaUtils {
   // the event was originally targeted at is still alive!
   static NSPoint EventLocationForWindow(NSEvent* anEvent, NSWindow* aWindow);
 
-  // Compatibility wrappers for the -[NSEvent phase], -[NSEvent momentumPhase],
-  // -[NSEvent hasPreciseScrollingDeltas] and -[NSEvent scrollingDeltaX/Y] APIs
-  // that became availaible starting with the 10.7 SDK.
-  // All of these can be removed once we drop support for 10.6.
-  static NSEventPhase EventPhase(NSEvent* aEvent);
-  static NSEventPhase EventMomentumPhase(NSEvent* aEvent);
   static BOOL IsMomentumScrollEvent(NSEvent* aEvent);
-  static BOOL HasPreciseScrollingDeltas(NSEvent* aEvent);
-  static void GetScrollingDeltas(NSEvent* aEvent, CGFloat* aOutDeltaX, CGFloat* aOutDeltaY);
   static BOOL EventHasPhaseInformation(NSEvent* aEvent);
 
   // Hides the Menu bar and the Dock. Multiple hide/show requests can be nested.
@@ -261,6 +257,8 @@ class nsCocoaUtils {
       Combines the two methods above. The caller owns the <code>NSImage</code>.
       @param aImage the image to extract a frame from
       @param aWhichFrame the frame to extract (see imgIContainer FRAME_*)
+      @param aComputedStyle the ComputedStyle of the element that the image is for, to support SVG
+                            context paint properties, can be null
       @param aResult the resulting NSImage
       @param scaleFactor the desired scale factor of the NSImage (2 for a retina display)
       @param aIsEntirelyBlack an outparam that, if non-null, will be set to a
@@ -269,6 +267,7 @@ class nsCocoaUtils {
       @return NS_OK if the conversion worked, NS_ERROR_FAILURE otherwise
    */
   static nsresult CreateNSImageFromImageContainer(imgIContainer* aImage, uint32_t aWhichFrame,
+                                                  const mozilla::ComputedStyle* aComputedStyle,
                                                   NSImage** aResult, CGFloat scaleFactor,
                                                   bool* aIsEntirelyBlack = nullptr);
 
@@ -277,6 +276,8 @@ class nsCocoaUtils {
       The caller owns the <code>NSImage</code>.
       @param aImage the image to extract a frame from
       @param aWhichFrame the frame to extract (see imgIContainer FRAME_*)
+      @param aComputedStyle the ComputedStyle of the element that the image is for, to support SVG
+                            context paint properties, can be null
       @param aResult the resulting NSImage
       @param aIsEntirelyBlack an outparam that, if non-null, will be set to a
                               bool that indicates whether the RGB values on all
@@ -284,8 +285,8 @@ class nsCocoaUtils {
       @return NS_OK if the conversion worked, NS_ERROR_FAILURE otherwise
    */
   static nsresult CreateDualRepresentationNSImageFromImageContainer(
-      imgIContainer* aImage, uint32_t aWhichFrame, NSImage** aResult,
-      bool* aIsEntirelyBlack = nullptr);
+      imgIContainer* aImage, uint32_t aWhichFrame, const mozilla::ComputedStyle* aComputedStyle,
+      NSImage** aResult, bool* aIsEntirelyBlack = nullptr);
 
   /**
    * Returns nsAString for aSrc.
@@ -375,6 +376,13 @@ class nsCocoaUtils {
    * Unicode character.
    */
   static uint32_t ConvertGeckoKeyCodeToMacCharCode(uint32_t aKeyCode);
+
+  /**
+   * Converts Gecko native modifier flags for `nsIWidget::SynthesizeNative*()`
+   * to native modifier flags of macOS.
+   */
+  static NSEventModifierFlags ConvertWidgetModifiersToMacModifierFlags(
+      nsIWidget::Modifiers aNativeModifiers);
 
   /**
    * Convert string with font attribute to NSMutableAttributedString

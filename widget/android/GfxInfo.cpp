@@ -600,42 +600,24 @@ nsresult GfxInfo::GetFeatureStatusImpl(
       NS_LossyConvertUTF16toASCII model(mModel);
 
 #ifdef NIGHTLY_BUILD
-      // On Nightly enable Webrender on all Adreno 5xx GPUs
-      isUnblocked |= gpu.Find("Adreno (TM) 5", /*ignoreCase*/ true) >= 0;
-
-      // On Nightly enable Webrender on all Mali-Txxx GPUs
-      isUnblocked |= gpu.Find("Mali-T", /*ignoreCase*/ true) >= 0;
+      // On Nightly enable Webrender on all Adreno 4xx GPUs
+      isUnblocked |= gpu.Find("Adreno (TM) 4", /*ignoreCase*/ true) >= 0;
 #endif
-      // Enable Webrender on all Adreno 5xx GPUs, excluding 505 and 506.
-      isUnblocked |=
-          gpu.Find("Adreno (TM) 5", /*ignoreCase*/ true) >= 0 &&
-          gpu.Find("Adreno (TM) 505", /*ignoreCase*/ true) == kNotFound &&
-          gpu.Find("Adreno (TM) 506", /*ignoreCase*/ true) == kNotFound;
+      // Enable Webrender on all Adreno 5xx and 6xx GPUs
+      isUnblocked |= gpu.Find("Adreno (TM) 5", /*ignoreCase*/ true) >= 0 ||
+                     gpu.Find("Adreno (TM) 6", /*ignoreCase*/ true) >= 0;
 
-      // Enable Webrender on all Adreno 6xx devices
-      isUnblocked |= gpu.Find("Adreno (TM) 6", /*ignoreCase*/ true) >= 0;
+      // Enable Webrender on all Mali-Txxx GPUs
+      isUnblocked |= gpu.Find("Mali-T", /*ignoreCase*/ true) >= 0;
 
       // Enable Webrender on all Mali-Gxx GPUs...
       isUnblocked |= gpu.Find("Mali-G", /*ignoreCase*/ true) >= 0 &&
-                     // Excluding G72 and G76 on Android 11, due to
-                     // bugs 1688705 and 1688017.
-                     !(mSDKVersion == 30 &&
-                       (gpu.Find("Mali-G72", /*ignoreCase*/ true) >= 0 ||
-                        gpu.Find("Mali-G76", /*ignoreCase*/ true) >= 0)) &&
-                     // And excluding G31 due to bug 1689947.
+                     // Excluding G31 due to bug 1689947.
                      gpu.Find("Mali-G31", /*ignoreCase*/ true) == kNotFound;
-
-      // Webrender requires the extension GL_OES_EGL_image_external_essl3
-      // to render video. Bug 1507074 tracks removing this requirement.
-      bool supportsImageExternalEssl3 = mGLStrings->Extensions().Contains(
-          "GL_OES_EGL_image_external_essl3"_ns);
 
       if (!isUnblocked) {
         *aStatus = nsIGfxInfo::FEATURE_BLOCKED_DEVICE;
         aFailureId = "FEATURE_FAILURE_WEBRENDER_BLOCKED_DEVICE";
-      } else if (!supportsImageExternalEssl3) {
-        *aStatus = nsIGfxInfo::FEATURE_BLOCKED_DEVICE;
-        aFailureId = "FEATURE_FAILURE_WEBRENDER_NO_IMAGE_EXTERNAL";
       } else {
         *aStatus = nsIGfxInfo::FEATURE_ALLOW_QUALIFIED;
       }

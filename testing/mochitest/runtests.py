@@ -59,7 +59,7 @@ from mozgeckoprofiler import symbolicate_profile_json, view_gecko_profile
 
 try:
     from marionette_driver.addons import Addons
-    from marionette_harness import Marionette
+    from marionette_driver.marionette import Marionette
 except ImportError as e:  # noqa
     # Defer ImportError until attempt to use Marionette
     def reraise(*args, **kwargs):
@@ -567,21 +567,16 @@ class MochitestServer(object):
     def stop(self):
         try:
             with closing(urlopen(self.shutdownURL)) as c:
-                c.read()
-
-            # TODO: need ProcessHandler.poll()
-            # https://bugzilla.mozilla.org/show_bug.cgi?id=912285
-            #      rtncode = self._process.poll()
-            rtncode = self._process.proc.poll()
-            if rtncode is None:
-                # TODO: need ProcessHandler.terminate() and/or .send_signal()
-                # https://bugzilla.mozilla.org/show_bug.cgi?id=912285
-                # self._process.terminate()
-                self._process.proc.terminate()
+                self._log.info(six.ensure_text(c.read()))
         except Exception:
             self._log.info("Failed to stop web server on %s" % self.shutdownURL)
             traceback.print_exc()
-            self._process.kill()
+        finally:
+            if self._process is not None:
+                # Kill the server immediately to avoid logging intermittent
+                # shutdown crashes, sometimes observed on Windows 10.
+                self._process.kill()
+                self._log.info("Web server killed.")
 
 
 class WebSocketServer(object):
@@ -623,14 +618,21 @@ class WebSocketServer(object):
         ]
         env = dict(os.environ)
         env["PYTHONPATH"] = os.pathsep.join(sys.path)
-        # start the process
-        self._process = mozprocess.ProcessHandler(cmd, cwd=SCRIPT_DIR, env=env)
+        # Start the process. Ignore stderr so that exceptions from the server
+        # are not treated as failures when parsing the test log.
+        self._process = mozprocess.ProcessHandler(
+            cmd,
+            cwd=SCRIPT_DIR,
+            env=env,
+            processStderrLine=lambda _: None,
+        )
         self._process.run()
         pid = self._process.pid
         self._log.info("runtests.py | Websocket server pid: %d" % pid)
 
     def stop(self):
-        self._process.kill()
+        if self._process is not None:
+            self._process.kill()
 
 
 class SSLTunnel:
@@ -768,7 +770,7 @@ def checkAndConfigureV4l2loopback(device):
 
     VIDIOC_QUERYCAP = 0x80685600
 
-    fd = libc.open(device, O_RDWR)
+    fd = libc.open(six.ensure_binary(device), O_RDWR)
     if fd < 0:
         return False, ""
 
@@ -776,7 +778,7 @@ def checkAndConfigureV4l2loopback(device):
     if libc.ioctl(fd, VIDIOC_QUERYCAP, ctypes.byref(vcap)) != 0:
         return False, ""
 
-    if vcap.driver != "v4l2 loopback":
+    if six.ensure_text(vcap.driver) != "v4l2 loopback":
         return False, ""
 
     class v4l2_control(ctypes.Structure):
@@ -798,7 +800,7 @@ def checkAndConfigureV4l2loopback(device):
     libc.ioctl(fd, VIDIOC_S_CTRL, ctypes.byref(control))
     libc.close(fd)
 
-    return True, vcap.card
+    return True, six.ensure_text(vcap.card)
 
 
 def findTestMediaDevices(log):
@@ -1734,6 +1736,10 @@ toolbar#nav-bar {
             d["jscovDirPrefix"] = options.jscov_dir_prefix
         if not options.keep_open:
             d["closeWhenDone"] = "1"
+
+        d["runFailures"] = False
+        if options.runFailures:
+            d["runFailures"] = True
         content = json.dumps(d)
 
         with open(os.path.join(options.profilePath, "testConfig.js"), "w") as config:
@@ -2104,6 +2110,10 @@ toolbar#nav-bar {
             # Enable tracing output for detailed failures in case of
             # failing connection attempts, and hangs (bug 1397201)
             "marionette.log.level": "Trace",
+            # Disable async font fallback, because the unpredictable
+            # extra reflow it can trigger (potentially affecting a later
+            # test) results in spurious intermittent failures.
+            "gfx.font_rendering.fallback.async": False,
         }
 
         # Ideally we should set this in a manifest, but a11y tests do not run by manifest.
@@ -2328,6 +2338,8 @@ toolbar#nav-bar {
         bisectChunk=None,
         marionette_args=None,
         e10s=True,
+        runFailures=False,
+        crashAsPass=False,
     ):
         """
         Run the app, log the duration it took to execute, return the status code.
@@ -2537,10 +2549,16 @@ toolbar#nav-bar {
             # record post-test information
             if status:
                 self.message_logger.dump_buffered()
-                self.log.error(
-                    "TEST-UNEXPECTED-FAIL | %s | application terminated with exit code %s"
-                    % (self.lastTestSeen, status)
-                )
+                if crashAsPass:
+                    self.log.info(
+                        "TEST-PASS | %s | application terminated with exit code %s"
+                        % (self.lastTestSeen, status)
+                    )
+                else:
+                    self.log.error(
+                        "TEST-UNEXPECTED-FAIL | %s | application terminated with exit code %s"
+                        % (self.lastTestSeen, status)
+                    )
             else:
                 self.lastTestSeen = "Main app process exited normally"
 
@@ -2555,13 +2573,23 @@ toolbar#nav-bar {
             )
 
             # check for crashes
+            quiet = False
+            if crashAsPass:
+                quiet = True
             minidump_path = os.path.join(self.profile.profile, "minidumps")
             crash_count = mozcrash.log_crashes(
-                self.log, minidump_path, symbolsPath, test=self.lastTestSeen
+                self.log,
+                minidump_path,
+                symbolsPath,
+                test=self.lastTestSeen,
+                quiet=quiet,
             )
 
             if crash_count or zombieProcesses:
                 status = 1
+
+            if crashAsPass:
+                status = 0
 
         finally:
             # cleanup
@@ -2823,6 +2851,7 @@ toolbar#nav-bar {
                 "socketprocess_networking": self.extraPrefs.get(
                     "network.http.network_access_on_socket_process.enabled", False
                 ),
+                "swgl": self.extraPrefs.get("gfx.webrender.software", False),
                 "verify": options.verify,
                 "verify_fission": options.verify_fission,
                 "webrender": options.enable_webrender,
@@ -3101,6 +3130,12 @@ toolbar#nav-bar {
                 if self.urlOpts:
                     testURL += "?" + "&".join(self.urlOpts)
 
+                if options.runFailures:
+                    testURL += "&runFailures=true"
+
+                if options.timeoutAsPass:
+                    testURL += "&timeoutAsPass=true"
+
                 self.log.info("runtests.py | Running with scheme: {}".format(scheme))
                 self.log.info(
                     "runtests.py | Running with e10s: {}".format(options.e10s)
@@ -3144,6 +3179,8 @@ toolbar#nav-bar {
                     bisectChunk=options.bisectChunk,
                     marionette_args=marionette_args,
                     e10s=options.e10s,
+                    runFailures=options.runFailures,
+                    crashAsPass=options.crashAsPass,
                 )
                 status = ret or status
         except KeyboardInterrupt:

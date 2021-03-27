@@ -274,19 +274,27 @@ void LoadContextOptions(const char* aPrefName, void* /* aClosure */) {
 #else
       .setWasmIon(GetWorkerPref<bool>("wasm_optimizingjit"_ns))
 #endif
+      .setWasmBaseline(GetWorkerPref<bool>("wasm_baselinejit"_ns))
       .setWasmReftypes(GetWorkerPref<bool>("wasm_reftypes"_ns))
-#ifdef ENABLE_WASM_MULTI_VALUE
-      .setWasmMultiValue(GetWorkerPref<bool>("wasm_multi_value"_ns))
-#endif
-#ifdef ENABLE_WASM_SIMD
-      .setWasmSimd(GetWorkerPref<bool>("wasm_simd"_ns))
-#endif
 #ifdef ENABLE_WASM_FUNCTION_REFERENCES
       .setWasmFunctionReferences(
           GetWorkerPref<bool>("wasm_function_references"_ns))
 #endif
 #ifdef ENABLE_WASM_GC
       .setWasmGc(GetWorkerPref<bool>("wasm_gc"_ns))
+#endif
+#ifdef ENABLE_WASM_MULTI_VALUE
+      .setWasmMultiValue(GetWorkerPref<bool>("wasm_multi_value"_ns))
+#endif
+#ifdef ENABLE_WASM_SIMD
+      .setWasmSimd(GetWorkerPref<bool>("wasm_simd"_ns))
+#endif
+#ifdef ENABLE_WASM_SIMD_WORMHOLE
+#  ifdef EARLY_BETA_OR_EARLIER
+      .setWasmSimdWormhole(GetWorkerPref<bool>("wasm_simd_wormhole"_ns))
+#  else
+      .setWasmSimdWormhole(false)
+#  endif
 #endif
       .setWasmVerbose(GetWorkerPref<bool>("wasm_verbose"_ns))
       .setThrowOnAsmJSValidationFailure(
@@ -1150,18 +1158,18 @@ bool RuntimeService::RegisterWorker(WorkerPrivate& aWorkerPrivate) {
     MutexAutoLock lock(mMutex);
 
     auto* const domainInfo =
-        mDomainMap.WithEntryHandle(domain, [&](auto&& entry) {
-          return entry
-              .OrInsertWith([&domain, parent] {
-                NS_ASSERTION(!parent, "Shouldn't have a parent here!");
-                Unused << parent;  // silence clang -Wunused-lambda-capture in
-                                   // opt builds
-                auto wdi = MakeUnique<WorkerDomainInfo>();
-                wdi->mDomain = domain;
-                return wdi;
-              })
-              .get();
-        });
+        mDomainMap
+            .LookupOrInsertWith(
+                domain,
+                [&domain, parent] {
+                  NS_ASSERTION(!parent, "Shouldn't have a parent here!");
+                  Unused << parent;  // silence clang -Wunused-lambda-capture in
+                                     // opt builds
+                  auto wdi = MakeUnique<WorkerDomainInfo>();
+                  wdi->mDomain = domain;
+                  return wdi;
+                })
+            .get();
 
     queued = gMaxWorkersPerDomain &&
              domainInfo->ActiveWorkerCount() >= gMaxWorkersPerDomain &&
@@ -1222,14 +1230,7 @@ bool RuntimeService::RegisterWorker(WorkerPrivate& aWorkerPrivate) {
     if (!isServiceWorker) {
       // Service workers are excluded since their lifetime is separate from
       // that of dom windows.
-      if (auto* const windowArray = mWindowMap.WithEntryHandle(
-              window,
-              [](auto&& entry) {
-                return entry
-                    .OrInsertWith(
-                        [] { return MakeUnique<nsTArray<WorkerPrivate*>>(1); })
-                    .get();
-              });
+      if (auto* const windowArray = mWindowMap.GetOrInsertNew(window, 1);
           !windowArray->Contains(&aWorkerPrivate)) {
         windowArray->AppendElement(&aWorkerPrivate);
       } else {
@@ -1680,9 +1681,7 @@ void RuntimeService::CrashIfHanging() {
   ActiveWorkerStats activeStats;
   uint32_t inactiveWorkers = 0;
 
-  for (const auto& entry : mDomainMap) {
-    const WorkerDomainInfo* const aData = entry.GetData().get();
-
+  for (const auto& aData : mDomainMap.Values()) {
     activeStats.Update<&ActiveWorkerStats::mWorkers>(aData->mActiveWorkers);
     activeStats.Update<&ActiveWorkerStats::mServiceWorkers>(
         aData->mActiveServiceWorkers);
@@ -1838,9 +1837,7 @@ void RuntimeService::Cleanup() {
 
 void RuntimeService::AddAllTopLevelWorkersToArray(
     nsTArray<WorkerPrivate*>& aWorkers) {
-  for (const auto& entry : mDomainMap) {
-    WorkerDomainInfo* const aData = entry.GetData().get();
-
+  for (const auto& aData : mDomainMap.Values()) {
 #ifdef DEBUG
     for (const auto& activeWorker : aData->mActiveWorkers) {
       MOZ_ASSERT(!activeWorker->GetParent(),

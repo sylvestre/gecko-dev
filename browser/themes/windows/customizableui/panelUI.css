@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 %include ../../shared/customizableui/panelUI.inc.css
+%include ../../shared/customizableui/panelUI-custom-colors.inc.css
 
 /* bookmark panel submenus */
 
@@ -13,6 +14,18 @@
   padding: 0;
   padding-top: 4px;
   padding-inline-start: 3px;
+}
+
+@supports -moz-bool-pref("browser.proton.contextmenus.enabled") {
+@media (-moz-windows-default-theme) and (-moz-os-version: windows-win10) {
+  /* Prevent the global arrowscrollbox rules from replacing our background,
+     or adding more padding that would misalign our submenus. */
+  #BMB_bookmarksPopup::part(arrowscrollbox),
+  #BMB_bookmarksPopup menupopup[placespopup=true]::part(arrowscrollbox) {
+    background-color: var(--arrowpanel-background);
+    padding-block-start: 0;
+  }
+}
 }
 
 #BMB_bookmarksPopup menupopup[placespopup=true]::part(innerbox) {

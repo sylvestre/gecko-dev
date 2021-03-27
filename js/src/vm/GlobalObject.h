@@ -8,7 +8,6 @@
 #define vm_GlobalObject_h
 
 #include "mozilla/Assertions.h"
-#include "mozilla/DebugOnly.h"
 
 #include <stdint.h>
 #include <type_traits>
@@ -51,7 +50,7 @@ class JS_PUBLIC_API RealmOptions;
 namespace js {
 
 class GlobalScope;
-class LexicalEnvironmentObject;
+class GlobalLexicalEnvironmentObject;
 class PlainObject;
 class RegExpStatics;
 
@@ -148,7 +147,7 @@ class GlobalObject : public NativeObject {
   }
 
  public:
-  LexicalEnvironmentObject& lexicalEnvironment() const;
+  GlobalLexicalEnvironmentObject& lexicalEnvironment() const;
   GlobalScope& emptyGlobalScope() const;
 
   void setOriginalEval(JSObject* evalobj) {
@@ -270,15 +269,6 @@ class GlobalObject : public NativeObject {
                             JSPrincipals* principals,
                             JS::OnNewGlobalHookOption hookOption,
                             const JS::RealmOptions& options);
-
-  /*
-   * For bootstrapping, whether to splice a prototype for the global object.
-   */
-  bool shouldSplicePrototype();
-
-  /* Set a new prototype for the global object during bootstrapping. */
-  static bool splicePrototype(JSContext* cx, Handle<GlobalObject*> global,
-                              Handle<TaggedProto> proto);
 
   /*
    * Create a constructor function with the specified name and length using
@@ -501,7 +491,8 @@ class GlobalObject : public NativeObject {
   }
 
   static bool ensureModulePrototypesCreated(JSContext* cx,
-                                            Handle<GlobalObject*> global);
+                                            Handle<GlobalObject*> global,
+                                            bool setUsedAsPrototype = false);
 
   static JSObject* getOrCreateModulePrototype(JSContext* cx,
                                               Handle<GlobalObject*> global) {
@@ -758,14 +749,6 @@ class GlobalObject : public NativeObject {
 
     *vp = holder->getSlot(shape->slot());
     return true;
-  }
-
-  Value existingIntrinsicValue(PropertyName* name) {
-    Value val;
-    mozilla::DebugOnly<bool> exists = maybeExistingIntrinsicValue(name, &val);
-    MOZ_ASSERT(exists, "intrinsic must already have been added to holder");
-
-    return val;
   }
 
   static bool maybeGetIntrinsicValue(JSContext* cx,

@@ -113,7 +113,7 @@ interface nsISearchEngine : nsISupports
 
   /**
    * An optional shortcut alias for the engine.
-   * When non-null, this is a unique identifier.
+   * When not an empty string, this is a unique identifier.
    */
   attribute AString alias;
 
@@ -308,12 +308,6 @@ interface nsISearchService : nsISupports
   Promise addUserEngine(in AString name,
                         in AString url,
                         [optional] in AString alias);
-
-  /**
-   * Test-only function for adding an engine. This should be considered obsolete,
-   * and will be replaced soon (bug 1649186).
-   */
-  Promise addEngineWithDetails(in AString name, in jsval details);
 
   /**
    * Adds search providers to the search service.  If the search

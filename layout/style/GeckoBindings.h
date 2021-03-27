@@ -295,7 +295,7 @@ NS_DECL_THREADSAFE_FFI_REFCOUNTING(mozilla::SharedFontList, SharedFontList);
 
 // will not run destructors on dst, give it uninitialized memory
 // font_id is LookAndFeel::FontID
-void Gecko_nsFont_InitSystem(nsFont* dst, int32_t font_id,
+void Gecko_nsFont_InitSystem(nsFont* dst, mozilla::StyleSystemFont font_id,
                              const nsStyleFont* font,
                              const mozilla::dom::Document*);
 
@@ -623,8 +623,8 @@ void Gecko_MediaFeatures_GetDeviceSize(const mozilla::dom::Document*,
 
 float Gecko_MediaFeatures_GetResolution(const mozilla::dom::Document*);
 bool Gecko_MediaFeatures_PrefersReducedMotion(const mozilla::dom::Document*);
-mozilla::StyleContrastPref Gecko_MediaFeatures_PrefersContrast(
-    const mozilla::dom::Document*, const bool aForcedColors);
+mozilla::StylePrefersContrast Gecko_MediaFeatures_PrefersContrast(
+    const mozilla::dom::Document*);
 mozilla::StylePrefersColorScheme Gecko_MediaFeatures_PrefersColorScheme(
     const mozilla::dom::Document*);
 

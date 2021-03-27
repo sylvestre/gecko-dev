@@ -37,7 +37,7 @@ use crate::device::{
 use crate::gpu_types::{ZBufferId, CompositeInstance};
 use crate::batch::BatchTextures;
 use crate::texture_pack::{GuillotineAllocator, FreeRectSlice};
-use crate::composite::CompositeSurfaceFormat;
+use crate::composite::{CompositeFeatures, CompositeSurfaceFormat};
 use crate::profiler;
 use crate::render_api::MemoryReport;
 
@@ -84,9 +84,7 @@ pub fn upload_to_texture_cache(
     for (texture_id, updates) in update_list {
         let texture = &renderer.texture_resolver.texture_cache_map[&texture_id];
         for update in updates {
-            let TextureCacheUpdate { rect, stride, offset, layer_index, format_override, source } = update;
-
-            assert_eq!(layer_index, 0);
+            let TextureCacheUpdate { rect, stride, offset, format_override, source } = update;
 
             let dummy_data;
             let data = match source {
@@ -120,7 +118,6 @@ pub fn upload_to_texture_cache(
                 TextureUpdateSource::DebugClear => {
                     let draw_target = DrawTarget::from_texture(
                         texture,
-                        0,
                         false,
                     );
                     renderer.device.bind_draw_target(draw_target);
@@ -161,7 +158,6 @@ pub fn upload_to_texture_cache(
                     &mut renderer.device,
                     texture,
                     rect,
-                    0,
                     stride,
                     format_override,
                     data.as_ptr(),
@@ -190,7 +186,6 @@ pub fn upload_to_texture_cache(
                     &mut renderer.device,
                     texture,
                     DeviceIntRect::from_size(texture.get_dimensions()),
-                    0,
                     None,
                     pbo,
                 );
@@ -201,7 +196,6 @@ pub fn upload_to_texture_cache(
                     &mut renderer.device,
                     texture,
                     batch_buffer.upload_rect,
-                    0,
                     Some(BATCH_UPLOAD_TEXTURE_SIZE.width * bpp),
                     None,
                     bytes.as_ptr(),
@@ -441,14 +435,11 @@ fn copy_from_staging_to_cache(
             &batch_upload_textures[copy.src_texture_index],
             copy.src_offset.x as _,
             copy.src_offset.y as _,
-            0,
             dest_texture,
             copy.dest_offset.x as _,
             copy.dest_offset.y as _,
-            0,
             copy.size.width as _,
             copy.size.height as _,
-            1,
         );
     }
 }
@@ -503,7 +494,6 @@ fn copy_from_staging_to_cache_using_draw_calls(
 
             let draw_target = DrawTarget::from_texture(
                 dest_texture,
-                0,
                 false,
             );
             renderer.device.bind_draw_target(draw_target);
@@ -522,9 +512,11 @@ fn copy_from_staging_to_cache_using_draw_calls(
                 .get_composite_shader(
                     CompositeSurfaceFormat::Rgba,
                     ImageBufferKind::Texture2D,
+                    CompositeFeatures::empty(),
                 ).bind(
                     &mut renderer.device,
                     &projection,
+                    None,
                     &mut renderer.renderer_errors
                 );
 
@@ -557,7 +549,6 @@ fn copy_from_staging_to_cache_using_draw_calls(
             dest_rect,
             dest_rect,
             PremultipliedColorF::WHITE,
-            0.0,
             ZBufferId(0),
             src_rect,
         ));
@@ -654,7 +645,6 @@ impl UploadTexturePool {
             // to copy the texture data. Instead, we should use glCopyImageSubData on some
             // platforms, and avoid creating the FBOs in that case.
             Some(RenderTargetInfo { has_depth: false }),
-            1,
         )
     }
 

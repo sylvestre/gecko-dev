@@ -28,7 +28,7 @@ ChromeUtils.defineModuleGetter(
 
 XPCOMUtils.defineLazyGetter(this, "aboutNewTabFeature", () => {
   const { ExperimentFeature } = ChromeUtils.import(
-    "resource://messaging-system/experiments/ExperimentAPI.jsm"
+    "resource://nimbus/ExperimentAPI.jsm"
   );
   return new ExperimentFeature("newtab");
 });
@@ -83,10 +83,7 @@ this.PrefsFeed = class PrefsFeed {
    * Handler for when experiment data updates.
    */
   onExperimentUpdated(event, reason) {
-    const value =
-      aboutNewTabFeature.getValue({
-        sendExposurePing: false,
-      }) || {};
+    const value = aboutNewTabFeature.getValue() || {};
     this.store.dispatch(
       ac.BroadcastToContent({
         type: at.PREF_CHANGED,
@@ -138,7 +135,7 @@ this.PrefsFeed = class PrefsFeed {
     );
 
     // Read the pref for search shortcuts top sites experiment from firefox.js and store it
-    // in our interal list of prefs to watch
+    // in our internal list of prefs to watch
     let searchTopSiteExperimentPrefValue = Services.prefs.getBoolPref(
       "browser.newtabpage.activity-stream.improvesearch.topSiteSearchShortcuts"
     );
@@ -154,7 +151,7 @@ this.PrefsFeed = class PrefsFeed {
     );
 
     // Read the pref for search hand-off from firefox.js and store it
-    // in our interal list of prefs to watch
+    // in our internal list of prefs to watch
     let handoffToAwesomebarPrefValue = Services.prefs.getBoolPref(
       "browser.newtabpage.activity-stream.improvesearch.handoffToAwesomebar"
     );
@@ -163,14 +160,19 @@ this.PrefsFeed = class PrefsFeed {
       value: handoffToAwesomebarPrefValue,
     });
 
-    // Add experiment values and default values
-    values.featureConfig =
-      aboutNewTabFeature.getValue({
-        sendExposurePing: false,
-      }) || {};
+    // Read the pref for the cached default engine name from firefox.js and
+    // store it in our internal list of prefs to watch
+    let placeholderPrefValue = Services.prefs.getStringPref(
+      "browser.urlbar.placeholderName",
+      ""
+    );
+    values["urlbar.placeholderName"] = placeholderPrefValue;
+    this._prefMap.set("urlbar.placeholderName", {
+      value: placeholderPrefValue,
+    });
 
-    this._setBoolPref(values, "newNewtabExperience.enabled", false);
-    this._setBoolPref(values, "customizationMenu.enabled", false);
+    // Add experiment values and default values
+    values.featureConfig = aboutNewTabFeature.getValue() || {};
     this._setBoolPref(values, "logowordmark.alwaysVisible", false);
     this._setBoolPref(values, "feeds.section.topstories", false);
     this._setBoolPref(values, "discoverystream.enabled", false);

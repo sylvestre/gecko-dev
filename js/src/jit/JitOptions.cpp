@@ -93,8 +93,8 @@ DefaultJitOptions::DefaultJitOptions() {
   // Toggles whether loop invariant code motion is globally disabled.
   SET_DEFAULT(disableLicm, false);
 
-  // Toggle whether Profile Guided Optimization is globally disabled.
-  SET_DEFAULT(disablePgo, false);
+  // Toggle whether branch pruning is globally disabled.
+  SET_DEFAULT(disablePruning, true);
 
   // Toggles whether instruction reordering is globally disabled.
   SET_DEFAULT(disableInstructionReordering, false);
@@ -118,7 +118,7 @@ DefaultJitOptions::DefaultJitOptions() {
   SET_DEFAULT(disableBailoutLoopCheck, false);
 
   // Whether we use scalar replacement instead of the old arguments analysis.
-  SET_DEFAULT(scalarReplaceArguments, false);
+  SET_DEFAULT(scalarReplaceArguments, true);
 
   // Whether the Baseline Interpreter is enabled.
   SET_DEFAULT(baselineInterpreter, true);
@@ -251,15 +251,13 @@ DefaultJitOptions::DefaultJitOptions() {
 
 #if defined(JS_CODEGEN_MIPS32) || defined(JS_CODEGEN_MIPS64)
   SET_DEFAULT(spectreIndexMasking, false);
-  SET_DEFAULT(spectreObjectMitigationsBarriers, false);
-  SET_DEFAULT(spectreObjectMitigationsMisc, false);
+  SET_DEFAULT(spectreObjectMitigations, false);
   SET_DEFAULT(spectreStringMitigations, false);
   SET_DEFAULT(spectreValueMasking, false);
   SET_DEFAULT(spectreJitToCxxCalls, false);
 #else
   SET_DEFAULT(spectreIndexMasking, true);
-  SET_DEFAULT(spectreObjectMitigationsBarriers, true);
-  SET_DEFAULT(spectreObjectMitigationsMisc, true);
+  SET_DEFAULT(spectreObjectMitigations, true);
   SET_DEFAULT(spectreStringMitigations, true);
   SET_DEFAULT(spectreValueMasking, true);
   SET_DEFAULT(spectreJitToCxxCalls, true);

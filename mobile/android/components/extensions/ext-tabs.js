@@ -233,9 +233,11 @@ this.tabs = class extends ExtensionAPI {
             function sanitize(tab, changeInfo) {
               const result = {};
               let nonempty = false;
-              const hasTabs = tab.hasTabPermission;
               for (const prop in changeInfo) {
-                if (hasTabs || !restricted.includes(prop)) {
+                // In practice, changeInfo contains at most one property from
+                // restricted. Therefore it is not necessary to cache the value
+                // of tab.hasTabPermission outside the loop.
+                if (!restricted.includes(prop) || tab.hasTabPermission) {
                   nonempty = true;
                   result[prop] = changeInfo[prop];
                 }
@@ -328,6 +330,15 @@ this.tabs = class extends ExtensionAPI {
               return Promise.reject({ message: `Illegal URL: ${url}` });
             }
           }
+
+          if (cookieStoreId) {
+            cookieStoreId = getUserContextIdForCookieStoreId(
+              extension,
+              cookieStoreId,
+              false // TODO bug 1372178: support creation of private browsing tabs
+            );
+          }
+          cookieStoreId = cookieStoreId ? cookieStoreId.toString() : undefined;
 
           const nativeTab = await GeckoViewTabBridge.createNewTab({
             extensionId: context.extension.id,

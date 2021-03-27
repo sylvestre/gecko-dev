@@ -46,6 +46,8 @@ class RenderCompositorNative : public RenderCompositor {
   bool ShouldUseNativeCompositor() override;
   uint32_t GetMaxUpdateRects() override;
 
+  bool SurfaceOriginIsTopLeft() override { return true; }
+
   // Does the readback for the ShouldUseNativeCompositor() case.
   bool MaybeReadback(const gfx::IntSize& aReadbackSize,
                      const wr::ImageFormat& aReadbackFormat,
@@ -70,7 +72,6 @@ class RenderCompositorNative : public RenderCompositor {
                   const wr::CompositorSurfaceTransform& aTransform,
                   wr::DeviceIntRect aClipRect,
                   wr::ImageRendering aImageRendering) override;
-  CompositorCapabilities GetCompositorCapabilities() override;
 
   struct TileKey {
     TileKey(int32_t aX, int32_t aY) : mX(aX), mY(aY) {}

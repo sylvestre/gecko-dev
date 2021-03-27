@@ -7,7 +7,7 @@
 #include "mozilla/gfx/gfxConfigManager.h"
 #include "mozilla/gfx/gfxVars.h"
 #include "mozilla/Preferences.h"
-#include "mozilla/Services.h"
+#include "mozilla/Components.h"
 #include "mozilla/StaticPrefs_gfx.h"
 #include "mozilla/StaticPrefs_layers.h"
 #include "gfxConfig.h"
@@ -68,9 +68,12 @@ void gfxConfigManager::Init() {
 #ifdef NIGHTLY_BUILD
   mIsNightly = true;
 #endif
+#ifdef EARLY_BETA_OR_EARLIER
+  mIsEarlyBetaOrEarlier = true;
+#endif
   mSafeMode = gfxPlatform::InSafeMode();
 
-  mGfxInfo = services::GetGfxInfo();
+  mGfxInfo = components::GfxInfo::Service();
 
   mFeatureWr = &gfxConfig::GetFeature(Feature::WEBRENDER);
   mFeatureWrQualified = &gfxConfig::GetFeature(Feature::WEBRENDER_QUALIFIED);
@@ -85,6 +88,7 @@ void gfxConfigManager::Init() {
   mFeatureHwCompositing = &gfxConfig::GetFeature(Feature::HW_COMPOSITING);
 #ifdef XP_WIN
   mFeatureD3D11HwAngle = &gfxConfig::GetFeature(Feature::D3D11_HW_ANGLE);
+  mFeatureD3D11Compositing = &gfxConfig::GetFeature(Feature::D3D11_COMPOSITING);
 #endif
   mFeatureGPUProcess = &gfxConfig::GetFeature(Feature::GPU_PROCESS);
 }
@@ -130,6 +134,8 @@ void gfxConfigManager::ConfigureWebRenderSoftware() {
     // will override all the other enabling prefs
     mFeatureWrSoftware->UserDisable("User force-disabled WR",
                                     "FEATURE_FAILURE_USER_FORCE_DISABLED"_ns);
+  } else if (gfxPlatform::DoesFissionForceWebRender()) {
+    mFeatureWrSoftware->UserForceEnable("Force enabled by fission");
   }
 
   nsCString failureId;
@@ -159,6 +165,19 @@ void gfxConfigManager::ConfigureWebRenderSoftware() {
       mFeatureWrSoftware->Disable(FeatureStatus::Blocked,
                                   "Not controlled by rollout", failureId);
       break;
+  }
+
+  if (!mIsEarlyBetaOrEarlier && mFeatureD3D11Compositing) {
+    if (!mFeatureGPUProcess->IsEnabled()) {
+      mFeatureWrSoftware->Disable(FeatureStatus::Unavailable,
+                                  "Requires GPU process on release",
+                                  "FEATURE_FAILURE_RELEASE_NO_GPU_PROCESS"_ns);
+    }
+    if (mFeatureD3D11Compositing->IsEnabled()) {
+      mFeatureWrSoftware->Disable(FeatureStatus::Unavailable,
+                                  "User has D3D11 support on release",
+                                  "FEATURE_FAILURE_RELEASE_D3D11_SUPPORTED"_ns);
+    }
   }
 }
 
@@ -397,13 +416,15 @@ void gfxConfigManager::ConfigureWebRender() {
 
       nsString adapter;
       mGfxInfo->GetAdapterDeviceID(adapter);
-      // Block partial present on Mali-T6xx and T7xx GPUs due to rendering
-      // issues. See bug 1680087.
+      // Block partial present on some devices due to rendering issues.
+      // On Mali-T6xx and T7xx GPUs due to bug 1680087.
+      // On Adreno 3xx GPUs due to bug 1695771.
       if (adapter.Find("Mali-T6", /*ignoreCase*/ true) >= 0 ||
-          adapter.Find("Mali-T7", /*ignoreCase*/ true) >= 0) {
-        mFeatureWrPartial->Disable(FeatureStatus::Blocked,
-                                   "Partial present blocked on Mali-Txxx",
-                                   "FEATURE_FAILURE_PARTIAL_PRESENT_MALI"_ns);
+          adapter.Find("Mali-T7", /*ignoreCase*/ true) >= 0 ||
+          adapter.Find("Adreno (TM) 3", /*ignoreCase*/ true) >= 0) {
+        mFeatureWrPartial->Disable(
+            FeatureStatus::Blocked, "Partial present blocked",
+            "FEATURE_FAILURE_PARTIAL_PRESENT_BLOCKED"_ns);
       }
     }
   }

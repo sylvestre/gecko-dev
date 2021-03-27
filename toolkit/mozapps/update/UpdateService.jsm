@@ -39,6 +39,17 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   WindowsRegistry: "resource://gre/modules/WindowsRegistry.jsm",
 });
 
+if (AppConstants.ENABLE_REMOTE_AGENT) {
+  XPCOMUtils.defineLazyServiceGetter(
+    this,
+    "RemoteAgent",
+    "@mozilla.org/remote/agent;1",
+    "nsIRemoteAgent"
+  );
+} else {
+  this.RemoteAgent = { listening: false };
+}
+
 const UPDATESERVICE_CID = Components.ID(
   "{B3C290A6-3943-4B89-8BBE-C01EB7B3B311}"
 );
@@ -201,6 +212,8 @@ const ERR_UPDATE_STATE_NONE = 91;
 const ERR_CHANNEL_CHANGE = 92;
 const INVALID_UPDATER_STATE_CODE = 98;
 const INVALID_UPDATER_STATUS_CODE = 99;
+
+const BACKGROUND_TASK_NEEDED_ELEVATION_ERROR = 105;
 
 // Custom update error codes
 const BACKGROUNDCHECK_MULTIPLE_FAILURES = 110;
@@ -1447,6 +1460,23 @@ function handleUpdateFailure(update, errorCode) {
   update.errorCode = parseInt(errorCode);
   if (WRITE_ERRORS.includes(update.errorCode)) {
     writeStatusFile(getReadyUpdateDir(), (update.state = STATE_PENDING));
+    return true;
+  }
+
+  if (update.errorCode == BACKGROUND_TASK_NEEDED_ELEVATION_ERROR) {
+    // There's no need to count attempts and escalate: it's expected that the
+    // background update task will try to update and fail due to required
+    // elevation repeatedly if, for example, the maintenance service is not
+    // available (or not functioning) and the installation requires privileges
+    // to update.
+
+    LOG(
+      "handleUpdateFailure - witnessed BACKGROUND_TASK_NEEDED_ELEVATION_ERROR, " +
+        "returning to STATE_PENDING"
+    );
+    writeStatusFile(getReadyUpdateDir(), (update.state = STATE_PENDING));
+
+    // Return true to indicate a recoverable error.
     return true;
   }
 
@@ -3583,7 +3613,7 @@ UpdateService.prototype = {
     }
 
     return (
-      (Cu.isInAutomation || marionetteRunning) &&
+      (Cu.isInAutomation || marionetteRunning || RemoteAgent.listening) &&
       Services.prefs.getBoolPref(PREF_APP_UPDATE_DISABLEDFORTESTING, false)
     );
   },

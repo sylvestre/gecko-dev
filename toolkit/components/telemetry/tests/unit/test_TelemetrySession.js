@@ -36,11 +36,6 @@ const REASON_TEST_PING = "test-ping";
 const REASON_DAILY = "daily";
 const REASON_ENVIRONMENT_CHANGE = "environment-change";
 
-const PLATFORM_VERSION = "1.9.2";
-const APP_VERSION = "1";
-const APP_ID = "xpcshell@tests.mozilla.org";
-const APP_NAME = "XPCShell";
-
 const IGNORE_HISTOGRAM_TO_CLONE = "MEMORY_HEAP_ALLOCATED";
 const IGNORE_CLONED_HISTOGRAM = "test::ignore_me_also";
 // Add some unicode characters here to ensure that sending them works correctly.
@@ -528,7 +523,7 @@ function write_fake_failedprofilelocks_file() {
 add_task(async function test_setup() {
   // Addon manager needs a profile directory
   do_get_profile();
-  loadAddonManager(APP_ID, APP_NAME, APP_VERSION, PLATFORM_VERSION);
+  await loadAddonManager(APP_ID, APP_NAME, APP_VERSION, PLATFORM_VERSION);
   finishAddonManagerStartup();
   fakeIntlReady();
   // Make sure we don't generate unexpected pings due to pref changes.
@@ -2079,10 +2074,6 @@ add_task(async function test_pingExtendedStats() {
     "addonDetails",
   ];
 
-  if (AppConstants.platform == "android") {
-    EXTENDED_PAYLOAD_FIELDS.push("UIMeasurements");
-  }
-
   // Reset telemetry and disable sending extended statistics.
   await TelemetryStorage.testClearPendingPings();
   PingServer.clearRequests();
@@ -2312,12 +2303,6 @@ add_task(async function test_changeThrottling() {
     return TelemetrySession.getPayload().info.subsessionCounter;
   };
 
-  const PREF_TEST = "toolkit.telemetry.test.pref1";
-  const PREFS_TO_WATCH = new Map([
-    [PREF_TEST, { what: TelemetryEnvironment.RECORD_PREF_STATE }],
-  ]);
-  Preferences.reset(PREF_TEST);
-
   let now = fakeNow(2050, 1, 2, 0, 0, 0);
   gMonotonicNow = fakeMonotonicNow(
     gMonotonicNow + 10 * MILLISECONDS_PER_MINUTE
@@ -2325,11 +2310,8 @@ add_task(async function test_changeThrottling() {
   await TelemetryController.testReset();
   Assert.equal(getSubsessionCount(), 1);
 
-  // Set the Environment preferences to watch.
-  await TelemetryEnvironment.testWatchPreferences(PREFS_TO_WATCH);
-
   // The first pref change should not trigger a notification.
-  Preferences.set(PREF_TEST, 1);
+  TelemetrySession.testOnEnvironmentChange("test", {});
   Assert.equal(getSubsessionCount(), 1);
 
   // We should get a change notification after the 5min throttling interval.
@@ -2337,13 +2319,13 @@ add_task(async function test_changeThrottling() {
   gMonotonicNow = fakeMonotonicNow(
     gMonotonicNow + 5 * MILLISECONDS_PER_MINUTE + 1
   );
-  Preferences.set(PREF_TEST, 2);
+  TelemetrySession.testOnEnvironmentChange("test", {});
   Assert.equal(getSubsessionCount(), 2);
 
   // After that, changes should be throttled again.
   now = fakeNow(futureDate(now, 1 * MILLISECONDS_PER_MINUTE));
   gMonotonicNow = fakeMonotonicNow(gMonotonicNow + 1 * MILLISECONDS_PER_MINUTE);
-  Preferences.set(PREF_TEST, 3);
+  TelemetrySession.testOnEnvironmentChange("test", {});
   Assert.equal(getSubsessionCount(), 2);
 
   // ... for 5min.
@@ -2351,11 +2333,8 @@ add_task(async function test_changeThrottling() {
   gMonotonicNow = fakeMonotonicNow(
     gMonotonicNow + 4 * MILLISECONDS_PER_MINUTE + 1
   );
-  Preferences.set(PREF_TEST, 4);
+  TelemetrySession.testOnEnvironmentChange("test", {});
   Assert.equal(getSubsessionCount(), 3);
-
-  // Unregister the listener.
-  TelemetryEnvironment.unregisterChangeListener("testWatchPrefs_throttling");
 });
 
 add_task(async function stopServer() {

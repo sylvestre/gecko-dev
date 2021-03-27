@@ -25,7 +25,7 @@ toolkit.jar:
    content/global/aboutwebrtc/aboutWebrtc.html (aboutwebrtc/aboutWebrtc.html)
    content/global/aboutSupport.js
 *  content/global/aboutSupport.xhtml
-#ifdef MOZ_GLEAN
+#ifndef MOZ_GLEAN_ANDROID
    content/global/aboutGlean.js
    content/global/aboutGlean.html
    content/global/aboutGlean.css
@@ -86,6 +86,7 @@ toolkit.jar:
    content/global/elements/menu.js             (widgets/menu.js)
    content/global/elements/menupopup.js        (widgets/menupopup.js)
    content/global/elements/moz-input-box.js    (widgets/moz-input-box.js)
+   content/global/elements/named-deck.js       (widgets/named-deck.js)
    content/global/elements/notificationbox.js  (widgets/notificationbox.js)
    content/global/elements/panel.js            (widgets/panel.js)
    content/global/elements/radio.js            (widgets/radio.js)

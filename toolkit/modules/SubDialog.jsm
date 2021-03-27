@@ -108,8 +108,8 @@ SubDialog.prototype = {
     { features, closingCallback, closedCallback, sizeTo } = {},
     ...aParams
   ) {
-    if (sizeTo == "available") {
-      this._box.setAttribute("sizeto", "available");
+    if (["available", "limitheight"].includes(sizeTo)) {
+      this._box.setAttribute("sizeto", sizeTo);
     }
 
     // Create a promise so consumers can tell when we're done setting up.
@@ -117,6 +117,21 @@ SubDialog.prototype = {
       this._resolveDialogReady = resolve;
     });
     this._frame._dialogReady = this._dialogReady;
+
+    // Assign close callbacks sync to ensure we can always callback even if the
+    // SubDialog is closed directly after opening.
+    let dialog = null;
+
+    if (closingCallback) {
+      this._closingCallback = (...args) => {
+        closingCallback.apply(dialog, args);
+      };
+    }
+    if (closedCallback) {
+      this._closedCallback = (...args) => {
+        closedCallback.apply(dialog, args);
+      };
+    }
 
     // Wait until frame is ready to prevent browser crash in tests
     await this._frameCreated;
@@ -152,18 +167,12 @@ SubDialog.prototype = {
       dialogFeatures = `${features},${dialogFeatures}`;
     }
 
-    let dialog = this._window.openDialog(
+    dialog = this._window.openDialog(
       aURL,
       `dialogFrame-${this._id}`,
       dialogFeatures,
       ...aParams
     );
-    if (closingCallback) {
-      this._closingCallback = closingCallback.bind(dialog);
-    }
-    if (closedCallback) {
-      this._closedCallback = closedCallback.bind(dialog);
-    }
 
     this._closingEvent = null;
     this._isClosing = false;
@@ -221,7 +230,6 @@ SubDialog.prototype = {
 
     let onClosed = () => {
       this._openedURL = null;
-      this._isClosing = false;
 
       this._resolveClosePromise();
 
@@ -252,9 +260,9 @@ SubDialog.prototype = {
     );
 
     // Defer removing the overlay so the frame content window can unload.
-    this._window.setTimeout(() => {
+    Services.tm.dispatchToMainThread(() => {
       this._overlay.remove();
-    }, 0);
+    });
   },
 
   handleEvent(aEvent) {
@@ -386,6 +394,8 @@ SubDialog.prototype = {
       this._frame.contentDocument.body ||
       this._frame.contentDocument.documentElement;
     a11yDoc.setAttribute("role", "dialog");
+
+    Services.obs.notifyObservers(this._frame.contentWindow, "subdialog-loaded");
   },
 
   async _onLoad(aEvent) {
@@ -470,6 +480,10 @@ SubDialog.prototype = {
 
   resizeVertically() {
     let docEl = this._frame.contentDocument.documentElement;
+    function getDocHeight() {
+      let { scrollHeight } = docEl.ownerDocument.body || docEl;
+      return docEl.style.height || scrollHeight + "px";
+    }
 
     // If the title bar is disabled (not in the template),
     // set its height to 0 for the calculation.
@@ -493,18 +507,27 @@ SubDialog.prototype = {
     let frameSizeDifference =
       frameRect.top - boxRect.top + (boxRect.bottom - frameRect.bottom);
 
-    if (this._box.getAttribute("sizeto") == "available") {
-      // Inform the CSS of the toolbar height so the bottom padding can be
-      // correctly calculated.
-      this._box.style.setProperty("--box-top-px", `${boxRect.top}px`);
+    let contentPane =
+      this._frame.contentDocument.querySelector(".contentPane") ||
+      this._frame.contentDocument.querySelector("dialog");
+
+    let sizeTo = this._box.getAttribute("sizeto");
+    if (["available", "limitheight"].includes(sizeTo)) {
+      if (sizeTo == "limitheight") {
+        this._overlay.style.setProperty("--doc-height-px", getDocHeight());
+        contentPane?.classList.add("sizeDetermined");
+      } else {
+        // Inform the CSS of the toolbar height so the bottom padding can be
+        // correctly calculated.
+        this._box.style.setProperty("--box-top-px", `${boxRect.top}px`);
+      }
       return;
     }
 
     // Now do the same but for the height. We need to do this afterwards because otherwise
     // XUL assumes we'll optimize for height and gives us "wrong" values which then are no
     // longer correct after we set the width:
-    let { scrollHeight } = docEl.ownerDocument.body || docEl;
-    let frameMinHeight = docEl.style.height || scrollHeight + "px";
+    let frameMinHeight = getDocHeight();
     let frameHeight = docEl.getAttribute("height")
       ? docEl.getAttribute("height") + "px"
       : frameMinHeight;
@@ -542,9 +565,7 @@ SubDialog.prototype = {
       // element is used to implement the subdialog instead.
       frameHeight = maxHeight + "px";
       frameMinHeight = maxHeight + "px";
-      let contentPane =
-        this._frame.contentDocument.querySelector(".contentPane") ||
-        this._frame.contentDocument.querySelector("dialog");
+
       if (contentPane) {
         // There are also instances where the subdialog is neither implemented
         // using a content pane, nor a <dialog> (such as manageAddresses.xhtml)

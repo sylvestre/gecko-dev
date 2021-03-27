@@ -9,8 +9,10 @@
 
 #include "mozilla/Attributes.h"
 #include "mozilla/dom/BindingDeclarations.h"
+#include "mozilla/dom/CanonicalBrowsingContext.h"
 #include "mozilla/dom/SessionStoreUtilsBinding.h"
 #include "SessionStoreData.h"
+#include "SessionStoreRestoreData.h"
 
 class nsIDocument;
 class nsGlobalWindowInner;
@@ -20,8 +22,14 @@ class ErrorResult;
 
 namespace dom {
 
+class CanonicalBrowsingContext;
 class GlobalObject;
 struct SSScrollPositionDict;
+
+namespace sessionstore {
+class FormData;
+class FormEntry;
+}  // namespace sessionstore
 
 class SessionStoreUtils {
  public:
@@ -55,6 +63,11 @@ class SessionStoreUtils {
   static void RestoreScrollPosition(const GlobalObject& aGlobal,
                                     nsGlobalWindowInner& aWindow,
                                     const CollectedData& data);
+  static void RestoreScrollPosition(nsGlobalWindowInner& aWindow,
+                                    const nsCString& aScrollPosition);
+
+  static void CollectFormData(Document* aDocument,
+                              sessionstore::FormData& aFormData);
 
   /*
     @param aDocument: DOMDocument instance to obtain form data for.
@@ -81,6 +94,9 @@ class SessionStoreUtils {
   MOZ_CAN_RUN_SCRIPT_BOUNDARY
   static bool RestoreFormData(const GlobalObject& aGlobal, Document& aDocument,
                               const CollectedData& aData);
+  static void RestoreFormData(
+      Document& aDocument, const nsString& aInnerHTML,
+      const nsTArray<SessionStoreRestoreData::Entry>& aEntries);
 
   static void CollectedSessionStorage(BrowsingContext* aBrowsingContext,
                                       nsTArray<nsCString>& aOrigins,
@@ -93,6 +109,30 @@ class SessionStoreUtils {
 
   static void ComposeInputData(const nsTArray<CollectedInputDataValue>& aData,
                                InputElementData& ret);
+
+  static already_AddRefed<nsISessionStoreRestoreData>
+  ConstructSessionStoreRestoreData(const GlobalObject& aGlobal);
+
+  static bool SetRestoreData(const GlobalObject& aGlobal,
+                             CanonicalBrowsingContext& aContext,
+                             nsISessionStoreRestoreData* aData);
+
+  static nsresult CallRestoreTabContentComplete(Element* aBrowser);
+
+  static nsresult ConstructFormDataValues(
+      JSContext* aCx, const nsTArray<sessionstore::FormEntry>& aValues,
+      nsTArray<Record<nsString, OwningStringOrBooleanOrObject>::EntryType>&
+          aEntries,
+      bool aParseSessionData = false);
+
+  static void ResetSessionStore(BrowsingContext* aContext);
+
+#if defined(MOZ_WIDGET_ANDROID) || defined(MOZ_THUNDERBIRD) || \
+    defined(MOZ_SUITE)
+  static constexpr bool NATIVE_LISTENER = false;
+#else
+  static constexpr bool NATIVE_LISTENER = true;
+#endif
 };
 
 }  // namespace dom

@@ -355,10 +355,11 @@ class MessageDecl(Node):
 
 
 class Param(Node):
-    def __init__(self, loc, typespec, name):
+    def __init__(self, loc, typespec, name, attributes={}):
         Node.__init__(self, loc)
         self.name = name
         self.typespec = typespec
+        self.attributes = attributes
 
 
 class TypeSpec(Node):
@@ -416,3 +417,4 @@ class Decl(Node):
         self.loc = loc
         self.type = None
         self.scope = None
+        self.attributes = {}

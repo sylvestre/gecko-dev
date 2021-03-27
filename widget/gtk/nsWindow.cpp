@@ -13,6 +13,7 @@
 #include "mozilla/MiscEvents.h"
 #include "mozilla/MouseEvents.h"
 #include "mozilla/PresShell.h"
+#include "mozilla/ProfilerLabels.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/ScopeExit.h"
 #include "mozilla/StaticPrefs_apz.h"
@@ -32,8 +33,6 @@
 #include "nsAppRunner.h"
 #include <algorithm>
 
-#include "GeckoProfiler.h"
-
 #include "prlink.h"
 #include "nsGTKToolkit.h"
 #include "nsIRollupListener.h"
@@ -51,6 +50,7 @@
 #include "nsGtkKeyUtils.h"
 #include "nsGtkCursors.h"
 #include "ScreenHelperGTK.h"
+#include "WidgetUtilsGtk.h"
 
 #include <gtk/gtk.h>
 #include <gtk/gtkx.h>
@@ -88,7 +88,7 @@
 #include "gfx2DGlue.h"
 
 #ifdef ACCESSIBILITY
-#  include "mozilla/a11y/Accessible.h"
+#  include "mozilla/a11y/LocalAccessible.h"
 #  include "mozilla/a11y/Platform.h"
 #  include "nsAccessibilityService.h"
 
@@ -242,7 +242,8 @@ static gboolean leave_notify_event_cb(GtkWidget* widget,
                                       GdkEventCrossing* event);
 static gboolean motion_notify_event_cb(GtkWidget* widget,
                                        GdkEventMotion* event);
-static gboolean button_press_event_cb(GtkWidget* widget, GdkEventButton* event);
+MOZ_CAN_RUN_SCRIPT static gboolean button_press_event_cb(GtkWidget* widget,
+                                                         GdkEventButton* event);
 static gboolean button_release_event_cb(GtkWidget* widget,
                                         GdkEventButton* event);
 static gboolean focus_in_event_cb(GtkWidget* widget, GdkEventFocus* event);
@@ -310,7 +311,8 @@ static SystemTimeConverter<guint32>& TimeConverter() {
   return sTimeConverterSingleton;
 }
 
-nsWindow::CSDSupportLevel nsWindow::sCSDSupportLevel = GTK_DECORATION_UNKNOWN;
+nsWindow::GtkWindowDecoration nsWindow::sGtkWindowDecoration =
+    GTK_DECORATION_UNKNOWN;
 bool nsWindow::sTransparentMainWindow = false;
 static bool sIgnoreChangedSettings = false;
 
@@ -380,7 +382,6 @@ static bool gBlockActivateEvent = false;
 static bool gGlobalsInitialized = false;
 static bool gRaiseWindows = true;
 static bool gUseWaylandVsync = true;
-static bool gUseWaylandUseOpaqueRegion = true;
 static bool gUseAspectRatio = true;
 static GList* gVisibleWaylandPopupWindows = nullptr;
 static uint32_t gLastTouchID = 0;
@@ -542,7 +543,7 @@ nsWindow::nsWindow() {
   mLastScrollEventTime = GDK_CURRENT_TIME;
 
   mPendingConfigures = 0;
-  mCSDSupportLevel = GTK_DECORATION_NONE;
+  mGtkWindowDecoration = GTK_DECORATION_NONE;
   mDrawToContainer = false;
   mDrawInTitlebar = false;
   mTitlebarBackdropState = false;
@@ -1073,7 +1074,7 @@ void nsWindow::SetSizeConstraints(const SizeConstraints& aConstraints) {
 
 void nsWindow::AddCSDDecorationSize(int* aWidth, int* aHeight) {
   if (mSizeState == nsSizeMode_Normal &&
-      mCSDSupportLevel == GTK_DECORATION_CLIENT && mDrawInTitlebar) {
+      mGtkWindowDecoration == GTK_DECORATION_CLIENT && mDrawInTitlebar) {
     GtkBorder decorationSize = GetCSDDecorationSize(!mIsTopLevel);
     *aWidth += decorationSize.left + decorationSize.right;
     *aHeight += decorationSize.top + decorationSize.bottom;
@@ -1083,7 +1084,7 @@ void nsWindow::AddCSDDecorationSize(int* aWidth, int* aHeight) {
 #ifdef MOZ_WAYLAND
 bool nsWindow::GetCSDDecorationOffset(int* aDx, int* aDy) {
   if (mSizeState == nsSizeMode_Normal &&
-      mCSDSupportLevel == GTK_DECORATION_CLIENT && mDrawInTitlebar) {
+      mGtkWindowDecoration == GTK_DECORATION_CLIENT && mDrawInTitlebar) {
     GtkBorder decorationSize = GetCSDDecorationSize(!mIsTopLevel);
     *aDx = decorationSize.left;
     *aDy = decorationSize.top;
@@ -1108,6 +1109,10 @@ void nsWindow::ApplySizeConstraints(void) {
 
     uint32_t hints = 0;
     if (mSizeConstraints.mMinSize != LayoutDeviceIntSize(0, 0)) {
+      if (!mIsX11Display) {
+        gtk_widget_set_size_request(GTK_WIDGET(mContainer), geometry.min_width,
+                                    geometry.min_height);
+      }
       AddCSDDecorationSize(&geometry.min_width, &geometry.min_height);
       hints |= GDK_HINT_MIN_SIZE;
       LOG(("nsWindow::ApplySizeConstraints [%p] min size %d %d\n", (void*)this,
@@ -1511,16 +1516,6 @@ void nsWindow::NativeMoveResizeWaylandPopupCB(const GdkRectangle* aFinalSize,
   LOG(("  orig mBounds x=%d y=%d width=%d height=%d\n", mBounds.x, mBounds.y,
        mBounds.width, mBounds.height));
 
-  // Remove signal handler because it can also be called from
-  // xdg_popup_configure
-  GdkWindow* gdkWindow = gtk_widget_get_window(GTK_WIDGET(mShell));
-  if (g_signal_handler_find(
-          gdkWindow, G_SIGNAL_MATCH_FUNC, 0, 0, nullptr,
-          FuncToGpointer(NativeMoveResizeWaylandPopupCallback), this)) {
-    LOG(("  Disconnecting NativeMoveResizeWaylandPopupCallback"));
-    g_signal_handlers_disconnect_by_func(
-        gdkWindow, FuncToGpointer(NativeMoveResizeWaylandPopupCallback), this);
-  }
   mWaitingForMoveToRectCB = false;
 
   // We ignore the callback position data because the another resize has been
@@ -1566,8 +1561,12 @@ void nsWindow::NativeMoveResizeWaylandPopupCB(const GdkRectangle* aFinalSize,
   int32_t newWidth = NSToIntRound(scale * newBounds.width);
   int32_t newHeight = NSToIntRound(scale * newBounds.height);
 
-  LOG(("  new mBounds  x=%d y=%d width=%d height=%d\n", newBounds.x,
-       newBounds.y, newWidth, newHeight));
+  // Convert newBounds to "absolute" coordinates (relative to toplevel)
+  newBounds.x += x_parent * GdkScaleFactor();
+  newBounds.y += y_parent * GdkScaleFactor();
+
+  LOG(("  new mBounds  x=%d y=%d width=%d height=%d x_parent=%d y_parent=%d\n",
+       newBounds.x, newBounds.y, newWidth, newHeight, x_parent, y_parent));
 
   bool needsPositionUpdate =
       (newBounds.x != mBounds.x || newBounds.y != mBounds.y);
@@ -1591,6 +1590,8 @@ void nsWindow::NativeMoveResizeWaylandPopupCB(const GdkRectangle* aFinalSize,
       RefPtr<PresShell> presShell = popupFrame->PresShell();
       presShell->FrameNeedsReflow(popupFrame, IntrinsicDirty::Resize,
                                   NS_FRAME_IS_DIRTY);
+      // Force to trigger popup crop to fit the screen
+      popupFrame->SetPopupPosition(nullptr, true, false);
     }
   }
 
@@ -1688,8 +1689,10 @@ void nsWindow::NativeMoveResizeWaylandPopup(GdkPoint* aPosition,
   }
   if (popupFrame) {
 #ifdef MOZ_WAYLAND
-    anchorRect = LayoutDeviceIntRect::FromAppUnitsToOutside(
-        popupFrame->GetAnchorRect(), p2a);
+    nsRect anchorRectAppUnits = popupFrame->GetAnchorRect();
+    anchorRect = LayoutDeviceIntRect::FromUnknownRect(
+        anchorRectAppUnits.ToNearestPixels(p2a));
+
 #endif
   }
 
@@ -2169,7 +2172,7 @@ guint32 nsWindow::GetLastUserInputTime() {
   // button and key releases.  Therefore use the most recent of
   // gdk_x11_display_get_user_time and the last time that we have seen.
   GdkDisplay* gdkDisplay = gdk_display_get_default();
-  guint32 timestamp = GDK_IS_X11_DISPLAY(gdkDisplay)
+  guint32 timestamp = GdkIsX11Display(gdkDisplay)
                           ? gdk_x11_display_get_user_time(gdkDisplay)
                           : gtk_get_current_event_time();
 
@@ -2314,7 +2317,7 @@ LayoutDeviceIntRect nsWindow::GetClientBounds() {
 void nsWindow::UpdateClientOffsetFromFrameExtents() {
   AUTO_PROFILER_LABEL("nsWindow::UpdateClientOffsetFromFrameExtents", OTHER);
 
-  if (mCSDSupportLevel == GTK_DECORATION_CLIENT && mDrawInTitlebar) {
+  if (mGtkWindowDecoration == GTK_DECORATION_CLIENT && mDrawInTitlebar) {
     return;
   }
 
@@ -2487,7 +2490,7 @@ void* nsWindow::GetNativeData(uint32_t aDataType) {
     case NS_NATIVE_DISPLAY: {
 #ifdef MOZ_X11
       GdkDisplay* gdkDisplay = gdk_display_get_default();
-      if (gdkDisplay && GDK_IS_X11_DISPLAY(gdkDisplay)) {
+      if (GdkIsX11Display(gdkDisplay)) {
         return GDK_DISPLAY_XDISPLAY(gdkDisplay);
       }
 #endif /* MOZ_X11 */
@@ -3218,7 +3221,7 @@ void nsWindow::OnSizeAllocate(GtkAllocation* aAllocation) {
   // is enabled. In either cases (Wayland or system titlebar is off on X11)
   // we don't get _NET_FRAME_EXTENTS X11 property notification so we derive
   // it from mContainer position.
-  if (mCSDSupportLevel == GTK_DECORATION_CLIENT) {
+  if (mGtkWindowDecoration == GTK_DECORATION_CLIENT) {
     if (!mIsX11Display || (mIsX11Display && mDrawInTitlebar)) {
       UpdateClientOffsetFromCSDWindow();
     }
@@ -4227,7 +4230,7 @@ void nsWindow::OnScaleChanged(GtkAllocation* aAllocation) {
   // is enabled. In ither cases (Wayland or system titlebar is off on X11)
   // we don't get _NET_FRAME_EXTENTS X11 property notification so we derive
   // it from mContainer position.
-  if (mCSDSupportLevel == GTK_DECORATION_CLIENT) {
+  if (mGtkWindowDecoration == GTK_DECORATION_CLIENT) {
     if (!mIsX11Display || (mIsX11Display && mDrawInTitlebar)) {
       UpdateClientOffsetFromCSDWindow();
     }
@@ -4326,9 +4329,19 @@ gboolean nsWindow::OnTouchpadPinchEvent(GdkEventTouchpadPinch* aEvent) {
     PinchGestureInput event(
         pinchGestureType, PinchGestureInput::TRACKPAD, aEvent->time,
         GetEventTimeStamp(aEvent->time), ExternalPoint(0, 0),
-        ScreenPoint(touchpadPoint.x, touchpadPoint.y), CurrentSpan,
-        PreviousSpan, KeymapWrapper::ComputeKeyModifiers(aEvent->state));
+        ScreenPoint(touchpadPoint.x, touchpadPoint.y),
+        100.0 * ((aEvent->phase == GDK_TOUCHPAD_GESTURE_PHASE_END)
+                     ? ScreenCoord(1.f)
+                     : CurrentSpan),
+        100.0 * ((aEvent->phase == GDK_TOUCHPAD_GESTURE_PHASE_END)
+                     ? ScreenCoord(1.f)
+                     : PreviousSpan),
+        KeymapWrapper::ComputeKeyModifiers(aEvent->state));
 
+    double deltaY = event.ComputeDeltaY(this);
+    gfx::IntPoint lineOrPageDelta = PinchGestureInput::GetIntegerDeltaForEvent(
+        (aEvent->phase == GDK_TOUCHPAD_GESTURE_PHASE_BEGIN), 0, deltaY);
+    event.mLineOrPageDeltaY = lineOrPageDelta.y;
     DispatchPinchGestureInput(event);
   }
   return TRUE;
@@ -4386,10 +4399,10 @@ gboolean nsWindow::OnTouchEvent(GdkEventTouch* aEvent) {
   event.mTime = aEvent->time;
 
   if (aEvent->type == GDK_TOUCH_BEGIN || aEvent->type == GDK_TOUCH_UPDATE) {
-    mTouches.Put(aEvent->sequence, std::move(touch));
+    mTouches.InsertOrUpdate(aEvent->sequence, std::move(touch));
     // add all touch points to event object
-    for (auto iter = mTouches.Iter(); !iter.Done(); iter.Next()) {
-      event.mTouches.AppendElement(new dom::Touch(*iter.UserData()));
+    for (const auto& data : mTouches.Values()) {
+      event.mTouches.AppendElement(new dom::Touch(*data));
     }
   } else if (aEvent->type == GDK_TOUCH_END ||
              aEvent->type == GDK_TOUCH_CANCEL) {
@@ -4421,7 +4434,7 @@ bool nsWindow::IsToplevelWindowTransparent() {
         // Enable transparent toplevel window if we can draw main window
         // without system titlebar as Gtk+ themes use titlebar round corners.
         sTransparentMainWindow =
-            GetSystemCSDSupportLevel() != GTK_DECORATION_NONE;
+            GetSystemGtkWindowDecoration() != GTK_DECORATION_NONE;
       }
     }
     transparencyConfigured = true;
@@ -4623,7 +4636,7 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
 
       if (mWindowType == eWindowType_toplevel ||
           mWindowType == eWindowType_dialog) {
-        mCSDSupportLevel = GetSystemCSDSupportLevel();
+        mGtkWindowDecoration = GetSystemGtkWindowDecoration();
       }
 
       // Don't use transparency for PictureInPicture windows.
@@ -4812,7 +4825,7 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
        */
       GtkStyleContext* style = gtk_widget_get_style_context(mShell);
       mDrawToContainer = !mIsX11Display ||
-                         (mCSDSupportLevel == GTK_DECORATION_CLIENT) ||
+                         (mGtkWindowDecoration == GTK_DECORATION_CLIENT) ||
                          gtk_style_context_has_class(style, "csd");
       eventWidget = (mDrawToContainer) ? container : mShell;
 
@@ -4851,6 +4864,14 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
 
       // the drawing window
       mGdkWindow = gtk_widget_get_window(eventWidget);
+
+#ifdef MOZ_WAYLAND
+      if (mIsX11Display && gfx::gfxVars::UseEGL() && isAccelerated) {
+        mCompositorInitiallyPaused = true;
+        mNeedsCompositorResume = true;
+        MaybeResumeCompositor();
+      }
+#endif
 
       if (mWindowType == eWindowType_popup) {
         // gdk does not automatically set the cursor for "temporary"
@@ -4958,6 +4979,9 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
                            G_CALLBACK(settings_changed_cb), this);
     g_signal_connect_after(default_settings, "notify::gtk-xft-dpi",
                            G_CALLBACK(settings_xft_dpi_changed_cb), this);
+    // Text resolution affects system fonts and widget sizes.
+    g_signal_connect_after(default_settings, "notify::resolution",
+                           G_CALLBACK(settings_changed_cb), this);
     // For remote LookAndFeel, to refresh the content processes' copies:
     g_signal_connect_after(default_settings, "notify::gtk-cursor-blink-time",
                            G_CALLBACK(settings_changed_cb), this);
@@ -5663,8 +5687,7 @@ void nsWindow::UpdateTopLevelOpaqueRegion(void) {
   cairo_region_destroy(region);
 
 #ifdef MOZ_WAYLAND
-  // We don't set opaque region to mozContainer by default due to Bug 1615098.
-  if (!mIsX11Display && gUseWaylandUseOpaqueRegion) {
+  if (!mIsX11Display) {
     moz_container_wayland_update_opaque_region(mContainer, subtractCorners);
   }
 #endif
@@ -6457,13 +6480,46 @@ bool nsWindow::CheckForRollup(gdouble aMouseX, gdouble aMouseY, bool aIsWheel,
 /* static */
 bool nsWindow::DragInProgress(void) {
   nsCOMPtr<nsIDragService> dragService = do_GetService(kCDragServiceCID);
-
-  if (!dragService) return false;
+  if (!dragService) {
+    return false;
+  }
 
   nsCOMPtr<nsIDragSession> currentDragSession;
   dragService->GetCurrentSession(getter_AddRefs(currentDragSession));
 
   return currentDragSession != nullptr;
+}
+
+// This is an ugly workaround for
+// https://bugzilla.mozilla.org/show_bug.cgi?id=1622107
+// We try to detect when Wayland compositor / gtk fails to deliver
+// info about finished D&D operations and cancel it on our own.
+MOZ_CAN_RUN_SCRIPT static void WaylandDragWorkaround(GdkEventButton* aEvent) {
+  static int buttonPressCountWithDrag = 0;
+
+  // We track only left button state as Firefox performs D&D on left
+  // button only.
+  if (aEvent->button != 1 || aEvent->type != GDK_BUTTON_PRESS) {
+    return;
+  }
+
+  nsCOMPtr<nsIDragService> dragService = do_GetService(kCDragServiceCID);
+  if (!dragService) {
+    return;
+  }
+  nsCOMPtr<nsIDragSession> currentDragSession;
+  dragService->GetCurrentSession(getter_AddRefs(currentDragSession));
+
+  if (currentDragSession != nullptr) {
+    buttonPressCountWithDrag++;
+    if (buttonPressCountWithDrag > 1) {
+      NS_WARNING(
+          "Quit unfinished Wayland Drag and Drop operation. Buggy Wayland "
+          "compositor?");
+      buttonPressCountWithDrag = 0;
+      dragService->EndDragSession(false, 0);
+    }
+  }
 }
 
 static bool is_mouse_in_window(GdkWindow* aWindow, gdouble aMouseX,
@@ -6906,6 +6962,10 @@ static gboolean button_press_event_cb(GtkWidget* widget,
 
   window->OnButtonPressEvent(event);
 
+  if (gfxPlatformGtk::GetPlatform()->IsWaylandDisplay()) {
+    WaylandDragWorkaround(event);
+  }
+
   return TRUE;
 }
 
@@ -7020,7 +7080,7 @@ static gboolean key_press_event_cb(GtkWidget* widget, GdkEventKey* event) {
 #    define KeyPress 2
 #  endif
   GdkDisplay* gdkDisplay = gtk_widget_get_display(widget);
-  if (GDK_IS_X11_DISPLAY(gdkDisplay)) {
+  if (GdkIsX11Display(gdkDisplay)) {
     Display* dpy = GDK_DISPLAY_XDISPLAY(gdkDisplay);
     while (XPending(dpy)) {
       XEvent next_event;
@@ -7222,7 +7282,9 @@ gboolean WindowDragMotionHandler(GtkWidget* aWidget,
                                  nsWaylandDragContext* aWaylandDragContext,
                                  gint aX, gint aY, guint aTime) {
   RefPtr<nsWindow> window = get_window_for_gtk_widget(aWidget);
-  if (!window) return FALSE;
+  if (!window) {
+    return FALSE;
+  }
 
   // figure out which internal widget this drag motion actually happened on
   nscoord retx = 0;
@@ -7236,7 +7298,7 @@ gboolean WindowDragMotionHandler(GtkWidget* aWidget,
     innerMostWindow = window;
   }
 
-  LOGDRAG(("nsWindow drag-motion signal for %p\n", (void*)innerMostWindow));
+  LOGDRAG(("WindowDragMotionHandler nsWindow %p\n", (void*)innerMostWindow));
 
   LayoutDeviceIntPoint point = window->GdkPointToDevicePixels({retx, rety});
 
@@ -7252,8 +7314,13 @@ static gboolean drag_motion_event_cb(GtkWidget* aWidget,
 }
 
 void WindowDragLeaveHandler(GtkWidget* aWidget) {
+  LOGDRAG(("WindowDragLeaveHandler()\n"));
+
   RefPtr<nsWindow> window = get_window_for_gtk_widget(aWidget);
-  if (!window) return;
+  if (!window) {
+    LOGDRAG(("    Failed - can't find nsWindow!\n"));
+    return;
+  }
 
   RefPtr<nsDragService> dragService = nsDragService::GetInstance();
 
@@ -7264,6 +7331,7 @@ void WindowDragLeaveHandler(GtkWidget* aWidget) {
     // drag-failed signal on the source widget, but the leave message goes
     // via the X server, and so doesn't get processed at least until the
     // event loop runs again.
+    LOGDRAG(("    Failed - GetMostRecentDestWindow()!\n"));
     return;
   }
 
@@ -7272,11 +7340,12 @@ void WindowDragLeaveHandler(GtkWidget* aWidget) {
     // When the drag moves between widgets, GTK can send leave signal for
     // the old widget after the motion or drop signal for the new widget.
     // We'll send the leave event when the motion or drop event is run.
+    LOGDRAG(("    Failed - GetMozContainerWidget()!\n"));
     return;
   }
 
-  LOGDRAG(("nsWindow drag-leave signal for %p\n", (void*)mostRecentDragWindow));
-
+  LOGDRAG(
+      ("WindowDragLeaveHandler nsWindow %p\n", (void*)mostRecentDragWindow));
   dragService->ScheduleLeaveEvent();
 }
 
@@ -7304,7 +7373,7 @@ gboolean WindowDragDropHandler(GtkWidget* aWidget, GdkDragContext* aDragContext,
     innerMostWindow = window;
   }
 
-  LOGDRAG(("nsWindow drag-drop signal for %p\n", (void*)innerMostWindow));
+  LOGDRAG(("WindowDragDropHandler nsWindow %p\n", (void*)innerMostWindow));
 
   LayoutDeviceIntPoint point = window->GdkPointToDevicePixels({retx, rety});
 
@@ -7337,8 +7406,6 @@ static nsresult initialize_prefs(void) {
       Preferences::GetBool("mozilla.widget.raise-on-setfocus", true);
   gUseWaylandVsync =
       Preferences::GetBool("widget.wayland_vsync.enabled", false);
-  gUseWaylandUseOpaqueRegion =
-      Preferences::GetBool("widget.wayland.use-opaque-region", false);
 
   if (Preferences::HasUserValue("widget.use-aspect-ratio")) {
     gUseAspectRatio = Preferences::GetBool("widget.use-aspect-ratio", true);
@@ -7402,7 +7469,7 @@ void nsWindow::DispatchEventToRootAccessible(uint32_t aEventType) {
   }
 
   // Get the root document accessible and fire event to it.
-  a11y::Accessible* acc = GetRootAccessible();
+  a11y::LocalAccessible* acc = GetRootAccessible();
   if (acc) {
     accService->FireAccessibleEvent(aEventType, acc);
   }
@@ -7477,7 +7544,7 @@ bool nsWindow::GetEditCommands(NativeKeyBindingsType aType,
 }
 
 already_AddRefed<DrawTarget> nsWindow::StartRemoteDrawingInRegion(
-    LayoutDeviceIntRegion& aInvalidRegion, BufferMode* aBufferMode) {
+    const LayoutDeviceIntRegion& aInvalidRegion, BufferMode* aBufferMode) {
   return mSurfaceProvider.StartRemoteDrawingInRegion(aInvalidRegion,
                                                      aBufferMode);
 }
@@ -7672,22 +7739,22 @@ nsresult nsWindow::SetNonClientMargins(LayoutDeviceIntMargin& aMargins) {
 }
 
 void nsWindow::SetDrawsInTitlebar(bool aState) {
-  LOG(("nsWindow::SetDrawsInTitlebar() [%p] State %d mCSDSupportLevel %d\n",
-       (void*)this, aState, (int)mCSDSupportLevel));
+  LOG(("nsWindow::SetDrawsInTitlebar() [%p] State %d mGtkWindowDecoration %d\n",
+       (void*)this, aState, (int)mGtkWindowDecoration));
 
   if (mIsPIPWindow && aState == mDrawInTitlebar) {
     gtk_window_set_decorated(GTK_WINDOW(mShell), !aState);
     return;
   }
 
-  if (!mShell || mCSDSupportLevel == GTK_DECORATION_NONE ||
+  if (!mShell || mGtkWindowDecoration == GTK_DECORATION_NONE ||
       aState == mDrawInTitlebar) {
     return;
   }
 
-  if (mCSDSupportLevel == GTK_DECORATION_SYSTEM) {
+  if (mGtkWindowDecoration == GTK_DECORATION_SYSTEM) {
     SetWindowDecoration(aState ? eBorderStyle_border : mBorderStyle);
-  } else if (mCSDSupportLevel == GTK_DECORATION_CLIENT) {
+  } else if (mGtkWindowDecoration == GTK_DECORATION_CLIENT) {
     LOG(("    Using CSD mode\n"));
 
     /* Window manager does not support GDK_DECOR_BORDER,
@@ -7865,10 +7932,10 @@ LayoutDeviceIntRect nsWindow::GdkRectToDevicePixels(GdkRectangle rect) {
                              rect.height * scale);
 }
 
-nsresult nsWindow::SynthesizeNativeMouseEvent(LayoutDeviceIntPoint aPoint,
-                                              uint32_t aNativeMessage,
-                                              uint32_t aModifierFlags,
-                                              nsIObserver* aObserver) {
+nsresult nsWindow::SynthesizeNativeMouseEvent(
+    LayoutDeviceIntPoint aPoint, NativeMouseMessage aNativeMessage,
+    MouseButton aButton, nsIWidget::Modifiers aModifierFlags,
+    nsIObserver* aObserver) {
   AutoObserverNotifier notifier(aObserver, "mouseevent");
 
   if (!mGdkWindow) {
@@ -7882,37 +7949,62 @@ nsresult nsWindow::SynthesizeNativeMouseEvent(LayoutDeviceIntPoint aPoint,
   // done explicitly *before* requesting a button-press/release. You will also
   // need to wait for the motion event to be dispatched before requesting a
   // button-press/release event to maintain the desired event order.
-  if (aNativeMessage == GDK_BUTTON_PRESS ||
-      aNativeMessage == GDK_BUTTON_RELEASE) {
-    GdkEvent event;
-    memset(&event, 0, sizeof(GdkEvent));
-    event.type = (GdkEventType)aNativeMessage;
-    event.button.button = 1;
-    event.button.window = mGdkWindow;
-    event.button.time = GDK_CURRENT_TIME;
+  switch (aNativeMessage) {
+    case NativeMouseMessage::ButtonDown:
+    case NativeMouseMessage::ButtonUp: {
+      GdkEvent event;
+      memset(&event, 0, sizeof(GdkEvent));
+      event.type = aNativeMessage == NativeMouseMessage::ButtonDown
+                       ? GDK_BUTTON_PRESS
+                       : GDK_BUTTON_RELEASE;
+      switch (aButton) {
+        case MouseButton::ePrimary:
+        case MouseButton::eMiddle:
+        case MouseButton::eSecondary:
+        case MouseButton::eX1:
+        case MouseButton::eX2:
+          event.button.button = aButton + 1;
+          break;
+        default:
+          return NS_ERROR_INVALID_ARG;
+      }
+      event.button.state =
+          KeymapWrapper::ConvertWidgetModifierToGdkState(aModifierFlags);
+      event.button.window = mGdkWindow;
+      event.button.time = GDK_CURRENT_TIME;
 
-    // Get device for event source
-    GdkDeviceManager* device_manager = gdk_display_get_device_manager(display);
-    event.button.device = gdk_device_manager_get_client_pointer(device_manager);
+      // Get device for event source
+      GdkDeviceManager* device_manager =
+          gdk_display_get_device_manager(display);
+      event.button.device =
+          gdk_device_manager_get_client_pointer(device_manager);
 
-    event.button.x_root = DevicePixelsToGdkCoordRoundDown(aPoint.x);
-    event.button.y_root = DevicePixelsToGdkCoordRoundDown(aPoint.y);
+      event.button.x_root = DevicePixelsToGdkCoordRoundDown(aPoint.x);
+      event.button.y_root = DevicePixelsToGdkCoordRoundDown(aPoint.y);
 
-    LayoutDeviceIntPoint pointInWindow = aPoint - WidgetToScreenOffset();
-    event.button.x = DevicePixelsToGdkCoordRoundDown(pointInWindow.x);
-    event.button.y = DevicePixelsToGdkCoordRoundDown(pointInWindow.y);
+      LayoutDeviceIntPoint pointInWindow = aPoint - WidgetToScreenOffset();
+      event.button.x = DevicePixelsToGdkCoordRoundDown(pointInWindow.x);
+      event.button.y = DevicePixelsToGdkCoordRoundDown(pointInWindow.y);
 
-    gdk_event_put(&event);
-  } else {
-    // We don't support specific events other than button-press/release. In all
-    // other cases we'll synthesize a motion event that will be emitted by
-    // gdk_display_warp_pointer().
-    GdkScreen* screen = gdk_window_get_screen(mGdkWindow);
-    GdkPoint point = DevicePixelsToGdkPointRoundDown(aPoint);
-    gdk_display_warp_pointer(display, screen, point.x, point.y);
+      gdk_event_put(&event);
+      return NS_OK;
+    }
+    case NativeMouseMessage::Move: {
+      // We don't support specific events other than button-press/release. In
+      // all other cases we'll synthesize a motion event that will be emitted by
+      // gdk_display_warp_pointer().
+      // XXX How to activate native modifier for the other events?
+      GdkScreen* screen = gdk_window_get_screen(mGdkWindow);
+      GdkPoint point = DevicePixelsToGdkPointRoundDown(aPoint);
+      gdk_display_warp_pointer(display, screen, point.x, point.y);
+      return NS_OK;
+    }
+    case NativeMouseMessage::EnterWindow:
+    case NativeMouseMessage::LeaveWindow:
+      MOZ_ASSERT_UNREACHABLE("Non supported mouse event on Linux");
+      return NS_ERROR_INVALID_ARG;
   }
-
-  return NS_OK;
+  return NS_ERROR_UNEXPECTED;
 }
 
 nsresult nsWindow::SynthesizeNativeMouseScrollEvent(
@@ -8027,93 +8119,135 @@ nsresult nsWindow::SynthesizeNativeTouchPoint(uint32_t aPointerId,
   return NS_OK;
 }
 
-nsWindow::CSDSupportLevel nsWindow::GetSystemCSDSupportLevel() {
-  if (sCSDSupportLevel != GTK_DECORATION_UNKNOWN) {
-    return sCSDSupportLevel;
+nsresult nsWindow::SynthesizeNativeTouchPadPinch(TouchpadPinchPhase aEventPhase,
+                                                 float aScale,
+                                                 LayoutDeviceIntPoint aPoint,
+                                                 int32_t aModifierFlags) {
+  if (!mGdkWindow) {
+    return NS_OK;
+  }
+  GdkEvent event;
+  memset(&event, 0, sizeof(GdkEvent));
+
+  GdkEventTouchpadPinch* touchpad_event =
+      reinterpret_cast<GdkEventTouchpadPinch*>(&event);
+  touchpad_event->type = GDK_TOUCHPAD_PINCH;
+
+  switch (aEventPhase) {
+    case PHASE_BEGIN:
+      touchpad_event->phase = GDK_TOUCHPAD_GESTURE_PHASE_BEGIN;
+      break;
+    case PHASE_UPDATE:
+      touchpad_event->phase = GDK_TOUCHPAD_GESTURE_PHASE_UPDATE;
+      break;
+    case PHASE_END:
+      touchpad_event->phase = GDK_TOUCHPAD_GESTURE_PHASE_END;
+      break;
+
+    default:
+      return NS_ERROR_NOT_IMPLEMENTED;
+  }
+
+  touchpad_event->window = mGdkWindow;
+  // We only set the fields of GdkEventTouchpadPinch which are
+  // actually used in OnTouchpadPinchEvent().
+  // GdkEventTouchpadPinch has additional fields (for example, `dx` and `dy`).
+  // If OnTouchpadPinchEvent() is changed to use other fields, this function
+  // will need to change to set them as well.
+  touchpad_event->time = GDK_CURRENT_TIME;
+  touchpad_event->scale = aScale;
+  touchpad_event->x_root = DevicePixelsToGdkCoordRoundDown(aPoint.x);
+  touchpad_event->y_root = DevicePixelsToGdkCoordRoundDown(aPoint.y);
+
+  LayoutDeviceIntPoint pointInWindow = aPoint - WidgetToScreenOffset();
+  touchpad_event->x = DevicePixelsToGdkCoordRoundDown(pointInWindow.x);
+  touchpad_event->y = DevicePixelsToGdkCoordRoundDown(pointInWindow.y);
+  touchpad_event->state = aModifierFlags;
+
+  gdk_event_put(&event);
+
+  return NS_OK;
+}
+
+nsWindow::GtkWindowDecoration nsWindow::GetSystemGtkWindowDecoration() {
+  if (sGtkWindowDecoration != GTK_DECORATION_UNKNOWN) {
+    return sGtkWindowDecoration;
   }
 
   // Allow MOZ_GTK_TITLEBAR_DECORATION to override our heuristics
   const char* decorationOverride = getenv("MOZ_GTK_TITLEBAR_DECORATION");
   if (decorationOverride) {
     if (strcmp(decorationOverride, "none") == 0) {
-      sCSDSupportLevel = GTK_DECORATION_NONE;
+      sGtkWindowDecoration = GTK_DECORATION_NONE;
     } else if (strcmp(decorationOverride, "client") == 0) {
-      sCSDSupportLevel = GTK_DECORATION_CLIENT;
+      sGtkWindowDecoration = GTK_DECORATION_CLIENT;
     } else if (strcmp(decorationOverride, "system") == 0) {
-      sCSDSupportLevel = GTK_DECORATION_SYSTEM;
+      sGtkWindowDecoration = GTK_DECORATION_SYSTEM;
     }
-    return sCSDSupportLevel;
+    return sGtkWindowDecoration;
   }
 
-  // nsWindow::GetSystemCSDSupportLevel can be called from various threads
+  // nsWindow::GetSystemGtkWindowDecoration can be called from various threads
   // so we can't use gfxPlatformGtk here.
-  if (!GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
-    sCSDSupportLevel = GTK_DECORATION_CLIENT;
-    return sCSDSupportLevel;
+  if (GdkIsWaylandDisplay()) {
+    sGtkWindowDecoration = GTK_DECORATION_CLIENT;
+    return sGtkWindowDecoration;
+  }
+
+  // GTK_CSD forces CSD mode - use also CSD because window manager
+  // decorations does not work with CSD.
+  // We check GTK_CSD as well as gtk_window_should_use_csd() does.
+  const char* csdOverride = getenv("GTK_CSD");
+  if (csdOverride && atoi(csdOverride)) {
+    sGtkWindowDecoration = GTK_DECORATION_CLIENT;
+    return sGtkWindowDecoration;
   }
 
   const char* currentDesktop = getenv("XDG_CURRENT_DESKTOP");
   if (currentDesktop) {
     // GNOME Flashback (fallback)
     if (strstr(currentDesktop, "GNOME-Flashback:GNOME") != nullptr) {
-      sCSDSupportLevel = GTK_DECORATION_SYSTEM;
+      sGtkWindowDecoration = GTK_DECORATION_SYSTEM;
       // Pop Linux Bug 1629198
     } else if (strstr(currentDesktop, "pop:GNOME") != nullptr) {
-      sCSDSupportLevel = GTK_DECORATION_CLIENT;
+      sGtkWindowDecoration = GTK_DECORATION_CLIENT;
       // gnome-shell
     } else if (strstr(currentDesktop, "GNOME") != nullptr) {
-      sCSDSupportLevel = GTK_DECORATION_SYSTEM;
+      sGtkWindowDecoration = GTK_DECORATION_SYSTEM;
     } else if (strstr(currentDesktop, "XFCE") != nullptr) {
-      sCSDSupportLevel = GTK_DECORATION_CLIENT;
+      sGtkWindowDecoration = GTK_DECORATION_CLIENT;
     } else if (strstr(currentDesktop, "X-Cinnamon") != nullptr) {
-      sCSDSupportLevel = GTK_DECORATION_SYSTEM;
+      sGtkWindowDecoration = GTK_DECORATION_SYSTEM;
       // KDE Plasma
     } else if (strstr(currentDesktop, "KDE") != nullptr) {
-      sCSDSupportLevel = GTK_DECORATION_CLIENT;
+      sGtkWindowDecoration = GTK_DECORATION_CLIENT;
     } else if (strstr(currentDesktop, "Enlightenment") != nullptr) {
-      sCSDSupportLevel = GTK_DECORATION_CLIENT;
+      sGtkWindowDecoration = GTK_DECORATION_CLIENT;
     } else if (strstr(currentDesktop, "LXDE") != nullptr) {
-      sCSDSupportLevel = GTK_DECORATION_CLIENT;
+      sGtkWindowDecoration = GTK_DECORATION_CLIENT;
     } else if (strstr(currentDesktop, "openbox") != nullptr) {
-      sCSDSupportLevel = GTK_DECORATION_CLIENT;
+      sGtkWindowDecoration = GTK_DECORATION_CLIENT;
     } else if (strstr(currentDesktop, "i3") != nullptr) {
-      sCSDSupportLevel = GTK_DECORATION_NONE;
+      sGtkWindowDecoration = GTK_DECORATION_NONE;
     } else if (strstr(currentDesktop, "MATE") != nullptr) {
-      sCSDSupportLevel = GTK_DECORATION_CLIENT;
+      sGtkWindowDecoration = GTK_DECORATION_CLIENT;
       // Ubuntu Unity
     } else if (strstr(currentDesktop, "Unity") != nullptr) {
-      sCSDSupportLevel = GTK_DECORATION_SYSTEM;
+      sGtkWindowDecoration = GTK_DECORATION_SYSTEM;
       // Elementary OS
     } else if (strstr(currentDesktop, "Pantheon") != nullptr) {
-      sCSDSupportLevel = GTK_DECORATION_SYSTEM;
+      sGtkWindowDecoration = GTK_DECORATION_CLIENT;
     } else if (strstr(currentDesktop, "LXQt") != nullptr) {
-      sCSDSupportLevel = GTK_DECORATION_SYSTEM;
+      sGtkWindowDecoration = GTK_DECORATION_SYSTEM;
     } else if (strstr(currentDesktop, "Deepin") != nullptr) {
-      sCSDSupportLevel = GTK_DECORATION_CLIENT;
+      sGtkWindowDecoration = GTK_DECORATION_CLIENT;
     } else {
-// Release or beta builds are not supposed to be broken
-// so disable titlebar rendering on untested/unknown systems.
-#if defined(RELEASE_OR_BETA)
-      sCSDSupportLevel = GTK_DECORATION_NONE;
-#else
-      sCSDSupportLevel = GTK_DECORATION_CLIENT;
-#endif
+      sGtkWindowDecoration = GTK_DECORATION_CLIENT;
     }
   } else {
-    sCSDSupportLevel = GTK_DECORATION_NONE;
+    sGtkWindowDecoration = GTK_DECORATION_NONE;
   }
-
-  // GTK_CSD forces CSD mode - use also CSD because window manager
-  // decorations does not work with CSD.
-  // We check GTK_CSD as well as gtk_window_should_use_csd() does.
-  if (sCSDSupportLevel == GTK_DECORATION_SYSTEM) {
-    const char* csdOverride = getenv("GTK_CSD");
-    if (csdOverride && g_strcmp0(csdOverride, "1") == 0) {
-      sCSDSupportLevel = GTK_DECORATION_CLIENT;
-    }
-  }
-
-  return sCSDSupportLevel;
+  return sGtkWindowDecoration;
 }
 
 bool nsWindow::TitlebarUseShapeMask() {
@@ -8150,7 +8284,8 @@ bool nsWindow::HideTitlebarByDefault() {
 
     // Don't hide titlebar when it's disabled on current desktop.
     const char* currentDesktop = getenv("XDG_CURRENT_DESKTOP");
-    if (!currentDesktop || GetSystemCSDSupportLevel() == GTK_DECORATION_NONE) {
+    if (!currentDesktop ||
+        GetSystemGtkWindowDecoration() == GTK_DECORATION_NONE) {
       return false;
     }
 

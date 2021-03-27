@@ -18,6 +18,7 @@
 #include "mozilla/layout/ScrollAnchorContainer.h"
 #include "mozilla/PresShell.h"
 #include "mozilla/PresShellInlines.h"
+#include "mozilla/ProfilerLabels.h"
 #include "mozilla/ServoBindings.h"
 #include "mozilla/ServoStyleSetInlines.h"
 #include "mozilla/StaticPrefs_layout.h"
@@ -692,9 +693,23 @@ static bool RecomputePosition(nsIFrame* aFrame) {
     return false;
   }
 
-  // Flexbox and Grid layout supports CSS Align and the optimizations below
-  // don't support that yet.
   if (aFrame->HasAnyStateBits(NS_FRAME_OUT_OF_FLOW)) {
+    // If the frame has an intrinsic block-size, we resolve its 'auto' margins
+    // after doing layout, since we need to know the frame's block size. See
+    // nsAbsoluteContainingBlock::ResolveAutoMarginsAfterLayout().
+    //
+    // Since the size of the frame doesn't change, we could modify the below
+    // computation to compute the margin correctly without doing a full reflow,
+    // however we decided to try doing a full reflow for now.
+    if (aFrame->HasIntrinsicKeywordForBSize()) {
+      WritingMode wm = aFrame->GetWritingMode();
+      const auto* styleMargin = aFrame->StyleMargin();
+      if (styleMargin->HasBlockAxisAuto(wm)) {
+        return false;
+      }
+    }
+    // Flexbox and Grid layout supports CSS Align and the optimizations below
+    // don't support that yet.
     nsIFrame* ph = aFrame->GetPlaceholderFrame();
     if (ph && ph->HasAnyStateBits(PLACEHOLDER_STATICPOS_NEEDS_CSSALIGN)) {
       return false;
@@ -1295,7 +1310,7 @@ void RestyleManager::ProcessRestyledFrames(nsStyleChangeList& aChangeList) {
 
   MaybeClearDestroyedFrames maybeClear(mDestroyedFrames);
   if (!mDestroyedFrames) {
-    mDestroyedFrames = MakeUnique<nsTHashtable<nsPtrHashKey<const nsIFrame>>>();
+    mDestroyedFrames = MakeUnique<nsTHashSet<const nsIFrame*>>();
   }
 
   AUTO_PROFILER_LABEL("RestyleManager::ProcessRestyledFrames", LAYOUT);
@@ -2916,7 +2931,8 @@ ServoElementSnapshot& RestyleManager::SnapshotFor(Element& aElement) {
   MOZ_ASSERT(aElement.HasServoData());
   MOZ_ASSERT(!aElement.HasFlag(ELEMENT_HANDLED_SNAPSHOT));
 
-  ServoElementSnapshot* snapshot = mSnapshots.LookupOrAdd(&aElement, aElement);
+  ServoElementSnapshot* snapshot =
+      mSnapshots.GetOrInsertNew(&aElement, aElement);
   aElement.SetFlags(ELEMENT_HAS_SNAPSHOT);
 
   // Now that we have a snapshot, make sure a restyle is triggered.
@@ -3115,11 +3131,11 @@ void RestyleManager::ProcessAllPendingAttributeAndStateInvalidations() {
   if (mSnapshots.IsEmpty()) {
     return;
   }
-  for (auto iter = mSnapshots.Iter(); !iter.Done(); iter.Next()) {
+  for (const auto& key : mSnapshots.Keys()) {
     // Servo data for the element might have been dropped. (e.g. by removing
     // from its document)
-    if (iter.Key()->HasFlag(ELEMENT_HAS_SNAPSHOT)) {
-      Servo_ProcessInvalidations(StyleSet()->RawSet(), iter.Key(), &mSnapshots);
+    if (key->HasFlag(ELEMENT_HAS_SNAPSHOT)) {
+      Servo_ProcessInvalidations(StyleSet()->RawSet(), key, &mSnapshots);
     }
   }
   ClearSnapshots();

@@ -223,6 +223,7 @@ class HttpBaseChannel : public nsHashPropertyBag,
   NS_IMETHOD GetDecodedBodySize(uint64_t* aDecodedBodySize) override;
   NS_IMETHOD GetEncodedBodySize(uint64_t* aEncodedBodySize) override;
   NS_IMETHOD GetSupportsHTTP3(bool* aSupportsHTTP3) override;
+  NS_IMETHOD GetHasHTTPSRR(bool* aHasHTTPSRR) override;
   NS_IMETHOD SetRequestContextID(uint64_t aRCID) override;
   NS_IMETHOD GetIsMainDocumentChannel(bool* aValue) override;
   NS_IMETHOD SetIsMainDocumentChannel(bool aValue) override;
@@ -273,6 +274,8 @@ class HttpBaseChannel : public nsHashPropertyBag,
   NS_IMETHOD GetIsTRRServiceChannel(bool* aTRR) override;
   NS_IMETHOD SetIsTRRServiceChannel(bool aTRR) override;
   NS_IMETHOD GetIsResolvedByTRR(bool* aResolvedByTRR) override;
+  NS_IMETHOD GetIsOCSP(bool* value) override;
+  NS_IMETHOD SetIsOCSP(bool value) override;
   NS_IMETHOD GetTlsFlags(uint32_t* aTlsFlags) override;
   NS_IMETHOD SetTlsFlags(uint32_t aTlsFlags) override;
   NS_IMETHOD GetApiRedirectToURI(nsIURI** aApiRedirectToURI) override;
@@ -839,7 +842,10 @@ class HttpBaseChannel : public nsHashPropertyBag,
 
     // Tainted origin flag of a request, specified by
     // WHATWG Fetch Standard 2.2.5.
-    (uint32_t, TaintedOriginFlag, 1)
+    (uint32_t, TaintedOriginFlag, 1),
+
+    // If the channel is being used to check OCSP
+    (uint32_t, IsOCSP, 1)
   ))
   // clang-format on
 
@@ -919,7 +925,11 @@ class HttpBaseChannel : public nsHashPropertyBag,
 
     // True if this is a navigation to a page with a different cross origin
     // opener policy ( see ComputeCrossOriginOpenerPolicyMismatch )
-    (uint32_t, HasCrossOriginOpenerPolicyMismatch, 1)
+    (uint32_t, HasCrossOriginOpenerPolicyMismatch, 1),
+
+    // True if HTTPS RR is used during the connection establishment of this
+    // channel.
+    (uint32_t, HasHTTPSRR, 1)
   ))
   // clang-format on
 

@@ -7,6 +7,7 @@
 /* base class #1 for rendering objects that have child lists */
 
 #include "nsContainerFrame.h"
+#include "nsContainerFrameInlines.h"
 
 #include "mozilla/ComputedStyle.h"
 #include "mozilla/PresShell.h"
@@ -829,7 +830,13 @@ void nsContainerFrame::SetSizeConstraints(nsPresContext* aPresContext,
   if (devMinSize.height > devMaxSize.height)
     devMaxSize.height = devMinSize.height;
 
-  widget::SizeConstraints constraints(devMinSize, devMaxSize);
+  nsIWidget* rootWidget = aPresContext->GetNearestWidget();
+  DesktopToLayoutDeviceScale constraintsScale(MOZ_WIDGET_INVALID_SCALE);
+  if (rootWidget) {
+    constraintsScale = rootWidget->GetDesktopToDeviceScale();
+  }
+
+  widget::SizeConstraints constraints(devMinSize, devMaxSize, constraintsScale);
 
   // The sizes are in inner window sizes, so convert them into outer window
   // sizes. Use a size of (200, 200) as only the difference between the inner
@@ -868,109 +875,25 @@ void nsContainerFrame::SyncFrameViewAfterReflow(nsPresContext* aPresContext,
   }
 }
 
-static nscoord GetCoord(const LengthPercentage& aCoord, nscoord aIfNotCoord) {
-  if (aCoord.ConvertsToLength()) {
-    return aCoord.ToLength();
-  }
-  return aIfNotCoord;
+void nsContainerFrame::DoInlineMinISize(gfxContext* aRenderingContext,
+                                        InlineMinISizeData* aData) {
+  auto handleChildren = [aRenderingContext](auto frame, auto data) {
+    for (nsIFrame* kid : frame->mFrames) {
+      kid->AddInlineMinISize(aRenderingContext, data);
+    }
+  };
+  DoInlineIntrinsicISize(aData, handleChildren);
 }
 
-static nscoord GetCoord(const LengthPercentageOrAuto& aCoord,
-                        nscoord aIfNotCoord) {
-  if (aCoord.IsAuto()) {
-    return aIfNotCoord;
-  }
-  return GetCoord(aCoord.AsLengthPercentage(), aIfNotCoord);
-}
-
-void nsContainerFrame::DoInlineIntrinsicISize(gfxContext* aRenderingContext,
-                                              InlineIntrinsicISizeData* aData,
-                                              IntrinsicISizeType aType) {
-  if (GetPrevInFlow()) return;  // Already added.
-
-  WritingMode wm = GetWritingMode();
-  mozilla::Side startSide = wm.PhysicalSideForInlineAxis(eLogicalEdgeStart);
-  mozilla::Side endSide = wm.PhysicalSideForInlineAxis(eLogicalEdgeEnd);
-
-  const nsStylePadding* stylePadding = StylePadding();
-  const nsStyleBorder* styleBorder = StyleBorder();
-  const nsStyleMargin* styleMargin = StyleMargin();
-
-  // This goes at the beginning no matter how things are broken and how
-  // messy the bidi situations are, since per CSS2.1 section 8.6
-  // (implemented in bug 328168), the startSide border is always on the
-  // first line.
-  // This frame is a first-in-flow, but it might have a previous bidi
-  // continuation, in which case that continuation should handle the startSide
-  // border.
-  // For box-decoration-break:clone we setup clonePBM = startPBM + endPBM and
-  // add that to each line.  For box-decoration-break:slice clonePBM is zero.
-  nscoord clonePBM = 0;  // PBM = PaddingBorderMargin
-  const bool sliceBreak =
-      styleBorder->mBoxDecorationBreak == StyleBoxDecorationBreak::Slice;
-  if (!GetPrevContinuation() || MOZ_UNLIKELY(!sliceBreak)) {
-    nscoord startPBM =
-        // clamp negative calc() to 0
-        std::max(GetCoord(stylePadding->mPadding.Get(startSide), 0), 0) +
-        styleBorder->GetComputedBorderWidth(startSide) +
-        GetCoord(styleMargin->mMargin.Get(startSide), 0);
-    if (MOZ_LIKELY(sliceBreak)) {
-      aData->mCurrentLine += startPBM;
-    } else {
-      clonePBM = startPBM;
+void nsContainerFrame::DoInlinePrefISize(gfxContext* aRenderingContext,
+                                         InlinePrefISizeData* aData) {
+  auto handleChildren = [aRenderingContext](auto frame, auto data) {
+    for (nsIFrame* kid : frame->mFrames) {
+      kid->AddInlinePrefISize(aRenderingContext, data);
     }
-  }
-
-  nscoord endPBM =
-      // clamp negative calc() to 0
-      std::max(GetCoord(stylePadding->mPadding.Get(endSide), 0), 0) +
-      styleBorder->GetComputedBorderWidth(endSide) +
-      GetCoord(styleMargin->mMargin.Get(endSide), 0);
-  if (MOZ_UNLIKELY(!sliceBreak)) {
-    clonePBM += endPBM;
-    aData->mCurrentLine += clonePBM;
-  }
-
-  const nsLineList_iterator* savedLine = aData->mLine;
-  nsIFrame* const savedLineContainer = aData->LineContainer();
-
-  nsContainerFrame* lastInFlow;
-  for (nsContainerFrame* nif = this; nif;
-       nif = static_cast<nsContainerFrame*>(nif->GetNextInFlow())) {
-    if (aData->mCurrentLine == 0) {
-      aData->mCurrentLine = clonePBM;
-    }
-    for (nsIFrame* kid : nif->mFrames) {
-      if (aType == IntrinsicISizeType::MinISize) {
-        kid->AddInlineMinISize(aRenderingContext,
-                               static_cast<InlineMinISizeData*>(aData));
-      } else {
-        kid->AddInlinePrefISize(aRenderingContext,
-                                static_cast<InlinePrefISizeData*>(aData));
-      }
-    }
-
-    // After we advance to our next-in-flow, the stored line and line container
-    // may no longer be correct. Just forget them.
-    aData->mLine = nullptr;
-    aData->SetLineContainer(nullptr);
-
-    lastInFlow = nif;
-  }
-
-  aData->mLine = savedLine;
-  aData->SetLineContainer(savedLineContainer);
-
-  // This goes at the end no matter how things are broken and how
-  // messy the bidi situations are, since per CSS2.1 section 8.6
-  // (implemented in bug 328168), the endSide border is always on the
-  // last line.
-  // We reached the last-in-flow, but it might have a next bidi
-  // continuation, in which case that continuation should handle
-  // the endSide border.
-  if (MOZ_LIKELY(!lastInFlow->GetNextContinuation() && sliceBreak)) {
-    aData->mCurrentLine += endPBM;
-  }
+  };
+  DoInlineIntrinsicISize(aData, handleChildren);
+  aData->mLineIsEmpty = false;
 }
 
 /* virtual */
@@ -989,7 +912,7 @@ LogicalSize nsContainerFrame::ComputeAutoSize(
     const auto& styleISize = aSizeOverrides.mStyleISize
                                  ? *aSizeOverrides.mStyleISize
                                  : StylePosition()->ISize(aWM);
-    if (styleISize.IsAuto() || aFlags.contains(ComputeSizeFlag::UseAutoISize)) {
+    if (styleISize.IsAuto()) {
       result.ISize(aWM) =
           ShrinkWidthToFit(aRenderingContext, availBased, aFlags);
     }
@@ -2394,6 +2317,9 @@ LogicalSize nsContainerFrame::ComputeSizeWithIntrinsicDimensions(
   const auto& styleBSize = aSizeOverrides.mStyleBSize
                                ? *aSizeOverrides.mStyleBSize
                                : stylePos->BSize(aWM);
+  const auto& aspectRatio =
+      aSizeOverrides.mAspectRatio ? *aSizeOverrides.mAspectRatio : aAspectRatio;
+
   auto* parentFrame = GetParent();
   const bool isGridItem = IsGridItem();
   const bool isFlexItem =
@@ -2419,8 +2345,7 @@ LogicalSize nsContainerFrame::ComputeSizeWithIntrinsicDimensions(
   // a * (b / c) because of its reduced accuracy relative to a * b / c
   // or (a * b) / c (which are equivalent).
 
-  const bool isAutoISize =
-      styleISize.IsAuto() || aFlags.contains(ComputeSizeFlag::UseAutoISize);
+  const bool isAutoISize = styleISize.IsAuto();
   const bool isAutoBSize =
       nsLayoutUtils::IsAutoBSize(styleBSize, aCBSize.BSize(aWM)) ||
       aFlags.contains(ComputeSizeFlag::UseAutoBSize);
@@ -2591,11 +2516,11 @@ LogicalSize nsContainerFrame::ComputeSizeWithIntrinsicDimensions(
 
       if (hasIntrinsicISize) {
         tentISize = intrinsicISize;
-      } else if (hasIntrinsicBSize && aAspectRatio) {
-        tentISize = aAspectRatio.ComputeRatioDependentSize(
+      } else if (hasIntrinsicBSize && aspectRatio) {
+        tentISize = aspectRatio.ComputeRatioDependentSize(
             LogicalAxis::eLogicalAxisInline, aWM, intrinsicBSize,
             boxSizingAdjust);
-      } else if (aAspectRatio) {
+      } else if (aspectRatio) {
         tentISize =
             aCBSize.ISize(aWM) - boxSizingToMarginEdgeISize;  // XXX scrollbar?
         if (tentISize < 0) {
@@ -2615,8 +2540,8 @@ LogicalSize nsContainerFrame::ComputeSizeWithIntrinsicDimensions(
 
       if (hasIntrinsicBSize) {
         tentBSize = intrinsicBSize;
-      } else if (aAspectRatio) {
-        tentBSize = aAspectRatio.ComputeRatioDependentSize(
+      } else if (aspectRatio) {
+        tentBSize = aspectRatio.ComputeRatioDependentSize(
             LogicalAxis::eLogicalAxisBlock, aWM, tentISize, boxSizingAdjust);
       } else {
         tentBSize = fallbackIntrinsicSize.BSize(aWM);
@@ -2632,31 +2557,31 @@ LogicalSize nsContainerFrame::ComputeSizeWithIntrinsicDimensions(
         tentISize = iSize;  // * / 'stretch'
         if (stretchB == eStretch) {
           tentBSize = bSize;  // 'stretch' / 'stretch'
-        } else if (stretchB == eStretchPreservingRatio && aAspectRatio) {
+        } else if (stretchB == eStretchPreservingRatio && aspectRatio) {
           // 'normal' / 'stretch'
-          tentBSize = aAspectRatio.ComputeRatioDependentSize(
+          tentBSize = aspectRatio.ComputeRatioDependentSize(
               LogicalAxis::eLogicalAxisBlock, aWM, iSize, boxSizingAdjust);
         }
       } else if (stretchB == eStretch) {
         tentBSize = bSize;  // 'stretch' / * (except 'stretch')
-        if (stretchI == eStretchPreservingRatio && aAspectRatio) {
+        if (stretchI == eStretchPreservingRatio && aspectRatio) {
           // 'stretch' / 'normal'
-          tentISize = aAspectRatio.ComputeRatioDependentSize(
+          tentISize = aspectRatio.ComputeRatioDependentSize(
               LogicalAxis::eLogicalAxisInline, aWM, bSize, boxSizingAdjust);
         }
-      } else if (stretchI == eStretchPreservingRatio && aAspectRatio) {
+      } else if (stretchI == eStretchPreservingRatio && aspectRatio) {
         tentISize = iSize;  // * (except 'stretch') / 'normal'
-        tentBSize = aAspectRatio.ComputeRatioDependentSize(
+        tentBSize = aspectRatio.ComputeRatioDependentSize(
             LogicalAxis::eLogicalAxisBlock, aWM, iSize, boxSizingAdjust);
         if (stretchB == eStretchPreservingRatio && tentBSize > bSize) {
           // Stretch within the CB size with preserved intrinsic ratio.
           tentBSize = bSize;  // 'normal' / 'normal'
-          tentISize = aAspectRatio.ComputeRatioDependentSize(
+          tentISize = aspectRatio.ComputeRatioDependentSize(
               LogicalAxis::eLogicalAxisInline, aWM, bSize, boxSizingAdjust);
         }
-      } else if (stretchB == eStretchPreservingRatio && aAspectRatio) {
+      } else if (stretchB == eStretchPreservingRatio && aspectRatio) {
         tentBSize = bSize;  // 'normal' / * (except 'normal' and 'stretch')
-        tentISize = aAspectRatio.ComputeRatioDependentSize(
+        tentISize = aspectRatio.ComputeRatioDependentSize(
             LogicalAxis::eLogicalAxisInline, aWM, bSize, boxSizingAdjust);
       }
 
@@ -2664,7 +2589,7 @@ LogicalSize nsContainerFrame::ComputeSizeWithIntrinsicDimensions(
       // applying the min/max-size.  We don't want that when we have 'stretch'
       // in either axis because tentISize/tentBSize is likely not according to
       // ratio now.
-      if (aAspectRatio && stretchI != eStretch && stretchB != eStretch) {
+      if (aspectRatio && stretchI != eStretch && stretchB != eStretch) {
         nsSize autoSize = nsLayoutUtils::ComputeAutoSizeWithIntrinsicDimensions(
             minISize, minBSize, maxISize, maxBSize, tentISize, tentBSize);
         // The nsSize that ComputeAutoSizeWithIntrinsicDimensions returns will
@@ -2682,8 +2607,8 @@ LogicalSize nsContainerFrame::ComputeSizeWithIntrinsicDimensions(
       // 'auto' iSize, non-'auto' bSize
       bSize = NS_CSS_MINMAX(bSize, minBSize, maxBSize);
       if (stretchI != eStretch) {
-        if (aAspectRatio) {
-          iSize = aAspectRatio.ComputeRatioDependentSize(
+        if (aspectRatio) {
+          iSize = aspectRatio.ComputeRatioDependentSize(
               LogicalAxis::eLogicalAxisInline, aWM, bSize, boxSizingAdjust);
         } else if (hasIntrinsicISize) {
           if (!(aFlags.contains(ComputeSizeFlag::IClampMarginBoxMinSize) &&
@@ -2701,8 +2626,8 @@ LogicalSize nsContainerFrame::ComputeSizeWithIntrinsicDimensions(
       // non-'auto' iSize, 'auto' bSize
       iSize = NS_CSS_MINMAX(iSize, minISize, maxISize);
       if (stretchB != eStretch) {
-        if (aAspectRatio) {
-          bSize = aAspectRatio.ComputeRatioDependentSize(
+        if (aspectRatio) {
+          bSize = aspectRatio.ComputeRatioDependentSize(
               LogicalAxis::eLogicalAxisBlock, aWM, iSize, boxSizingAdjust);
         } else if (hasIntrinsicBSize) {
           if (!(aFlags.contains(ComputeSizeFlag::BClampMarginBoxMinSize) &&
@@ -2791,9 +2716,7 @@ bool nsContainerFrame::ShouldAvoidBreakInside(
   const auto* disp = StyleDisplay();
   return !aReflowInput.mFlags.mIsTopOfPage &&
          StyleBreakWithin::Avoid == disp->mBreakInside &&
-         !(HasAnyStateBits(NS_FRAME_OUT_OF_FLOW) &&
-           IsAbsolutelyPositioned(disp)) &&
-         !GetPrevInFlow();
+         !IsAbsolutelyPositioned(disp) && !GetPrevInFlow();
 }
 
 void nsContainerFrame::ConsiderChildOverflow(OverflowAreas& aOverflowAreas,
@@ -2810,8 +2733,7 @@ void nsContainerFrame::ConsiderChildOverflow(OverflowAreas& aOverflowAreas,
     OverflowAreas combined = OverflowAreas(childVisual, nsRect());
     aOverflowAreas.UnionWith(combined + aChildFrame->GetPosition());
   } else {
-    aOverflowAreas.UnionWith(aChildFrame->GetOverflowAreas() +
-                             aChildFrame->GetPosition());
+    aOverflowAreas.UnionWith(aChildFrame->GetOverflowAreasRelativeToParent());
   }
 }
 

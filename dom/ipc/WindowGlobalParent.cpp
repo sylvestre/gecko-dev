@@ -27,6 +27,9 @@
 #include "mozilla/dom/ChromeUtils.h"
 #include "mozilla/dom/ipc/IdType.h"
 #include "mozilla/dom/ipc/StructuredCloneData.h"
+#include "mozilla/dom/sessionstore/SessionStoreTypes.h"
+#include "mozilla/dom/SessionStoreUtils.h"
+#include "mozilla/dom/SessionStoreUtilsBinding.h"
 #include "mozilla/ScopeExit.h"
 #include "mozilla/ServoCSSParser.h"
 #include "mozilla/ServoStyleSet.h"
@@ -60,6 +63,10 @@
 #include "mozilla/dom/JSWindowActorBinding.h"
 #include "mozilla/dom/JSWindowActorParent.h"
 
+#include "SessionStoreFunctions.h"
+#include "nsIXPConnect.h"
+#include "nsImportModule.h"
+
 using namespace mozilla::ipc;
 using namespace mozilla::dom::ipc;
 
@@ -69,9 +76,9 @@ namespace mozilla::dom {
 
 WindowGlobalParent::WindowGlobalParent(
     CanonicalBrowsingContext* aBrowsingContext, uint64_t aInnerWindowId,
-    uint64_t aOuterWindowId, bool aInProcess, FieldValues&& aInit)
+    uint64_t aOuterWindowId, FieldValues&& aInit)
     : WindowContext(aBrowsingContext, aInnerWindowId, aOuterWindowId,
-                    aInProcess, std::move(aInit)),
+                    std::move(aInit)),
       mIsInitialDocument(false),
       mSandboxFlags(0),
       mDocumentHasLoaded(false),
@@ -82,7 +89,7 @@ WindowGlobalParent::WindowGlobalParent(
 }
 
 already_AddRefed<WindowGlobalParent> WindowGlobalParent::CreateDisconnected(
-    const WindowGlobalInit& aInit, bool aInProcess) {
+    const WindowGlobalInit& aInit) {
   RefPtr<CanonicalBrowsingContext> browsingContext =
       CanonicalBrowsingContext::Get(aInit.context().mBrowsingContextId);
   if (NS_WARN_IF(!browsingContext)) {
@@ -94,9 +101,9 @@ already_AddRefed<WindowGlobalParent> WindowGlobalParent::CreateDisconnected(
   MOZ_RELEASE_ASSERT(!wgp, "Creating duplicate WindowGlobalParent");
 
   FieldValues fields(aInit.context().mFields);
-  wgp = new WindowGlobalParent(browsingContext, aInit.context().mInnerWindowId,
-                               aInit.context().mOuterWindowId, aInProcess,
-                               std::move(fields));
+  wgp =
+      new WindowGlobalParent(browsingContext, aInit.context().mInnerWindowId,
+                             aInit.context().mOuterWindowId, std::move(fields));
   wgp->mDocumentPrincipal = aInit.principal();
   wgp->mDocumentURI = aInit.documentURI();
   wgp->mBlockAllMixedContent = aInit.blockAllMixedContent();
@@ -190,7 +197,7 @@ void WindowGlobalParent::OriginCounter::UpdateSiteOriginsFrom(
     aParent->DocumentPrincipal()->GetSiteOrigin(origin);
 
     if (aIncrease) {
-      int32_t& count = mOriginMap.GetOrInsert(origin);
+      int32_t& count = mOriginMap.LookupOrInsert(origin);
       count += 1;
       mMaxOrigins = std::max(mMaxOrigins, mOriginMap.Count());
     } else if (auto entry = mOriginMap.Lookup(origin)) {
@@ -476,6 +483,16 @@ const nsACString& WindowGlobalParent::GetRemoteType() {
   }
 
   return NOT_REMOTE_TYPE;
+}
+
+static nsCString PointToString(const nsPoint& aPoint) {
+  int scrollX = nsPresContext::AppUnitsToIntCSSPixels(aPoint.x);
+  int scrollY = nsPresContext::AppUnitsToIntCSSPixels(aPoint.y);
+  if ((scrollX != 0) || (scrollY != 0)) {
+    return nsPrintfCString("%d,%d", scrollX, scrollY);
+  }
+
+  return ""_ns;
 }
 
 void WindowGlobalParent::NotifyContentBlockingEvent(
@@ -1086,6 +1103,211 @@ void WindowGlobalParent::FinishAccumulatingPageUseCounters() {
   mPageUseCounters = nullptr;
 }
 
+// Collect the path from aContext up to its parent. Returns true if any context
+// in the chain isn't a child of its parent
+static bool GetPath(BrowsingContext* aContext,
+                    FallibleTArray<uint32_t>& aPath) {
+  bool missingContext = false;
+
+  BrowsingContext* current = aContext;
+  while (current) {
+    BrowsingContext* parent = current->GetParent();
+    if (parent) {
+      auto children = parent->Children();
+      auto result = std::find(children.cbegin(), children.cend(), current);
+      if (result == children.cend()) {
+        missingContext = true;
+      }
+
+      if (!aPath.AppendElement(std::distance(children.cbegin(), result),
+                               fallible)) {
+        break;
+      }
+    }
+    current = parent;
+  }
+
+  return missingContext;
+}
+
+static void GetFormData(JSContext* aCx, const sessionstore::FormData& aFormData,
+                        nsIURI* aDocumentURI, SessionStoreFormData& aUpdate) {
+  if (!aFormData.hasData()) {
+    return;
+  }
+
+  bool parseSessionData = false;
+  if (aDocumentURI) {
+    nsCString& url = aUpdate.mUrl.Construct();
+    aDocumentURI->GetSpecIgnoringRef(url);
+    // We want to avoid saving data for about:sessionrestore as a string.
+    // Since it's stored in the form as stringified JSON, stringifying
+    // further causes an explosion of escape characters. cf. bug 467409
+    parseSessionData =
+        url == "about:sessionrestore"_ns || url == "about:welcomeback"_ns;
+  }
+
+  if (!aFormData.innerHTML().IsEmpty()) {
+    aUpdate.mInnerHTML.Construct(aFormData.innerHTML());
+  }
+
+  if (!aFormData.id().IsEmpty()) {
+    auto& id = aUpdate.mId.Construct();
+    if (NS_FAILED(SessionStoreUtils::ConstructFormDataValues(
+            aCx, aFormData.id(), id.Entries(), parseSessionData))) {
+      return;
+    }
+  }
+
+  if (!aFormData.xpath().IsEmpty()) {
+    auto& xpath = aUpdate.mXpath.Construct();
+    if (NS_FAILED(SessionStoreUtils::ConstructFormDataValues(
+            aCx, aFormData.xpath(), xpath.Entries()))) {
+      return;
+    }
+  }
+}
+
+Element* WindowGlobalParent::GetRootOwnerElement() {
+  WindowGlobalParent* top = TopWindowContext();
+  if (!top) {
+    return nullptr;
+  }
+
+  if (IsInProcess()) {
+    return top->BrowsingContext()->GetEmbedderElement();
+  }
+
+  if (BrowserParent* parent = top->GetBrowserParent()) {
+    return parent->GetOwnerElement();
+  }
+
+  return nullptr;
+}
+
+nsresult WindowGlobalParent::UpdateSessionStore(
+    const Maybe<FormData>& aFormData, const Maybe<nsPoint>& aScrollPosition,
+    uint32_t aEpoch) {
+  if (!aFormData && !aScrollPosition) {
+    return NS_OK;
+  }
+
+  Element* frameElement = GetRootOwnerElement();
+  if (!frameElement) {
+    return NS_OK;
+  }
+
+  nsCOMPtr<nsISessionStoreFunctions> funcs =
+      do_ImportModule("resource://gre/modules/SessionStoreFunctions.jsm");
+  if (!funcs) {
+    return NS_ERROR_FAILURE;
+  }
+
+  nsCOMPtr<nsIXPConnectWrappedJS> wrapped = do_QueryInterface(funcs);
+  AutoJSAPI jsapi;
+  if (!jsapi.Init(wrapped->GetJSObjectGlobal())) {
+    return NS_ERROR_FAILURE;
+  }
+
+  RootedDictionary<SessionStoreWindowStateChange> windowState(jsapi.cx());
+
+  if (GetPath(GetBrowsingContext(), windowState.mPath)) {
+    // If a context in the parent chain from the current context is
+    // missing, do nothing.
+    return NS_OK;
+  }
+
+  if (aFormData) {
+    GetFormData(jsapi.cx(), *aFormData, mDocumentURI,
+                windowState.mFormdata.Construct());
+  }
+
+  if (aScrollPosition) {
+    auto& update = windowState.mScroll.Construct();
+    if (*aScrollPosition != nsPoint(0, 0)) {
+      update.mScroll.Construct() = PointToString(*aScrollPosition);
+    }
+  }
+
+  windowState.mHasChildren.Construct() =
+      !GetBrowsingContext()->Children().IsEmpty();
+
+  JS::RootedValue update(jsapi.cx());
+  if (!ToJSValue(jsapi.cx(), windowState, &update)) {
+    return NS_ERROR_FAILURE;
+  }
+
+  return funcs->UpdateSessionStoreForWindow(frameElement, GetBrowsingContext(),
+                                            aEpoch, update);
+}
+
+nsresult WindowGlobalParent::ResetSessionStore(uint32_t aEpoch) {
+  Element* frameElement = GetRootOwnerElement();
+  if (!frameElement) {
+    return NS_OK;
+  }
+
+  nsCOMPtr<nsISessionStoreFunctions> funcs =
+      do_ImportModule("resource://gre/modules/SessionStoreFunctions.jsm");
+  if (!funcs) {
+    return NS_ERROR_FAILURE;
+  }
+
+  nsCOMPtr<nsIXPConnectWrappedJS> wrapped = do_QueryInterface(funcs);
+  AutoJSAPI jsapi;
+  if (!jsapi.Init(wrapped->GetJSObjectGlobal())) {
+    return NS_ERROR_FAILURE;
+  }
+
+  RootedDictionary<SessionStoreWindowStateChange> windowState(jsapi.cx());
+
+  if (GetPath(GetBrowsingContext(), windowState.mPath)) {
+    // If a context in the parent chain from the current context is
+    // missing, do nothing.
+    return NS_OK;
+  }
+
+  windowState.mHasChildren.Construct() = false;
+  windowState.mFormdata.Construct();
+  windowState.mScroll.Construct();
+
+  JS::RootedValue update(jsapi.cx());
+  if (!ToJSValue(jsapi.cx(), windowState, &update)) {
+    return NS_ERROR_FAILURE;
+  }
+
+  return funcs->UpdateSessionStoreForWindow(frameElement, GetBrowsingContext(),
+                                            aEpoch, update);
+}
+
+mozilla::ipc::IPCResult WindowGlobalParent::RecvUpdateSessionStore(
+    const Maybe<FormData>& aFormData, const Maybe<nsPoint>& aScrollPosition,
+    uint32_t aEpoch) {
+  if (NS_FAILED(UpdateSessionStore(aFormData, aScrollPosition, aEpoch))) {
+    MOZ_LOG(BrowsingContext::GetLog(), LogLevel::Debug,
+            ("ParentIPC: Failed to update session store entry."));
+  }
+
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult WindowGlobalParent::RecvResetSessionStore(
+    uint32_t aEpoch) {
+  if (NS_FAILED(ResetSessionStore(aEpoch))) {
+    MOZ_LOG(BrowsingContext::GetLog(), LogLevel::Debug,
+            ("ParentIPC: Failed to reset session store entry."));
+  }
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult WindowGlobalParent::RecvRequestRestoreTabContent() {
+  CanonicalBrowsingContext* bc = BrowsingContext()->Top();
+  if (bc && !bc->IsDiscarded()) {
+    bc->RequestRestoreTabContent(this);
+  }
+  return IPC_OK();
+}
+
 void WindowGlobalParent::ActorDestroy(ActorDestroyReason aWhy) {
   if (mPageUseCountersWindow) {
     mPageUseCountersWindow->FinishAccumulatingPageUseCounters();
@@ -1133,22 +1355,23 @@ void WindowGlobalParent::ActorDestroy(ActorDestroyReason aWhy) {
     }
   }
 
-  // Note that our WindowContext has become discarded.
-  WindowContext::Discard();
-
   ContentParent* cp = nullptr;
   if (!IsInProcess()) {
     cp = static_cast<ContentParent*>(Manager()->Manager());
   }
 
-  RefPtr<WindowGlobalParent> self(this);
   Group()->EachOtherParent(cp, [&](ContentParent* otherContent) {
-    // Keep the WindowContext alive until other processes have acknowledged it
-    // has been discarded.
-    auto resolve = [self](bool) {};
-    auto reject = [self](mozilla::ipc::ResponseRejectReason) {};
-    otherContent->SendDiscardWindowContext(InnerWindowId(), resolve, reject);
+    // Keep the WindowContext and our BrowsingContextGroup alive until other
+    // processes have acknowledged it has been discarded.
+    Group()->AddKeepAlive();
+    auto callback = [self = RefPtr{this}](auto) {
+      self->Group()->RemoveKeepAlive();
+    };
+    otherContent->SendDiscardWindowContext(InnerWindowId(), callback, callback);
   });
+
+  // Note that our WindowContext has become discarded.
+  WindowContext::Discard();
 
   // Report content blocking log when destroyed.
   // There shouldn't have any content blocking log when a documnet is loaded in

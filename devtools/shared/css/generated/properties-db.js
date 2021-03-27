@@ -196,12 +196,9 @@ exports.CSS_PROPERTIES = {
       "-moz-mac-active-source-list-selection",
       "-moz-mac-disclosure-button-closed",
       "-moz-mac-disclosure-button-open",
-      "-moz-mac-fullscreen-button",
       "-moz-mac-help-button",
       "-moz-mac-source-list",
       "-moz-mac-source-list-selection",
-      "-moz-mac-vibrancy-dark",
-      "-moz-mac-vibrancy-light",
       "-moz-mac-vibrant-titlebar-dark",
       "-moz-mac-vibrant-titlebar-light",
       "-moz-menulist-arrow-button",
@@ -1506,12 +1503,9 @@ exports.CSS_PROPERTIES = {
       "-moz-mac-active-source-list-selection",
       "-moz-mac-disclosure-button-closed",
       "-moz-mac-disclosure-button-open",
-      "-moz-mac-fullscreen-button",
       "-moz-mac-help-button",
       "-moz-mac-source-list",
       "-moz-mac-source-list-selection",
-      "-moz-mac-vibrancy-dark",
-      "-moz-mac-vibrancy-light",
       "-moz-mac-vibrant-titlebar-dark",
       "-moz-mac-vibrant-titlebar-light",
       "-moz-menulist-arrow-button",
@@ -1969,8 +1963,6 @@ exports.CSS_PROPERTIES = {
     "values": [
       "-moz-available",
       "-moz-fit-content",
-      "-moz-max-content",
-      "-moz-min-content",
       "auto",
       "content",
       "inherit",
@@ -1990,8 +1982,6 @@ exports.CSS_PROPERTIES = {
     "values": [
       "-moz-available",
       "-moz-fit-content",
-      "-moz-max-content",
-      "-moz-min-content",
       "auto",
       "content",
       "inherit",
@@ -3076,6 +3066,7 @@ exports.CSS_PROPERTIES = {
       "-moz-outline-radius-bottomright",
       "-moz-outline-radius-bottomleft",
       "outline-offset",
+      "size",
       "padding-top",
       "padding-right",
       "padding-bottom",
@@ -3357,12 +3348,9 @@ exports.CSS_PROPERTIES = {
       "-moz-mac-active-source-list-selection",
       "-moz-mac-disclosure-button-closed",
       "-moz-mac-disclosure-button-open",
-      "-moz-mac-fullscreen-button",
       "-moz-mac-help-button",
       "-moz-mac-source-list",
       "-moz-mac-source-list-selection",
-      "-moz-mac-vibrancy-dark",
-      "-moz-mac-vibrancy-light",
       "-moz-mac-vibrant-titlebar-dark",
       "-moz-mac-vibrant-titlebar-light",
       "-moz-menulist-arrow-button",
@@ -3806,8 +3794,6 @@ exports.CSS_PROPERTIES = {
     "values": [
       "-moz-available",
       "-moz-fit-content",
-      "-moz-max-content",
-      "-moz-min-content",
       "auto",
       "inherit",
       "initial",
@@ -5740,6 +5726,7 @@ exports.CSS_PROPERTIES = {
       "close-quote",
       "counter",
       "counters",
+      "image-set",
       "inherit",
       "initial",
       "no-close-quote",
@@ -5819,6 +5806,7 @@ exports.CSS_PROPERTIES = {
       "grab",
       "grabbing",
       "help",
+      "image-set",
       "inherit",
       "initial",
       "move",
@@ -6063,8 +6051,6 @@ exports.CSS_PROPERTIES = {
     "values": [
       "-moz-available",
       "-moz-fit-content",
-      "-moz-max-content",
-      "-moz-min-content",
       "auto",
       "content",
       "inherit",
@@ -6084,8 +6070,6 @@ exports.CSS_PROPERTIES = {
     "values": [
       "-moz-available",
       "-moz-fit-content",
-      "-moz-max-content",
-      "-moz-min-content",
       "auto",
       "content",
       "inherit",
@@ -7006,8 +6990,6 @@ exports.CSS_PROPERTIES = {
     "values": [
       "-moz-available",
       "-moz-fit-content",
-      "-moz-max-content",
-      "-moz-min-content",
       "auto",
       "inherit",
       "initial",
@@ -7093,8 +7075,6 @@ exports.CSS_PROPERTIES = {
     "values": [
       "-moz-available",
       "-moz-fit-content",
-      "-moz-max-content",
-      "-moz-min-content",
       "auto",
       "inherit",
       "initial",
@@ -8255,8 +8235,6 @@ exports.CSS_PROPERTIES = {
     "values": [
       "-moz-available",
       "-moz-fit-content",
-      "-moz-max-content",
-      "-moz-min-content",
       "auto",
       "inherit",
       "initial",
@@ -8275,8 +8253,6 @@ exports.CSS_PROPERTIES = {
     "values": [
       "-moz-available",
       "-moz-fit-content",
-      "-moz-max-content",
-      "-moz-min-content",
       "auto",
       "inherit",
       "initial",
@@ -8295,8 +8271,6 @@ exports.CSS_PROPERTIES = {
     "values": [
       "-moz-available",
       "-moz-fit-content",
-      "-moz-max-content",
-      "-moz-min-content",
       "auto",
       "inherit",
       "initial",
@@ -8315,8 +8289,6 @@ exports.CSS_PROPERTIES = {
     "values": [
       "-moz-available",
       "-moz-fit-content",
-      "-moz-max-content",
-      "-moz-min-content",
       "auto",
       "inherit",
       "initial",
@@ -9320,6 +9292,7 @@ exports.CSS_PROPERTIES = {
     ],
     "supports": [],
     "values": [
+      "alternate",
       "inherit",
       "initial",
       "over",
@@ -10826,8 +10799,6 @@ exports.CSS_PROPERTIES = {
     "values": [
       "-moz-available",
       "-moz-fit-content",
-      "-moz-max-content",
-      "-moz-min-content",
       "auto",
       "inherit",
       "initial",
@@ -11099,6 +11070,10 @@ exports.PREFERENCES = [
   [
     "scale",
     "layout.css.individual-transform.enabled"
+  ],
+  [
+    "size",
+    "layout.css.page-size.enabled"
   ],
   [
     "translate",

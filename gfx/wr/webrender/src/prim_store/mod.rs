@@ -23,7 +23,6 @@ use crate::picture::PicturePrimitive;
 #[cfg(debug_assertions)]
 use crate::render_backend::{FrameId};
 use crate::render_task_graph::RenderTaskId;
-use crate::render_task_cache::RenderTaskCacheEntryHandle;
 use crate::resource_cache::ImageProperties;
 use crate::scene::SceneProperties;
 use std::{hash, ops, u32, usize};
@@ -387,6 +386,21 @@ impl From<WorldPoint> for PointKey {
     }
 }
 
+/// A hashable float for using as a key during primitive interning.
+#[cfg_attr(feature = "capture", derive(Serialize))]
+#[cfg_attr(feature = "replay", derive(Deserialize))]
+#[derive(Debug, Copy, Clone, MallocSizeOf, PartialEq)]
+pub struct FloatKey(f32);
+
+impl Eq for FloatKey {}
+
+impl hash::Hash for FloatKey {
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        self.0.to_bits().hash(state);
+    }
+}
+
+
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
 #[derive(Debug, Clone, Eq, MallocSizeOf, PartialEq, Hash)]
@@ -486,6 +500,7 @@ impl From<PrimitiveKeyKind> for PrimitiveTemplateKind {
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
 #[derive(MallocSizeOf)]
+#[derive(Debug)]
 pub struct PrimTemplateCommonData {
     pub flags: PrimitiveFlags,
     pub may_need_repetition: bool,
@@ -633,13 +648,6 @@ pub struct VisibleGradientTile {
     pub handle: GpuCacheHandle,
     pub local_rect: LayoutRect,
     pub local_clip_rect: LayoutRect,
-}
-
-#[derive(Debug)]
-#[cfg_attr(feature = "capture", derive(Serialize))]
-pub struct CachedGradientSegment {
-    pub handle: RenderTaskCacheEntryHandle,
-    pub local_rect: LayoutRect,
 }
 
 /// Information about how to cache a border segment,
@@ -957,12 +965,12 @@ pub enum PrimitiveInstanceKind {
         //           the things we store here in the instance, and
         //           use them directly. This will remove cache_handle,
         //           but also the opacity, clip_task_id etc below.
-        cache_handle: Option<RenderTaskCacheEntryHandle>,
+        render_task: Option<RenderTaskId>,
     },
     NormalBorder {
         /// Handle to the common interned data for this primitive.
         data_handle: NormalBorderDataHandle,
-        cache_handles: storage::Range<RenderTaskCacheEntryHandle>,
+        render_task_ids: storage::Range<RenderTaskId>,
     },
     ImageBorder {
         /// Handle to the common interned data for this primitive.
@@ -1133,7 +1141,7 @@ pub type TextRunIndex = storage::Index<TextRunPrimitive>;
 pub type TextRunStorage = storage::Storage<TextRunPrimitive>;
 pub type ColorBindingIndex = storage::Index<PropertyBinding<ColorU>>;
 pub type ColorBindingStorage = storage::Storage<PropertyBinding<ColorU>>;
-pub type BorderHandleStorage = storage::Storage<RenderTaskCacheEntryHandle>;
+pub type BorderHandleStorage = storage::Storage<RenderTaskId>;
 pub type SegmentStorage = storage::Storage<BrushSegment>;
 pub type SegmentsRange = storage::Range<BrushSegment>;
 pub type SegmentInstanceStorage = storage::Storage<SegmentedInstance>;

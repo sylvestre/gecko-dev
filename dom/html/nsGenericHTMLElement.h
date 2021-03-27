@@ -152,6 +152,9 @@ class nsGenericHTMLElement : public nsGenericHTMLElementBase {
     }
   }
 
+  /** Returns whether a form control should be default-focusable. */
+  bool IsFormControlDefaultFocusable(bool aWithMouse) const;
+
   /**
    * Returns the count of descendants (inclusive of this node) in
    * the uncomposed document that are explicitly set as editable.
@@ -516,6 +519,17 @@ class nsGenericHTMLElement : public nsGenericHTMLElementBase {
   static void MapImageSizeAttributesInto(const nsMappedAttributes*,
                                          mozilla::MappedDeclarations&,
                                          MapAspectRatio = MapAspectRatio::No);
+  /**
+   * Helper to map the width and height attributes into the aspect-ratio
+   * property.
+   *
+   * If you also map the width/height attributes to width/height (as you should
+   * for any HTML element that isn't <canvas>) then you should use
+   * MapImageSizeAttributesInto instead, passing MapAspectRatio::Yes instead, as
+   * that'd be faster.
+   */
+  static void MapAspectRatioInto(const nsMappedAttributes*,
+                                 mozilla::MappedDeclarations&);
 
   /**
    * Helper to map `width` attribute into a style struct.
@@ -675,9 +689,6 @@ class nsGenericHTMLElement : public nsGenericHTMLElementBase {
       RegUnRegAccessKey(false);
     }
   }
-
- private:
-  void RegUnRegAccessKey(bool aDoReg);
 
  protected:
   virtual nsresult BeforeSetAttr(int32_t aNamespaceID, nsAtom* aName,

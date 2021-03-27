@@ -283,10 +283,6 @@ pref("browser.startup.preXulSkeletonUI", false);
 // platforms that don't always need it (Win/Linux).
 pref("toolkit.lazyHiddenWindow", true);
 
-pref("browser.slowStartup.notificationDisabled", false);
-pref("browser.slowStartup.timeThreshold", 20000);
-pref("browser.slowStartup.maxSamples", 5);
-
 pref("browser.chrome.site_icons", true);
 // browser.warnOnQuit == false will override all other possible prompts when quitting or restarting
 pref("browser.warnOnQuit", true);
@@ -331,6 +327,10 @@ pref("browser.urlbar.suggest.openpage",             true);
 pref("browser.urlbar.suggest.searches",             true);
 pref("browser.urlbar.suggest.topsites",             true);
 pref("browser.urlbar.suggest.engines",              true);
+pref("browser.urlbar.suggest.quicksuggest",         true);
+
+// Whether the QuickSuggest experiment is enabled.
+pref("browser.urlbar.quicksuggest.enabled", false);
 
 // Whether to show search suggestions before general results like history and
 // bookmarks.
@@ -356,6 +356,9 @@ pref("browser.urlbar.openintab", false);
 
 // If true, we show tail suggestions when available.
 pref("browser.urlbar.richSuggestions.tail", true);
+
+// If true, top sites may include sponsored ones.
+pref("browser.urlbar.sponsoredTopSites", false);
 
 // Controls the empty search behavior in Search Mode:
 //  0 - Show nothing
@@ -617,7 +620,6 @@ pref("browser.bookmarks.defaultLocation", "toolbar");
 
 // Scripts & Windows prefs
 pref("dom.disable_open_during_load",              true);
-pref("javascript.options.showInConsole",          true);
 
 // allow JS to move and resize existing windows
 pref("dom.disable_window_move_resize",            false);
@@ -698,7 +700,11 @@ pref("browser.gesture.twist.threshold", 0);
 pref("browser.gesture.twist.right", "cmd_gestureRotateRight");
 pref("browser.gesture.twist.left", "cmd_gestureRotateLeft");
 pref("browser.gesture.twist.end", "cmd_gestureRotateEnd");
-pref("browser.gesture.tap", "cmd_fullZoomReset");
+#if defined(XP_WIN) || defined(MOZ_WIDGET_GTK)
+  pref("browser.gesture.tap", "cmd_fullZoomReset");
+#else
+  pref("browser.gesture.tap", "");
+#endif
 
 pref("browser.history_swipe_animation.disabled", false);
 
@@ -900,9 +906,6 @@ pref("browser.sessionstore.resume_from_crash", true);
 pref("browser.sessionstore.resume_session_once", false);
 pref("browser.sessionstore.resuming_after_os_restart", false);
 
-// Minimal interval between two save operations in milliseconds (while the user is active).
-pref("browser.sessionstore.interval", 15000); // 15 seconds
-
 // Minimal interval between two save operations in milliseconds (while the user is idle).
 pref("browser.sessionstore.interval.idle", 3600000); // 1h
 
@@ -943,10 +946,6 @@ pref("browser.sessionstore.upgradeBackup.latestBuildID", "");
 pref("browser.sessionstore.upgradeBackup.maxUpgradeBackups", 3);
 // End-users should not run sessionstore in debug mode
 pref("browser.sessionstore.debug", false);
-// Causes SessionStore to ignore non-final update messages from
-// browser tabs that were not caused by a flush from the parent.
-// This is a testing flag and should not be used by end-users.
-pref("browser.sessionstore.debug.no_auto_updates", false);
 // Forget closed windows/tabs after two weeks
 pref("browser.sessionstore.cleanup.forget_closed_after", 1209600000);
 // Amount of failed SessionFile writes until we restart the worker.
@@ -1346,11 +1345,7 @@ pref("browser.menu.showCharacterEncoding", "chrome://browser/locale/browser.prop
 // This is a fallback value for when prompt callers do not specify a modalType.
 pref("prompts.defaultModalType", 3);
 
-#ifdef EARLY_BETA_OR_EARLIER
-  pref("browser.topsites.useRemoteSetting", true);
-#else
-  pref("browser.topsites.useRemoteSetting", false);
-#endif
+pref("browser.topsites.useRemoteSetting", true);
 
 // The base URL for the Quick Suggest anonymizing proxy. To make a request to
 // the proxy, include a campaign ID in the path.
@@ -1381,9 +1376,6 @@ pref("prompts.tabChromePromptSubDialog", true);
 
 // Activates preloading of the new tab url.
 pref("browser.newtab.preload", true);
-
-// Experiment Prefs for Nimbus
-pref("browser.newtab.experiments.value", "{\"prefsButtonIcon\": \"icon-settings\"}");
 
 // Preference to enable the entire new newtab experience at once.
 pref("browser.newtabpage.activity-stream.newNewtabExperience.enabled", false);
@@ -1471,7 +1463,9 @@ pref("trailhead.firstrun.newtab.triplets", "");
 // Separate about welcome
 pref("browser.aboutwelcome.enabled", true);
 // Used to set multistage welcome UX
-pref("browser.aboutwelcome.overrideContent", "");
+pref("browser.aboutwelcome.screens", "");
+pref("browser.aboutwelcome.skipFocus", false);
+pref("browser.aboutwelcome.design", "");
 
 // The pref that controls if the What's New panel is enabled.
 pref("browser.messaging-system.whatsNewPanel.enabled", true);
@@ -1577,12 +1571,6 @@ pref("identity.fxaccounts.remote.pairing.uri", "wss://channelserver.services.moz
 
 // Token server used by the FxA Sync identity.
 pref("identity.sync.tokenserver.uri", "https://token.services.mozilla.com/1.0/sync/1.5");
-
-// Fetch Sync tokens using the OAuth token function
-pref("identity.sync.useOAuthForSyncToken", true);
-
-// Using session tokens to fetch OAuth tokens
-pref("identity.fxaccounts.useSessionTokensForOAuth", true);
 
 // Auto-config URL for FxA self-hosters, makes an HTTP request to
 // [identity.fxaccounts.autoconfig.uri]/.well-known/fxa-client-configuration
@@ -1706,10 +1694,8 @@ pref("dom.storage_access.enabled", true);
 
 pref("browser.contentblocking.cryptomining.preferences.ui.enabled", true);
 pref("browser.contentblocking.fingerprinting.preferences.ui.enabled", true);
-#ifdef NIGHTLY_BUILD
-  // Enable cookieBehavior = BEHAVIOR_REJECT_TRACKER_AND_PARTITION_FOREIGN as an option in the custom category ui
-  pref("browser.contentblocking.reject-and-isolate-cookies.preferences.ui.enabled", true);
-#endif
+// Enable cookieBehavior = BEHAVIOR_REJECT_TRACKER_AND_PARTITION_FOREIGN as an option in the custom category ui
+pref("browser.contentblocking.reject-and-isolate-cookies.preferences.ui.enabled", true);
 // State Partitioning MVP UI.
 pref("browser.contentblocking.state-partitioning.mvp.ui.enabled", true);
 
@@ -1838,6 +1824,13 @@ pref("privacy.webrtc.globalMuteToggles", false);
 // to switch tabs in a window that's being shared over WebRTC.
 pref("privacy.webrtc.sharedTabWarning", false);
 
+// Defines a grace period after camera or microphone use ends, where permission
+// is granted (even past navigation) to this tab + origin + device. This avoids
+// re-prompting without the user having to persist permission to the site, in a
+// common case of a web conference asking them for the camera in a lobby page,
+// before navigating to the actual meeting room page. Doesn't survive tab close.
+pref("privacy.webrtc.deviceGracePeriodTimeoutMs", 50000);
+
 // Start the browser in e10s mode
 pref("browser.tabs.remote.autostart", true);
 pref("browser.tabs.remote.desktopbehavior", true);
@@ -1863,9 +1856,6 @@ pref("browser.tabs.remote.warmup.unloadDelayMs", 2000);
 // For the about:tabcrashed page
 pref("browser.tabs.crashReporting.sendReport", true);
 pref("browser.tabs.crashReporting.includeURL", false);
-pref("browser.tabs.crashReporting.requestEmail", false);
-pref("browser.tabs.crashReporting.emailMe", false);
-pref("browser.tabs.crashReporting.email", "");
 
 // If true, unprivileged extensions may use experimental APIs on
 // nightly and developer edition.
@@ -1921,11 +1911,11 @@ pref("extensions.pocket.onSaveRecs.locales", "en-US,en-GB,en-CA");
 // Possibilities are: `control`, `control-one-button`, `variant_a`, `variant_b`, `variant_c`
 pref("extensions.pocket.loggedOutVariant", "control");
 
-#ifdef NIGHTLY_BUILD
 pref("signon.management.page.fileImport.enabled", true);
+
+#ifdef NIGHTLY_BUILD
 pref("signon.management.page.os-auth.enabled", true);
 #else
-pref("signon.management.page.fileImport.enabled", false);
 pref("signon.management.page.os-auth.enabled", false);
 #endif
 pref("signon.management.page.breach-alerts.enabled", true);
@@ -1938,6 +1928,7 @@ pref("signon.management.page.breachAlertUrl",
      "https://monitor.firefox.com/breach-details/");
 pref("signon.management.page.showPasswordSyncNotification", true);
 pref("signon.passwordEditCapture.enabled", true);
+pref("signon.relatedRealms.enabled", false);
 pref("signon.showAutoCompleteFooter", true);
 pref("signon.showAutoCompleteImport", "import");
 pref("signon.suggestImportCount", 3);
@@ -2169,8 +2160,6 @@ pref("devtools.inspector.imagePreviewTooltipSize", 300);
 pref("devtools.inspector.showUserAgentStyles", false);
 // Show native anonymous content and user agent shadow roots
 pref("devtools.inspector.showAllAnonymousContent", false);
-// Enable the new Rules View
-pref("devtools.inspector.new-rulesview.enabled", false);
 // Enable the inline CSS compatiblity warning in inspector rule view
 pref("devtools.inspector.ruleview.inline-compatibility-warning.enabled", false);
 // Enable the compatibility tool in the inspector.
@@ -2180,11 +2169,7 @@ pref("devtools.inspector.compatibility.enabled", true);
 pref("devtools.inspector.compatibility.enabled", false);
 #endif
 // Enable color scheme simulation in the inspector.
-#if defined(NIGHTLY_BUILD)
 pref("devtools.inspector.color-scheme-simulation.enabled", true);
-#else
-pref("devtools.inspector.color-scheme-simulation.enabled", false);
-#endif
 // Enable overflow debugging in the inspector.
 pref("devtools.overflow.debugging.enabled", true);
 
@@ -2423,8 +2408,8 @@ pref("devtools.browserconsole.input.editorWidth", 0);
 // Display an onboarding UI for the Editor mode.
 pref("devtools.webconsole.input.editorOnboarding", true);
 
-// Enable the new performance recording panel in Nightly builds.
-#if defined(NIGHTLY_BUILD)
+// Enable the new performance recording panel in Nightly and Beta/DevEdition builds.
+#if defined(NIGHTLY_BUILD) || defined(MOZ_DEV_EDITION)
   pref("devtools.performance.new-panel-enabled", true);
 #else
   pref("devtools.performance.new-panel-enabled", false);

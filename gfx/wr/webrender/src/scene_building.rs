@@ -62,7 +62,10 @@ use crate::prim_store::{PrimitiveInstanceKind, NinePatchDescriptor, PrimitiveSto
 use crate::prim_store::{InternablePrimitive, SegmentInstanceIndex, PictureIndex};
 use crate::prim_store::backdrop::Backdrop;
 use crate::prim_store::borders::{ImageBorder, NormalBorderPrim};
-use crate::prim_store::gradient::{GradientStopKey, LinearGradient, RadialGradient, RadialGradientParams, ConicGradient, ConicGradientParams};
+use crate::prim_store::gradient::{
+    GradientStopKey, LinearGradient, RadialGradient, RadialGradientParams, ConicGradient,
+    ConicGradientParams, optimize_radial_gradient,
+};
 use crate::prim_store::image::{Image, YuvImage};
 use crate::prim_store::line_dec::{LineDecoration, LineDecorationCacheKey, get_line_decoration_size};
 use crate::prim_store::picture::{Picture, PictureCompositeKey, PictureKey};
@@ -660,6 +663,7 @@ impl<'a> SceneBuilder<'a> {
                             info.stacking_context.clip_id,
                             info.stacking_context.raster_space,
                             info.stacking_context.flags,
+                            bc.pipeline_id,
                         );
 
                         self.rf_mapper.push_offset(info.origin.to_vector());
@@ -925,7 +929,10 @@ impl<'a> SceneBuilder<'a> {
             iframe_pipeline_id,
             TransformStyle::Flat,
             PropertyBinding::Value(LayoutTransform::identity()),
-            ReferenceFrameKind::Transform,
+            ReferenceFrameKind::Transform {
+                is_2d_scale_translation: false,
+                should_snap: false
+            },
             bounds.origin.to_vector(),
         );
 
@@ -1224,37 +1231,73 @@ impl<'a> SceneBuilder<'a> {
             DisplayItem::RadialGradient(ref info) => {
                 profile_scope!("radial");
 
-                let (layout, unsnapped_rect, spatial_node_index, clip_chain_id) = self.process_common_properties_with_bounds(
+                let (mut layout, unsnapped_rect, spatial_node_index, clip_chain_id) = self.process_common_properties_with_bounds(
                     &info.common,
                     &info.bounds,
                 );
 
-                let tile_size = process_repeat_size(
+                let stops = read_gradient_stops(item.gradient_stops());
+
+                let mut tile_size = process_repeat_size(
                     &layout.rect,
                     &unsnapped_rect,
                     info.tile_size,
                 );
 
-                let prim_key_kind = self.create_radial_gradient_prim(
-                    &layout,
-                    info.gradient.center,
-                    info.gradient.start_offset * info.gradient.radius.width,
-                    info.gradient.end_offset * info.gradient.radius.width,
-                    info.gradient.radius.width / info.gradient.radius.height,
-                    item.gradient_stops(),
+                let mut prim_rect = layout.rect;
+                let mut tile_spacing = info.tile_spacing;
+                let mut center = info.gradient.center;
+                optimize_radial_gradient(
+                    &mut prim_rect,
+                    &mut tile_size,
+                    &mut center,
+                    &mut tile_spacing,
+                    info.gradient.radius,
                     info.gradient.extend_mode,
-                    tile_size,
-                    info.tile_spacing,
-                    None,
+                    &stops,
+                    &mut |solid_rect, color| {
+                        self.add_nonshadowable_primitive(
+                            spatial_node_index,
+                            clip_chain_id,
+                            &LayoutPrimitiveInfo {
+                                rect: *solid_rect,
+                                .. layout
+                            },
+                            Vec::new(),
+                            PrimitiveKeyKind::Rectangle { color: PropertyBinding::Value(color) },
+                        );
+                    }
                 );
 
-                self.add_nonshadowable_primitive(
-                    spatial_node_index,
-                    clip_chain_id,
-                    &layout,
-                    Vec::new(),
-                    prim_key_kind,
-                );
+                // TODO: create_radial_gradient_prim already calls 
+                // this, but it leaves the info variable that is
+                // passed to add_nonshadowable_primitive unmodified
+                // which can cause issues.
+                simplify_repeated_primitive(&tile_size, &mut tile_spacing, &mut prim_rect);
+
+                if !tile_size.is_empty() {
+                    layout.rect = prim_rect;
+                    let prim_key_kind = self.create_radial_gradient_prim(
+                        &layout,
+                        center,
+                        info.gradient.start_offset * info.gradient.radius.width,
+                        info.gradient.end_offset * info.gradient.radius.width,
+                        info.gradient.radius.width / info.gradient.radius.height,
+                        stops,
+                        info.gradient.extend_mode,
+                        tile_size,
+                        tile_spacing,
+                        None,
+                    );
+
+                    self.add_nonshadowable_primitive(
+                        spatial_node_index,
+                        clip_chain_id,
+                        &layout,
+                        Vec::new(),
+                        prim_key_kind,
+                    );
+                }
             }
             DisplayItem::ConicGradient(ref info) => {
                 profile_scope!("conic");
@@ -1734,6 +1777,7 @@ impl<'a> SceneBuilder<'a> {
         clip_id: Option<ClipId>,
         requested_raster_space: RasterSpace,
         flags: StackingContextFlags,
+        pipeline_id: PipelineId,
     ) -> StackingContextInfo {
         profile_scope!("push_stacking_context");
 
@@ -1815,15 +1859,6 @@ impl<'a> SceneBuilder<'a> {
             blit_reason |= BlitReason::ISOLATE;
         }
 
-        // If backface visibility is explicitly set, force this stacking
-        // context to be an off-screen surface. If part of a 3d context
-        // (common case) it will already be an off-screen surface. If
-        // the backface-vis is used while outside a 3d rendering context,
-        // this is an edge case.
-        if !prim_flags.contains(PrimitiveFlags::IS_BACKFACE_VISIBLE) {
-            blit_reason |= BlitReason::ISOLATE;
-        }
-
         // If this stacking context has any complex clips, we need to draw it
         // to an off-screen surface.
         if let Some(clip_id) = clip_id {
@@ -1838,6 +1873,7 @@ impl<'a> SceneBuilder<'a> {
             &composite_ops,
             blit_reason,
             self.sc_stack.last(),
+            prim_flags,
         );
 
         // If stacking context is a scrollbar, force a new slice for the primitives
@@ -1849,7 +1885,7 @@ impl<'a> SceneBuilder<'a> {
         }
 
         let mut sc_info = StackingContextInfo {
-            pop_clip_root: false,
+            pop_hit_testing_clip: false,
             pop_stacking_context: false,
             pop_containing_block: false,
             set_tile_cache_barrier,
@@ -1861,31 +1897,36 @@ impl<'a> SceneBuilder<'a> {
             self.containing_block_stack.push(spatial_node_index);
         }
 
-        // This muct be built before the push_clip_root logic below
-        let clip_chain_id = match clip_id {
-            Some(clip_id) => self.clip_store.get_or_build_clip_chain_id(clip_id),
-            None => ClipChainId::NONE,
+        // If this stacking context is redundant, we don't care about getting a clip-chain for it.
+        // However, if we _do_ have a clip, we must build it here before the `push_clip_root`
+        // calls below, to ensure we get the clips for drawing this stacking context itself.
+        let clip_chain_id = if is_redundant {
+            ClipChainId::NONE
+        }  else {
+            // Get a clip-chain for this stacking context - even if the stacking context
+            // itself has no clips, it's possible that there are clips to collect from
+            // the previous clip-chain builder.
+            let clip_id = clip_id.unwrap_or(ClipId::root(pipeline_id));
+            self.clip_store.get_or_build_clip_chain_id(clip_id)
         };
 
-        // If this has a valid clip, it will create a new clip root
+        // If this has a valid clip, register with the hit-testing scene
         if let Some(clip_id) = clip_id {
-            sc_info.pop_clip_root = true;
-
-            // If this stacking context is redundant (prims will be pushed into
-            // the parent during pop) but it has a valid clip, then we need to
-            // add that clip to the current clip chain builder, so it's correctly
-            // applied to any primitives within this redundant stacking context.
-            // For the normal case, we start a new clip root, knowing that the
-            // clip on this stacking context will be pushed onto the stack during
-            // frame building.
-            if is_redundant {
-                self.clip_store.push_clip_root(Some(clip_id), true);
-            } else {
-                self.clip_store.push_clip_root(None, false);
-            }
-
-            // Push this clip id into the hit-testing scene for child primitives
             self.hit_testing_scene.push_clip(clip_id);
+            sc_info.pop_hit_testing_clip = true;
+        }
+
+        // If this stacking context is redundant (prims will be pushed into
+        // the parent during pop) but it has a valid clip, then we need to
+        // add that clip to the current clip chain builder, so it's correctly
+        // applied to any primitives within this redundant stacking context.
+        // For the normal case, we start a new clip root, knowing that the
+        // clip on this stacking context will be pushed onto the stack during
+        // frame building.
+        if is_redundant {
+            self.clip_store.push_clip_root(clip_id, true);
+        } else {
+            self.clip_store.push_clip_root(None, false);
         }
 
         // If not redundant, create a stacking context to hold primitive clusters
@@ -1905,6 +1946,7 @@ impl<'a> SceneBuilder<'a> {
                 context_3d,
                 is_redundant,
                 is_backdrop_root: flags.contains(StackingContextFlags::IS_BACKDROP_ROOT),
+                flags,
             });
         }
 
@@ -1920,6 +1962,9 @@ impl<'a> SceneBuilder<'a> {
         // Pop off current raster space (pushed unconditionally in push_stacking_context)
         self.raster_space_stack.pop().unwrap();
 
+        // Pop off clip builder root (pushed unconditionally in push_stacking_context)
+        self.clip_store.pop_clip_root();
+
         // If the stacking context formed a containing block, pop off the stack
         if info.pop_containing_block {
             self.containing_block_stack.pop().unwrap();
@@ -1930,8 +1975,7 @@ impl<'a> SceneBuilder<'a> {
         }
 
         // If the stacking context established a clip root, pop off the stack
-        if info.pop_clip_root {
-            self.clip_store.pop_clip_root();
+        if info.pop_hit_testing_clip {
             self.hit_testing_scene.pop_clip();
         }
 
@@ -1941,6 +1985,26 @@ impl<'a> SceneBuilder<'a> {
         }
 
         let stacking_context = self.sc_stack.pop().unwrap();
+
+        // If the stacking context is a blend container, and if we're at the top level
+        // of the stacking context tree, we can make this blend container into a tile
+        // cache. This means that we get caching and correct scrolling invalidation for
+        // root level blend containers. For these cases, the readbacks of the backdrop
+        // are handled by doing partial reads of the picture cache tiles during rendering.
+        if stacking_context.flags.contains(StackingContextFlags::IS_BLEND_CONTAINER) &&
+           self.sc_stack.is_empty() &&
+           self.tile_cache_builder.can_add_container_tile_cache()
+        {
+            self.tile_cache_builder.add_tile_cache(
+                stacking_context.prim_list,
+                &self.spatial_tree,
+                &self.clip_store,
+                self.interners,
+                &self.config,
+            );
+
+            return;
+        }
 
         let parent_is_empty = match self.sc_stack.last() {
             Some(parent_sc) => {
@@ -2227,7 +2291,10 @@ impl<'a> SceneBuilder<'a> {
             pipeline_id,
             TransformStyle::Flat,
             PropertyBinding::Value(LayoutTransform::identity()),
-            ReferenceFrameKind::Transform,
+            ReferenceFrameKind::Transform {
+                is_2d_scale_translation: false,
+                should_snap: false,
+            },
             LayoutVector2D::zero(),
         );
 
@@ -2911,7 +2978,7 @@ impl<'a> SceneBuilder<'a> {
                             gradient.start_offset * gradient.radius.width,
                             gradient.end_offset * gradient.radius.width,
                             gradient.radius.width / gradient.radius.height,
-                            gradient_stops,
+                            read_gradient_stops(gradient_stops),
                             gradient.extend_mode,
                             LayoutSize::new(border.height as f32, border.width as f32),
                             LayoutSize::zero(),
@@ -3029,7 +3096,7 @@ impl<'a> SceneBuilder<'a> {
         start_radius: f32,
         end_radius: f32,
         ratio_xy: f32,
-        stops: ItemRange<GradientStop>,
+        stops: Vec<GradientStopKey>,
         extend_mode: ExtendMode,
         stretch_size: LayoutSize,
         mut tile_spacing: LayoutSize,
@@ -3043,13 +3110,6 @@ impl<'a> SceneBuilder<'a> {
             end_radius,
             ratio_xy,
         };
-
-        let stops = stops.iter().map(|stop| {
-            GradientStopKey {
-                offset: stop.offset,
-                color: stop.color.into(),
-            }
-        }).collect();
 
         RadialGradient {
             extend_mode,
@@ -3571,8 +3631,8 @@ struct ExtendedPrimitiveInstance {
 /// Internal tracking information about the currently pushed stacking context.
 /// Used to track what operations need to happen when a stacking context is popped.
 struct StackingContextInfo {
-    /// If true, pop an entry from the clip root stack.
-    pop_clip_root: bool,
+    /// If true, pop an entry from the hit-testing scene.
+    pop_hit_testing_clip: bool,
     /// If true, pop and entry from the containing block stack.
     pop_containing_block: bool,
     /// If true, pop an entry from the flattened stacking context stack.
@@ -3616,6 +3676,9 @@ struct FlattenedStackingContext {
 
     /// True if this stacking context is redundant (i.e. doesn't require a surface)
     is_redundant: bool,
+
+    /// Flags identifying the type of container (among other things) this stacking context is
+    flags: StackingContextFlags,
 }
 
 impl FlattenedStackingContext {
@@ -3631,6 +3694,7 @@ impl FlattenedStackingContext {
         composite_ops: &CompositeOps,
         blit_reason: BlitReason,
         parent: Option<&FlattenedStackingContext>,
+        prim_flags: PrimitiveFlags,
     ) -> bool {
         // If this is a backdrop or blend container, it's needed
         if sc_flags.intersects(StackingContextFlags::IS_BACKDROP_ROOT | StackingContextFlags::IS_BLEND_CONTAINER) {
@@ -3655,6 +3719,11 @@ impl FlattenedStackingContext {
                     return false;
                 }
             }
+        }
+
+        // If backface visibility is explicitly set.
+        if !prim_flags.contains(PrimitiveFlags::IS_BACKFACE_VISIBLE) {
+            return false;
         }
 
         // If need to isolate in surface due to clipping / mix-blend-mode
@@ -3853,4 +3922,13 @@ fn process_repeat_size(
             repeat_size.height
         },
     )
+}
+
+fn read_gradient_stops(stops: ItemRange<GradientStop>) -> Vec<GradientStopKey> {
+    stops.iter().map(|stop| {
+        GradientStopKey {
+            offset: stop.offset,
+            color: stop.color.into(),
+        }
+    }).collect()
 }

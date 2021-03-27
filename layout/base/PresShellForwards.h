@@ -46,10 +46,6 @@ enum class ResizeReflowOptions : uint32_t {
 
 MOZ_MAKE_ENUM_CLASS_BITWISE_OPERATORS(ResizeReflowOptions)
 
-// This is actually pref-controlled, but we use this value if we fail to get
-// the pref for any reason.
-#define PAINTLOCK_EVENT_DELAY 5
-
 enum class IntrinsicDirty {
   // XXXldb eResize should be renamed
   Resize,       // don't mark any intrinsic widths dirty
@@ -160,6 +156,7 @@ enum class RenderDocumentFlags {
   DocumentRelative = 1 << 5,
   DrawWindowNotFlushing = 1 << 6,
   UseHighQualityScaling = 1 << 7,
+  ResetViewportScrolling = 1 << 8,
 };
 
 MOZ_MAKE_ENUM_CLASS_BITWISE_OPERATORS(RenderDocumentFlags)

@@ -53,9 +53,6 @@
   scale: inherit;
   translate: inherit;
   /* When the table wrapper is a Flex/Grid item we need these: */
-  flex-grow: inherit;
-  flex-shrink: inherit;
-  flex-basis: inherit;
   align-self: inherit;
   justify-self: inherit;
   grid-column-start: inherit;
@@ -203,8 +200,7 @@
   overflow-clip-box: inherit;
 }
 
-*|*::-moz-scrolled-content, *|*::-moz-scrolled-canvas,
-*|*::-moz-scrolled-page-sequence {
+*|*::-moz-scrolled-content, *|*::-moz-scrolled-canvas {
   /* e.g., text inputs, select boxes */
   padding: inherit;
   /* The display doesn't affect the kind of frame constructed here.  This just
@@ -294,12 +290,14 @@
   display: block;
 }
 
-*|*::-moz-page-sequence, *|*::-moz-scrolled-page-sequence {
+*|*::-moz-page-sequence {
   /* Collection of pages in print/print preview. Visual styles may only appear
    * in print preview. */
   display: block;
   background: linear-gradient(#606060, #8a8a8a) fixed;
+  /* We always fill the available space in both directions */
   height: 100%;
+  width: 100%;
 }
 
 *|*::-moz-printed-sheet {

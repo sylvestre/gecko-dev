@@ -255,16 +255,14 @@ class RenderThread final {
   }
 
   /// Can only be called from the render thread.
-  gl::GLContext* SharedGL(nsACString& aError);
-  gl::GLContext* SharedGL();
-  void ClearSharedGL();
+  gl::GLContext* SingletonGL(nsACString& aError);
+  gl::GLContext* SingletonGL();
+  void ClearSingletonGL();
   RefPtr<layers::SurfacePool> SharedSurfacePool();
   void ClearSharedSurfacePool();
 
   /// Can only be called from the render thread.
-  void HandleDeviceReset(const char* aWhere,
-                         layers::CompositorBridgeParent* aBridge,
-                         GLenum aReason);
+  void HandleDeviceReset(const char* aWhere, GLenum aReason);
   /// Can only be called from the render thread.
   bool IsHandlingDeviceReset();
   /// Can be called from any thread.
@@ -324,7 +322,7 @@ class RenderThread final {
 
   // An optional shared GLContext to be used for all
   // windows.
-  RefPtr<gl::GLContext> mSharedGL;
+  RefPtr<gl::GLContext> mSingletonGL;
 
   RefPtr<layers::SurfacePool> mSurfacePool;
 

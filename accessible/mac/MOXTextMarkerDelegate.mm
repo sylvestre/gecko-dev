@@ -15,7 +15,7 @@ using namespace mozilla::a11y;
 
 #define PREF_ACCESSIBILITY_MAC_DEBUG "accessibility.mac.debug"
 
-static nsDataHashtable<nsUint64HashKey, MOXTextMarkerDelegate*> sDelegates;
+static nsTHashMap<nsUint64HashKey, MOXTextMarkerDelegate*> sDelegates;
 
 @implementation MOXTextMarkerDelegate
 
@@ -25,7 +25,7 @@ static nsDataHashtable<nsUint64HashKey, MOXTextMarkerDelegate*> sDelegates;
   MOXTextMarkerDelegate* delegate = sDelegates.Get(aDoc.Bits());
   if (!delegate) {
     delegate = [[MOXTextMarkerDelegate alloc] initWithDoc:aDoc];
-    sDelegates.Put(aDoc.Bits(), delegate);
+    sDelegates.InsertOrUpdate(aDoc.Bits(), delegate);
     [delegate retain];
   }
 

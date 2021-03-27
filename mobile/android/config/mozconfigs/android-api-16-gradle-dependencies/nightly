@@ -12,7 +12,7 @@ NO_NDK=1
 # We want to download Gradle.
 ac_add_options --with-gradle
 # We want to use (and populate!) the local Nexus repositories.
-export GRADLE_MAVEN_REPOSITORIES="http://localhost:8081/nexus/content/repositories/google/","http://localhost:8081/nexus/content/repositories/jcenter/","http://localhost:8081/nexus/content/repositories/gradle-plugins/"
+export GRADLE_MAVEN_REPOSITORIES="http://localhost:8081/nexus/content/repositories/google/","http://localhost:8081/nexus/content/repositories/central/","http://localhost:8081/nexus/content/repositories/gradle-plugins/"
 
 # From here on, just like ../android-api-16-frontend/nightly.
 
@@ -28,8 +28,6 @@ ac_add_options --disable-tests
 # Engineering team.
 ac_add_options --with-android-min-sdk=16
 ac_add_options --target=arm-linux-androideabi
-
-export FENNEC_NIGHTLY=1
 
 ac_add_options --with-branding=mobile/android/branding/nightly
 

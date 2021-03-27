@@ -40,6 +40,8 @@ CommonDialog.prototype = {
    * null for TabModalPrompts.
    */
   async onLoad(commonDialogEl = null) {
+    let isEmbedded = !!commonDialogEl?.ownerGlobal.docShell.chromeEventHandler;
+
     switch (this.args.promptType) {
       case "alert":
       case "alertCheck":
@@ -119,19 +121,20 @@ CommonDialog.prototype = {
     let infoTitle = this.ui.infoTitle;
     infoTitle.appendChild(infoTitle.ownerDocument.createTextNode(title));
 
-    // Hide it, unless we're displaying a content modal, or are on macOS (where there is no titlebar):
+    // Specific check to prevent showing the title on the old content prompts for macOS.
+    // This should be removed when the old content prompts are removed.
     let contentSubDialogPromptEnabled = Services.prefs.getBoolPref(
       "prompts.contentPromptSubDialog"
     );
-    // For prompts opened with TabModalPrompt, hide it.
-    let hideForTabPromptModal =
+    let isOldContentPrompt =
       !contentSubDialogPromptEnabled &&
       this.args.modalType == Ci.nsIPrompt.MODAL_TYPE_CONTENT;
 
+    // After making these preventative checks, we can determine to show it if we're on
+    // macOS (where there is no titlebar) or if the prompt is a common dialog document
+    // and has been embedded (has a chromeEventHandler).
     infoTitle.hidden =
-      hideForTabPromptModal ||
-      (this.args.modalType != Ci.nsIPrompt.MODAL_TYPE_CONTENT &&
-        AppConstants.platform != "macosx");
+      isOldContentPrompt || !(AppConstants.platform === "macosx" || isEmbedded);
 
     if (commonDialogEl) {
       commonDialogEl.ownerDocument.title = title;
@@ -207,8 +210,6 @@ CommonDialog.prototype = {
       button.setAttribute("default", "true");
     }
 
-    let isEmbedded =
-      commonDialogEl && this.ui.prompt.docShell.chromeEventHandler;
     if (!isEmbedded && !this.ui.promptContainer?.hidden) {
       // Set default focus and select textbox contents if applicable. If we're
       // embedded SubDialogManager will call setDefaultFocus for us.
@@ -305,7 +306,7 @@ CommonDialog.prototype = {
       if (isOSX) {
         this.ui.infoBody.focus();
       } else {
-        button.focus();
+        button.focus({ preventFocusRing: true });
       }
     } else if (this.args.promptType == "promptPassword") {
       // When the prompt is initialized, focus and select the textbox

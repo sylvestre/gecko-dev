@@ -122,6 +122,8 @@ void nsLookAndFeel::RefreshImpl() {
   }
   mCaretBlinkTime = -1;
 
+  mCacheValidBits.reset();
+
   mInitialized = false;
 }
 
@@ -226,7 +228,6 @@ nsresult nsLookAndFeel::NativeGetColor(ColorID aID, nscolor& aColor) {
       idx = COLOR_GRAYTEXT;
       break;
     case ColorID::Highlight:
-    case ColorID::MozAccentColor:
     case ColorID::MozHtmlCellhighlight:
     case ColorID::MozMenuhover:
       idx = COLOR_HIGHLIGHT;
@@ -245,7 +246,6 @@ nsresult nsLookAndFeel::NativeGetColor(ColorID aID, nscolor& aColor) {
       }
       // Fall through
     case ColorID::Highlighttext:
-    case ColorID::MozAccentColorForeground:
     case ColorID::MozHtmlCellhighlighttext:
       idx = COLOR_HIGHLIGHTTEXT;
       break;
@@ -312,19 +312,19 @@ nsresult nsLookAndFeel::NativeGetColor(ColorID aID, nscolor& aColor) {
     case ColorID::MozCellhighlight:
       idx = COLOR_3DFACE;
       break;
-    case ColorID::MozWinAccentcolor:
+    case ColorID::MozAccentColor:
       if (mHasColorAccent) {
         aColor = mColorAccent;
       } else {
         // Seems to be the default color (hardcoded because of bug 1065998)
-        aColor = NS_RGB(158, 158, 158);
+        aColor = NS_RGB(0, 120, 215);
       }
       return NS_OK;
-    case ColorID::MozWinAccentcolortext:
+    case ColorID::MozAccentColorForeground:
       if (mHasColorAccentText) {
         aColor = mColorAccentText;
       } else {
-        aColor = NS_RGB(0, 0, 0);
+        aColor = NS_RGB(255, 255, 255);
       }
       return NS_OK;
     case ColorID::MozWinMediatext:
@@ -596,6 +596,12 @@ nsresult nsLookAndFeel::NativeGetInt(IntID aID, int32_t& aResult) {
     case IntID::SystemUsesDarkTheme:
       res = SystemWantsDarkTheme(aResult);
       break;
+    case IntID::SystemVerticalScrollbarWidth:
+      aResult = WinUtils::GetSystemMetricsForDpi(SM_CXVSCROLL, 96);
+      break;
+    case IntID::SystemHorizontalScrollbarHeight:
+      aResult = WinUtils::GetSystemMetricsForDpi(SM_CXHSCROLL, 96);
+      break;
     case IntID::PrefersReducedMotion: {
       BOOL enableAnimation = TRUE;
       ::SystemParametersInfoW(SPI_GETCLIENTAREAANIMATION, 0, &enableAnimation,
@@ -604,14 +610,25 @@ nsresult nsLookAndFeel::NativeGetInt(IntID aID, int32_t& aResult) {
       break;
     }
     case IntID::PrimaryPointerCapabilities: {
-      PointerCapabilities caps =
-          widget::WinUtils::GetPrimaryPointerCapabilities();
-      aResult = static_cast<int32_t>(caps);
+      if (!mCacheValidBits[PrimaryPointerCapabilitiesKind] &&
+          !XRE_IsContentProcess()) {
+        mPrimaryPointerCapabilities = static_cast<int32_t>(
+            widget::WinUtils::GetPrimaryPointerCapabilities());
+        mCacheValidBits[PrimaryPointerCapabilitiesKind] = true;
+      }
+
+      aResult = mPrimaryPointerCapabilities;
       break;
     }
     case IntID::AllPointerCapabilities: {
-      PointerCapabilities caps = widget::WinUtils::GetAllPointerCapabilities();
-      aResult = static_cast<int32_t>(caps);
+      if (!mCacheValidBits[AllPointerCapabilitiesKind] &&
+          !XRE_IsContentProcess()) {
+        mAllPointerCapabilities =
+            static_cast<int32_t>(widget::WinUtils::GetAllPointerCapabilities());
+        mCacheValidBits[AllPointerCapabilitiesKind] = true;
+      }
+
+      aResult = mAllPointerCapabilities;
       break;
     }
     default:
@@ -703,7 +720,7 @@ LookAndFeelFont nsLookAndFeel::GetLookAndFeelFontInternal(
 
 LookAndFeelFont nsLookAndFeel::GetLookAndFeelFont(LookAndFeel::FontID anID) {
   if (XRE_IsContentProcess()) {
-    return mFontCache[size_t(anID)];
+    return mFontCache[anID];
   }
 
   LookAndFeelFont result{};
@@ -729,7 +746,7 @@ LookAndFeelFont nsLookAndFeel::GetLookAndFeelFont(LookAndFeel::FontID anID) {
 
   switch (anID) {
     case LookAndFeel::FontID::Menu:
-    case LookAndFeel::FontID::PullDownMenu:
+    case LookAndFeel::FontID::MozPullDownMenu:
       result = GetLookAndFeelFontInternal(ncm.lfMenuFont, false);
       break;
     case LookAndFeel::FontID::Caption:
@@ -739,14 +756,12 @@ LookAndFeelFont nsLookAndFeel::GetLookAndFeelFont(LookAndFeel::FontID anID) {
       result = GetLookAndFeelFontInternal(ncm.lfSmCaptionFont, false);
       break;
     case LookAndFeel::FontID::StatusBar:
-    case LookAndFeel::FontID::Tooltips:
       result = GetLookAndFeelFontInternal(ncm.lfStatusFont, false);
       break;
-    case LookAndFeel::FontID::Widget:
-    case LookAndFeel::FontID::Dialog:
-    case LookAndFeel::FontID::Button:
-    case LookAndFeel::FontID::Field:
-    case LookAndFeel::FontID::List:
+    case LookAndFeel::FontID::MozDialog:
+    case LookAndFeel::FontID::MozButton:
+    case LookAndFeel::FontID::MozField:
+    case LookAndFeel::FontID::MozList:
       // XXX It's not clear to me whether this is exactly the right
       // set of LookAndFeel values to map to the dialog font; we may
       // want to add or remove cases here after reviewing the visual
@@ -789,7 +804,7 @@ bool nsLookAndFeel::GetSysFont(LookAndFeel::FontID anID, nsString& aFontName,
 
 bool nsLookAndFeel::NativeGetFont(FontID anID, nsString& aFontName,
                                   gfxFontStyle& aFontStyle) {
-  CachedSystemFont& cacheSlot = mSystemFontCache[size_t(anID)];
+  CachedSystemFont& cacheSlot = mSystemFontCache[anID];
 
   bool status;
   if (cacheSlot.mCacheValid) {
@@ -835,9 +850,16 @@ LookAndFeelCache nsLookAndFeel::GetCacheImpl() {
   lafInt.value() = GetInt(IntID::WindowsThemeIdentifier);
   cache.mInts().AppendElement(lafInt);
 
-  for (size_t i = size_t(LookAndFeel::FontID::MINIMUM);
-       i <= size_t(LookAndFeel::FontID::MAXIMUM); ++i) {
-    cache.mFonts().AppendElement(GetLookAndFeelFont(LookAndFeel::FontID(i)));
+  lafInt.id() = IntID::PrimaryPointerCapabilities;
+  lafInt.value() = GetInt(IntID::PrimaryPointerCapabilities);
+  cache.mInts().AppendElement(lafInt);
+
+  lafInt.id() = IntID::AllPointerCapabilities;
+  lafInt.value() = GetInt(IntID::AllPointerCapabilities);
+  cache.mInts().AppendElement(lafInt);
+
+  for (auto id : mozilla::MakeEnumeratedRange(LookAndFeel::FontID::End)) {
+    cache.mFonts().AppendElement(GetLookAndFeelFont(id));
   }
 
   return cache;
@@ -849,7 +871,7 @@ void nsLookAndFeel::SetCacheImpl(const LookAndFeelCache& aCache) {
 
 void nsLookAndFeel::DoSetCache(const LookAndFeelCache& aCache) {
   MOZ_ASSERT(XRE_IsContentProcess());
-  MOZ_RELEASE_ASSERT(aCache.mFonts().Length() == mFontCache.length());
+  MOZ_RELEASE_ASSERT(aCache.mFonts().Length() == FontCache::kSize);
 
   for (auto entry : aCache.mInts()) {
     switch (entry.id()) {
@@ -862,15 +884,21 @@ void nsLookAndFeel::DoSetCache(const LookAndFeelCache& aCache) {
       case IntID::WindowsThemeIdentifier:
         mNativeThemeId = entry.value();
         break;
+      case IntID::PrimaryPointerCapabilities:
+        mPrimaryPointerCapabilities = entry.value();
+        break;
+      case IntID::AllPointerCapabilities:
+        mAllPointerCapabilities = entry.value();
+        break;
       default:
         MOZ_ASSERT_UNREACHABLE("Bogus Int ID in cache");
         break;
     }
   }
 
-  size_t i = mFontCache.minIndex();
+  size_t i = 0;
   for (const auto& font : aCache.mFonts()) {
-    mFontCache[i] = font;
+    mFontCache[FontID(i)] = font;
     ++i;
   }
 }

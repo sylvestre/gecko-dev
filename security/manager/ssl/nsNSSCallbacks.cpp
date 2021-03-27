@@ -323,6 +323,10 @@ OCSPRequest::Run() {
   if (NS_FAILED(rv)) {
     return NotifyDone(rv, lock);
   }
+  rv = internalChannel->SetIsOCSP(true);
+  if (NS_FAILED(rv)) {
+    return NotifyDone(rv, lock);
+  }
   nsCOMPtr<nsIHttpChannel> hchan = do_QueryInterface(channel);
   if (!hchan) {
     return NotifyDone(NS_ERROR_FAILURE, lock);
@@ -1094,13 +1098,12 @@ static void RebuildVerifiedCertificateInformation(PRFileDesc* fd,
   SECOidTag evOidPolicy;
   CertificateTransparencyInfo certificateTransparencyInfo;
   UniqueCERTCertList builtChain;
-  const bool saveIntermediates = false;
   bool isBuiltCertChainRootBuiltInRoot = false;
   mozilla::pkix::Result rv = certVerifier->VerifySSLServerCert(
       cert, mozilla::pkix::Now(), infoObject, infoObject->GetHostName(),
       builtChain, flags, maybePeerCertsBytes, stapledOCSPResponse,
       sctsFromTLSExtension, Nothing(), infoObject->GetOriginAttributes(),
-      saveIntermediates, &evOidPolicy,
+      &evOidPolicy,
       nullptr,  // OCSP stapling telemetry
       nullptr,  // key size telemetry
       nullptr,  // SHA-1 telemetry

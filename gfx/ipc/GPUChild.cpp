@@ -11,7 +11,7 @@
 #include "VRProcessManager.h"
 #include "gfxConfig.h"
 #include "gfxPlatform.h"
-#include "mozilla/Services.h"
+#include "mozilla/Components.h"
 #include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/Telemetry.h"
 #include "mozilla/TelemetryIPC.h"
@@ -66,7 +66,7 @@ void GPUChild::Init() {
         mappings.AppendElement(LayerTreeIdMapping(aLayersId, aProcessId));
       });
 
-  nsCOMPtr<nsIGfxInfo> gfxInfo = services::GetGfxInfo();
+  nsCOMPtr<nsIGfxInfo> gfxInfo = components::GfxInfo::Service();
   nsTArray<GfxInfoFeatureStatus> features;
   if (gfxInfo) {
     auto* gfxInfoRaw = static_cast<widget::GfxInfoBase*>(gfxInfo.get());
@@ -213,6 +213,14 @@ mozilla::ipc::IPCResult GPUChild::RecvNotifyDeviceReset(
     const GPUDeviceData& aData) {
   gfxPlatform::GetPlatform()->ImportGPUDeviceData(aData);
   mHost->mListener->OnRemoteProcessDeviceReset(mHost);
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult GPUChild::RecvFlushMemory(const nsString& aReason) {
+  nsCOMPtr<nsIObserverService> os = mozilla::services::GetObserverService();
+  if (os) {
+    os->NotifyObservers(nullptr, "memory-pressure", aReason.get());
+  }
   return IPC_OK();
 }
 

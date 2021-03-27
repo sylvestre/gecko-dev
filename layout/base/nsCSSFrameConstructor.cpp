@@ -30,6 +30,8 @@
 #include "mozilla/PresShell.h"
 #include "mozilla/PresShellInlines.h"
 #include "mozilla/PrintedSheetFrame.h"
+#include "mozilla/ProfilerLabels.h"
+#include "mozilla/ProfilerMarkers.h"
 #include "mozilla/ScopeExit.h"
 #include "mozilla/ServoBindings.h"
 #include "mozilla/ServoStyleSetInlines.h"
@@ -130,10 +132,6 @@
 #include "nsTextNode.h"
 #include "ActiveLayerTracker.h"
 
-#ifdef MOZ_GECKO_PROFILER
-#  include "mozilla/ProfilerMarkerTypes.h"
-#endif
-
 using namespace mozilla;
 using namespace mozilla::dom;
 
@@ -213,7 +211,6 @@ static FrameCtorDebugFlags gFlags[] = {
 #  include "nsMenuFrame.h"
 #  include "nsPopupSetFrame.h"
 #  include "nsTreeColFrame.h"
-#  include "nsXULLabelFrame.h"
 
 //------------------------------------------------------------------
 
@@ -1048,13 +1045,13 @@ AbsoluteFrameList* nsFrameConstructorState::GetOutOfFlowFrameList(
     return &mPopupList;
   }
 #endif  // MOZ_XUL
-  if (aCanBeFloated && aNewFrame->IsFloating()) {
+  const nsStyleDisplay* disp = aNewFrame->StyleDisplay();
+  if (aCanBeFloated && disp->IsFloatingStyle()) {
     *aPlaceholderType = PLACEHOLDER_FOR_FLOAT;
     return &mFloatedList;
   }
 
   if (aCanBePositioned) {
-    const nsStyleDisplay* disp = aNewFrame->StyleDisplay();
     if (disp->mTopLayer != StyleTopLayer::None) {
       *aPlaceholderType = PLACEHOLDER_FOR_TOPLAYER;
       if (disp->mPosition == StylePositionProperty::Fixed) {
@@ -1382,7 +1379,7 @@ static bool ShouldCreateImageFrameForContent(const Element& aElement,
     return false;
   }
   Span<const StyleContentItem> items = content.AsItems().AsSpan();
-  return items.Length() == 1 && items[0].IsUrl();
+  return items.Length() == 1 && items[0].IsImage();
 }
 
 //----------------------------------------------------------------------
@@ -1505,7 +1502,7 @@ already_AddRefed<nsIContent> nsCSSFrameConstructor::CreateGeneratedContent(
   const Type type = item.tag;
 
   switch (type) {
-    case Type::Url:
+    case Type::Image:
       return GeneratedImageContent::Create(*mDocument, aContentIndex);
 
     case Type::String:
@@ -2474,18 +2471,7 @@ void nsCSSFrameConstructor::SetUpDocElementContainingBlock(
   Print presentation, non-XUL
 
       ViewportFrame
-        nsPageSequenceFrame
-          PrintedSheetFrame
-            nsPageFrame
-              nsPageContentFrame [fixed-cb]
-                nsCanvasFrame [abs-cb]
-                  root element frame (nsBlockFrame, SVGOuterSVGFrame,
-                                      nsTableWrapperFrame, nsPlaceholderFrame)
-
-  Print-preview presentation, non-XUL
-
-      ViewportFrame
-        nsHTMLScrollFrame
+        nsCanvasFrame
           nsPageSequenceFrame
             PrintedSheetFrame
               nsPageFrame
@@ -2493,6 +2479,20 @@ void nsCSSFrameConstructor::SetUpDocElementContainingBlock(
                   nsCanvasFrame [abs-cb]
                     root element frame (nsBlockFrame, SVGOuterSVGFrame,
                                         nsTableWrapperFrame, nsPlaceholderFrame)
+
+  Print-preview presentation, non-XUL
+
+      ViewportFrame
+        nsHTMLScrollFrame
+          nsCanvasFrame
+            nsPageSequenceFrame
+              PrintedSheetFrame
+                nsPageFrame
+                  nsPageContentFrame [fixed-cb]
+                    nsCanvasFrame [abs-cb]
+                      root element frame (nsBlockFrame, SVGOuterSVGFrame,
+                                          nsTableWrapperFrame,
+                                          nsPlaceholderFrame)
 
   Print/print preview of XUL is not supported.
   [fixed-cb]: the default containing block for fixed-pos content
@@ -2518,35 +2518,49 @@ void nsCSSFrameConstructor::SetUpDocElementContainingBlock(
   //   covers the entire canvas as specified by the CSS2 spec
 
   nsPresContext* presContext = mPresShell->GetPresContext();
-  bool isPaginated = presContext->IsRootPaginatedDocument();
+  const bool isPaginated = presContext->IsRootPaginatedDocument();
+
+  const bool isHTML = aDocElement->IsHTMLElement();
+  const bool isXUL = !isHTML && aDocElement->IsXULElement();
+
+  const bool isScrollable = [&] {
+    if (isPaginated) {
+      return presContext->HasPaginatedScrolling();
+    }
+    // Never create scrollbars for XUL documents or top level XHTML documents
+    // that disable scrolling.
+    if (isXUL) {
+      return false;
+    }
+    if (aDocElement->OwnerDoc()->IsDocumentURISchemeChrome() &&
+        aDocElement->AsElement()->AttrValueIs(
+                 kNameSpaceID_None, nsGkAtoms::scrolling, nsGkAtoms::_false,
+                 eCaseMatters)) {
+      return false;
+    }
+    return true;
+  }();
+
   nsContainerFrame* viewportFrame =
       static_cast<nsContainerFrame*>(GetRootFrame());
   ComputedStyle* viewportPseudoStyle = viewportFrame->Style();
 
   nsContainerFrame* rootFrame = nullptr;
-  PseudoStyleType rootPseudo;
 
-  if (!isPaginated) {
 #ifdef MOZ_XUL
-    if (aDocElement->IsXULElement()) {
-      // pass a temporary stylecontext, the correct one will be set later
-      rootFrame = NS_NewRootBoxFrame(mPresShell, viewportPseudoStyle);
-    } else
+  if (aDocElement->IsXULElement()) {
+    // pass a temporary stylecontext, the correct one will be set later
+    rootFrame = NS_NewRootBoxFrame(mPresShell, viewportPseudoStyle);
+  } else
 #endif
-    {
-      // pass a temporary stylecontext, the correct one will be set later
-      rootFrame = NS_NewCanvasFrame(mPresShell, viewportPseudoStyle);
-      mHasRootAbsPosContainingBlock = true;
-    }
-
-    rootPseudo = PseudoStyleType::canvas;
-    mDocElementContainingBlock = rootFrame;
-  } else {
-    // Create a page sequence frame
-    rootFrame = mPageSequenceFrame =
-        NS_NewPageSequenceFrame(mPresShell, viewportPseudoStyle);
-    rootPseudo = PseudoStyleType::pageSequence;
+  {
+    // pass a temporary stylecontext, the correct one will be set later
+    rootFrame = NS_NewCanvasFrame(mPresShell, viewportPseudoStyle);
+    mHasRootAbsPosContainingBlock = true;
   }
+
+  PseudoStyleType rootPseudo = PseudoStyleType::canvas;
+  mDocElementContainingBlock = rootFrame;
 
   // --------- IF SCROLLABLE WRAP IN SCROLLFRAME --------
 
@@ -2554,27 +2568,6 @@ void nsCSSFrameConstructor::SetUpDocElementContainingBlock(
   // for print-preview, but not when printing), then create a scroll frame that
   // will act as the scrolling mechanism for the viewport.
   // XXX Do we even need a viewport when printing to a printer?
-
-  bool isHTML = aDocElement->IsHTMLElement();
-  bool isXUL = false;
-
-  if (!isHTML) {
-    isXUL = aDocElement->IsXULElement();
-  }
-
-  // Never create scrollbars for XUL documents or top level XHTML documents that
-  // disable scrolling.
-  bool isScrollable = true;
-  if (isPaginated) {
-    isScrollable = presContext->HasPaginatedScrolling();
-  } else if (isXUL) {
-    isScrollable = false;
-  } else if (aDocElement->OwnerDoc()->IsDocumentURISchemeChrome() &&
-             aDocElement->AsElement()->AttrValueIs(
-                 kNameSpaceID_None, nsGkAtoms::scrolling, nsGkAtoms::_false,
-                 eCaseMatters)) {
-    isScrollable = false;
-  }
 
   // We no longer need to do overflow propagation here. It's taken care of
   // when we construct frames for the element whose overflow might be
@@ -2597,13 +2590,7 @@ void nsCSSFrameConstructor::SetUpDocElementContainingBlock(
     rootPseudoStyle = styleSet->ResolveInheritingAnonymousBoxStyle(
         rootPseudo, viewportPseudoStyle);
   } else {
-    if (rootPseudo == PseudoStyleType::canvas) {
-      rootPseudo = PseudoStyleType::scrolledCanvas;
-    } else {
-      NS_ASSERTION(rootPseudo == PseudoStyleType::pageSequence,
-                   "Unknown root pseudo");
-      rootPseudo = PseudoStyleType::scrolledPageSequence;
-    }
+    rootPseudo = PseudoStyleType::scrolledCanvas;
 
     // Build the frame. We give it the content we are wrapping which is the
     // document element, the root frame, the parent view port frame, and we
@@ -2637,11 +2624,22 @@ void nsCSSFrameConstructor::SetUpDocElementContainingBlock(
   }
 
   if (isPaginated) {
+    // Create a page sequence frame
+    {
+      RefPtr<ComputedStyle> pageSequenceStyle =
+          styleSet->ResolveInheritingAnonymousBoxStyle(
+              PseudoStyleType::pageSequence, viewportPseudoStyle);
+      mPageSequenceFrame =
+          NS_NewPageSequenceFrame(mPresShell, pageSequenceStyle);
+      mPageSequenceFrame->Init(aDocElement, rootFrame, nullptr);
+      SetInitialSingleChild(rootFrame, mPageSequenceFrame);
+    }
+
     // Create the first printed sheet frame, as the sole child (for now) of our
-    // page sequence frame (rootFrame).
+    // page sequence frame (mPageSequenceFrame).
     auto* printedSheetFrame =
-        ConstructPrintedSheetFrame(mPresShell, rootFrame, nullptr);
-    SetInitialSingleChild(rootFrame, printedSheetFrame);
+        ConstructPrintedSheetFrame(mPresShell, mPageSequenceFrame, nullptr);
+    SetInitialSingleChild(mPageSequenceFrame, printedSheetFrame);
 
     // Create the first page, as the sole child (for now) of the printed sheet
     // frame that we just created.
@@ -3291,15 +3289,15 @@ nsCSSFrameConstructor::FindDataByTag(const Element& aElement,
 #define COMPLEX_TAG_CREATE(_tag, _func) \
   { nsGkAtoms::_tag, FULL_CTOR_FCDATA(0, _func) }
 
-static bool IsFrameForFieldSet(nsIFrame* aFrame) {
+static nsFieldSetFrame* GetFieldSetFrameFor(nsIFrame* aFrame) {
   auto pseudo = aFrame->Style()->GetPseudoType();
   if (pseudo == PseudoStyleType::fieldsetContent ||
       pseudo == PseudoStyleType::scrolledContent ||
       pseudo == PseudoStyleType::columnSet ||
       pseudo == PseudoStyleType::columnContent) {
-    return IsFrameForFieldSet(aFrame->GetParent());
+    return GetFieldSetFrameFor(aFrame->GetParent());
   }
-  return aFrame->IsFieldSetFrame();
+  return do_QueryFrame(aFrame);
 }
 
 /* static */
@@ -3971,9 +3969,10 @@ nsCSSFrameConstructor::FindXULTagData(const Element& aElement,
       SIMPLE_XUL_CREATE(treecol, NS_NewTreeColFrame),
       SIMPLE_TAG_CHAIN(button, nsCSSFrameConstructor::FindXULButtonData),
       SIMPLE_TAG_CHAIN(toolbarbutton, nsCSSFrameConstructor::FindXULButtonData),
-      SIMPLE_TAG_CHAIN(label, nsCSSFrameConstructor::FindXULLabelData),
+      SIMPLE_TAG_CHAIN(label,
+                       nsCSSFrameConstructor::FindXULLabelOrDescriptionData),
       SIMPLE_TAG_CHAIN(description,
-                       nsCSSFrameConstructor::FindXULDescriptionData),
+                       nsCSSFrameConstructor::FindXULLabelOrDescriptionData),
       SIMPLE_XUL_CREATE(menu, NS_NewMenuFrame),
       SIMPLE_XUL_CREATE(menulist, NS_NewMenuFrame),
       SIMPLE_XUL_CREATE(menuitem, NS_NewMenuItemFrame),
@@ -4010,11 +4009,6 @@ nsCSSFrameConstructor::FindPopupGroupData(const Element& aElement,
 }
 
 /* static */
-const nsCSSFrameConstructor::FrameConstructionData
-    nsCSSFrameConstructor::sXULTextBoxData =
-        SIMPLE_XUL_FCDATA(NS_NewTextBoxFrame);
-
-/* static */
 const nsCSSFrameConstructor::FrameConstructionData*
 nsCSSFrameConstructor::FindXULButtonData(const Element& aElement,
                                          ComputedStyle&) {
@@ -4039,35 +4033,16 @@ nsCSSFrameConstructor::FindXULButtonData(const Element& aElement,
 
 /* static */
 const nsCSSFrameConstructor::FrameConstructionData*
-nsCSSFrameConstructor::FindXULLabelData(const Element& aElement,
-                                        ComputedStyle&) {
-  if (aElement.HasAttr(kNameSpaceID_None, nsGkAtoms::value)) {
-    return &sXULTextBoxData;
+nsCSSFrameConstructor::FindXULLabelOrDescriptionData(const Element& aElement,
+                                                     ComputedStyle&) {
+  // Follow CSS display value if no value attribute
+  if (!aElement.HasAttr(nsGkAtoms::value)) {
+    return nullptr;
   }
 
-  static const FrameConstructionData sLabelData =
-      SIMPLE_XUL_FCDATA(NS_NewXULLabelFrame);
-  return &sLabelData;
-}
-
-static nsIFrame* NS_NewXULDescriptionFrame(PresShell* aPresShell,
-                                           ComputedStyle* aContext) {
-  // XXXbz do we really need to set up the block formatting context root? If the
-  // parent is not a block we'll get it anyway, and if it is, do we want it?
-  return NS_NewBlockFormattingContext(aPresShell, aContext);
-}
-
-/* static */
-const nsCSSFrameConstructor::FrameConstructionData*
-nsCSSFrameConstructor::FindXULDescriptionData(const Element& aElement,
-                                              ComputedStyle&) {
-  if (aElement.HasAttr(kNameSpaceID_None, nsGkAtoms::value)) {
-    return &sXULTextBoxData;
-  }
-
-  static const FrameConstructionData sDescriptionData =
-      SIMPLE_XUL_FCDATA(NS_NewXULDescriptionFrame);
-  return &sDescriptionData;
+  static const FrameConstructionData sXULTextBoxData =
+      SIMPLE_XUL_FCDATA(NS_NewTextBoxFrame);
+  return &sXULTextBoxData;
 }
 
 #  ifdef XP_MACOSX
@@ -5332,12 +5307,14 @@ void nsCSSFrameConstructor::AddFrameConstructionItemsInternal(
     return;
   }
 
-  if (aContent->IsHTMLElement(nsGkAtoms::legend) && aParentFrame &&
-      IsFrameForFieldSet(aParentFrame) && !aState.mHasRenderedLegend &&
-      !aComputedStyle->StyleDisplay()->IsFloatingStyle() &&
-      !aComputedStyle->StyleDisplay()->IsAbsolutelyPositionedStyle()) {
-    aState.mHasRenderedLegend = true;
-    aFlags += ItemFlag::IsForRenderedLegend;
+  if (aContent->IsHTMLElement(nsGkAtoms::legend) && aParentFrame) {
+    const nsFieldSetFrame* fs = GetFieldSetFrameFor(aParentFrame);
+    if (fs && !fs->GetLegend() && !aState.mHasRenderedLegend &&
+        !aComputedStyle->StyleDisplay()->IsFloatingStyle() &&
+        !aComputedStyle->StyleDisplay()->IsAbsolutelyPositionedStyle()) {
+      aState.mHasRenderedLegend = true;
+      aFlags += ItemFlag::IsForRenderedLegend;
+    }
   }
 
   const FrameConstructionData* data =
@@ -6948,7 +6925,14 @@ void nsCSSFrameConstructor::ContentRangeInserted(nsIContent* aStartChild,
   // fieldsets have multiple insertion points.
   NS_ASSERTION(isSingleInsert || frameType != LayoutFrameType::FieldSet,
                "Unexpected parent");
-  if (IsFrameForFieldSet(insertion.mParentFrame) &&
+  // Note that this check is insufficient if aStartChild is not a legend with
+  // display::contents that contains a legend.  We'll catch that case in
+  // WipeContainingBlock. (That code would also catch this case, but handling
+  // this early is slightly faster.)
+  // XXXmats we should be able to optimize this when the fieldset doesn't
+  // currently have a rendered legend.  ContentRangeInserted needs to be fixed
+  // to use the inner frame as the content insertion frame in that case.
+  if (GetFieldSetFrameFor(insertion.mParentFrame) &&
       aStartChild->NodeInfo()->NameAtom() == nsGkAtoms::legend) {
     // Just reframe the parent, since figuring out whether this
     // should be the new legend and then handling it is too complex.
@@ -7865,11 +7849,6 @@ nsIFrame* nsCSSFrameConstructor::CreateContinuingFrame(
                "no support for fragmenting table captions yet");
     newFrame = NS_NewBlockFrame(mPresShell, computedStyle);
     newFrame->Init(content, aParentFrame, aFrame);
-#ifdef MOZ_XUL
-  } else if (LayoutFrameType::XULLabel == frameType) {
-    newFrame = NS_NewXULLabelFrame(mPresShell, computedStyle);
-    newFrame->Init(content, aParentFrame, aFrame);
-#endif
   } else if (LayoutFrameType::ColumnSetWrapper == frameType) {
     newFrame =
         NS_NewColumnSetWrapperFrame(mPresShell, computedStyle, nsFrameState(0));
@@ -9334,17 +9313,15 @@ inline void nsCSSFrameConstructor::ConstructFramesFromItemList(
       if (iter.item().mIsRenderedLegend) {
         // This makes the rendered legend the first frame in the fieldset child
         // list which makes keyboard traversal follow the visual order.
-        nsContainerFrame* fieldSetFrame = aParentFrame->GetParent();
-        while (!fieldSetFrame->IsFieldSetFrame()) {
-          fieldSetFrame = fieldSetFrame->GetParent();
-        }
+        nsFieldSetFrame* fieldSetFrame = GetFieldSetFrameFor(aParentFrame);
         nsFrameList renderedLegend;
         ConstructFramesFromItem(aState, iter, fieldSetFrame, renderedLegend);
         MOZ_ASSERT(
             renderedLegend.FirstChild() &&
                 renderedLegend.FirstChild() == renderedLegend.LastChild(),
             "a rendered legend should have exactly one frame");
-        fieldSetFrame->SetInitialChildList(kPrincipalList, renderedLegend);
+        fieldSetFrame->InsertFrames(kPrincipalList, nullptr, nullptr,
+                                    renderedLegend);
         FCItemIterator next = iter;
         next.Next();
         iter.DeleteItemsTo(this, next);
@@ -11400,6 +11377,30 @@ bool nsCSSFrameConstructor::WipeContainingBlock(
     // If we get here, then we need further check for {ib} split to decide
     // whether to reframe. For example, appending a block into an empty inline
     // that is not part of an {ib} split, but should become an {ib} split.
+  }
+
+  // A <fieldset> may need to pick up a new rendered legend from aItems.
+  // We currently can't handle this case without recreating frames for
+  // the fieldset.
+  // XXXmats we should be able to optimize this when the fieldset doesn't
+  // currently have a rendered legend.  ContentRangeInserted needs to be fixed
+  // to use the inner frame as the content insertion frame in that case.
+  if (const auto* fieldset = GetFieldSetFrameFor(aFrame)) {
+    // Check if any item is eligible to be a rendered legend.
+    for (FCItemIterator iter(aItems); !iter.IsDone(); iter.Next()) {
+      const auto& item = iter.item();
+      if (!item.mContent->IsHTMLElement(nsGkAtoms::legend)) {
+        continue;
+      }
+      const auto* display = item.mComputedStyle->StyleDisplay();
+      if (display->IsFloatingStyle() ||
+          display->IsAbsolutelyPositionedStyle()) {
+        continue;
+      }
+      TRACE("Fieldset with rendered legend");
+      RecreateFramesForContent(fieldset->GetContent(), InsertionKind::Async);
+      return true;
+    }
   }
 
   // Now we have several cases involving {ib} splits.  Put them all in a

@@ -392,18 +392,9 @@ Database::GetProfileBeforeChangePhase() {
 
 Database::~Database() = default;
 
-bool Database::IsShutdownStarted() const {
-  if (!mConnectionShutdown) {
-    // We have already broken the cycle between `this` and
-    // `mConnectionShutdown`.
-    return true;
-  }
-  return mConnectionShutdown->IsStarted();
-}
-
 already_AddRefed<mozIStorageAsyncStatement> Database::GetAsyncStatement(
     const nsACString& aQuery) {
-  if (IsShutdownStarted() || NS_FAILED(EnsureConnection())) {
+  if (PlacesShutdownBlocker::sIsStarted || NS_FAILED(EnsureConnection())) {
     return nullptr;
   }
 
@@ -413,7 +404,7 @@ already_AddRefed<mozIStorageAsyncStatement> Database::GetAsyncStatement(
 
 already_AddRefed<mozIStorageStatement> Database::GetStatement(
     const nsACString& aQuery) {
-  if (IsShutdownStarted()) {
+  if (PlacesShutdownBlocker::sIsStarted) {
     return nullptr;
   }
   if (NS_IsMainThread()) {
@@ -440,7 +431,7 @@ already_AddRefed<nsIAsyncShutdownClient> Database::GetConnectionShutdown() {
 
 // static
 already_AddRefed<Database> Database::GetDatabase() {
-  if (PlacesShutdownBlocker::IsStarted()) {
+  if (PlacesShutdownBlocker::sIsStarted) {
     return nullptr;
   }
   return GetSingleton();
@@ -493,7 +484,7 @@ nsresult Database::EnsureConnection() {
     return NS_OK;
   }
   // Don't try to create a database too late.
-  if (IsShutdownStarted()) {
+  if (PlacesShutdownBlocker::sIsStarted) {
     return NS_ERROR_FAILURE;
   }
 
@@ -709,6 +700,8 @@ nsresult Database::EnsureFaviconsDatabaseAttached(
     // We are going to update the database, so everything from now on should be
     // in a transaction for performances.
     mozStorageTransaction transaction(conn, false);
+    // XXX Handle the error, bug 1696133.
+    Unused << NS_WARN_IF(NS_FAILED(transaction.Start()));
     rv = conn->ExecuteSimpleSQL(CREATE_MOZ_ICONS);
     NS_ENSURE_SUCCESS(rv, rv);
     rv = conn->ExecuteSimpleSQL(CREATE_IDX_MOZ_ICONS_ICONURLHASH);
@@ -901,6 +894,9 @@ nsresult Database::TryToCloneTablesFromCorruptDatabase(
 
   mozStorageTransaction transaction(conn, false);
 
+  // XXX Handle the error, bug 1696133.
+  Unused << NS_WARN_IF(NS_FAILED(transaction.Start()));
+
   // Copy the schema version.
   nsCOMPtr<mozIStorageStatement> stmt;
   (void)conn->CreateStatement("PRAGMA corrupt.user_version"_ns,
@@ -1091,6 +1087,9 @@ nsresult Database::InitSchema(bool* aDatabaseMigrated) {
   // We are going to update the database, so everything from now on should be in
   // a transaction for performances.
   mozStorageTransaction transaction(mMainConn, false);
+
+  // XXX Handle the error, bug 1696133.
+  Unused << NS_WARN_IF(NS_FAILED(transaction.Start()));
 
   if (databaseInitialized) {
     // Migration How-to:
@@ -2398,7 +2397,7 @@ Database::Observe(nsISupports* aSubject, const char* aTopic,
   MOZ_ASSERT(NS_IsMainThread());
   if (strcmp(aTopic, TOPIC_PROFILE_CHANGE_TEARDOWN) == 0) {
     // Tests simulating shutdown may cause multiple notifications.
-    if (IsShutdownStarted()) {
+    if (PlacesShutdownBlocker::sIsStarted) {
       return NS_OK;
     }
 
@@ -2432,7 +2431,7 @@ Database::Observe(nsISupports* aSubject, const char* aTopic,
     // to simulate Places shutdown out of the normal shutdown path.
 
     // Tests simulating shutdown may cause re-entrance.
-    if (IsShutdownStarted()) {
+    if (PlacesShutdownBlocker::sIsStarted) {
       return NS_OK;
     }
 

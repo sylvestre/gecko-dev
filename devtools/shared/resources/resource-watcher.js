@@ -4,7 +4,10 @@
 
 "use strict";
 
+const Services = require("Services");
 const { throttle } = require("devtools/shared/throttle");
+
+const BROWSERTOOLBOX_FISSION_ENABLED = "devtools.browsertoolbox.fission";
 
 class ResourceWatcher {
   /**
@@ -36,6 +39,11 @@ class ResourceWatcher {
     // - {Function} onDestroyed: watcher's function to call when a resource is destroyed
     this._watchers = [];
 
+    // Set of watchers currently going through watchResources, only used to handle
+    // early calls to unwatchResources. Using a Set instead of an array for easier
+    // delete operations.
+    this._pendingWatchers = new Set();
+
     // Cache for all resources by the order that the resource was taken.
     this._cache = [];
     this._listenerCount = new Map();
@@ -45,6 +53,7 @@ class ResourceWatcher {
     // race conditions.
     // Maps a target front to an array of resource types.
     this._existingLegacyListeners = new WeakMap();
+    this._processingExistingResources = new Set();
 
     this._notifyWatchers = this._notifyWatchers.bind(this);
     this._throttledNotifyWatchers = throttle(this._notifyWatchers, 100);
@@ -112,6 +121,16 @@ class ResourceWatcher {
       );
     }
 
+    // Pending watchers are used in unwatchResources to remove watchers which
+    // are not fully registered yet. Store `onAvailable` which is the unique key
+    // for a watcher, as well as the resources array, so that unwatchResources
+    // can update the array if we stop watching a specific resource.
+    const pendingWatcher = {
+      resources,
+      onAvailable,
+    };
+    this._pendingWatchers.add(pendingWatcher);
+
     // Bug 1675763: Watcher actor is not available in all situations yet.
     if (!this._listenerRegistered && this.watcherFront) {
       this._listenerRegistered = true;
@@ -158,10 +177,23 @@ class ResourceWatcher {
     // "already existing" resources.
     this._notifyWatchers();
 
+    // Update the _pendingWatchers set before adding the watcher to _watchers.
+    this._pendingWatchers.delete(pendingWatcher);
+
+    // If unwatchResources was called in the meantime, use pendingWatcher's
+    // resources to get the updated list of watched resources.
+    const watchedResources = pendingWatcher.resources;
+
+    // If no resource needs to be watched anymore, do not add an empty watcher
+    // to _watchers, and do not notify about cached resources.
+    if (!watchedResources.length) {
+      return;
+    }
+
     // Register the watcher just after calling _startListening in order to avoid it being called
     // for already existing resources, which will optionally be notified via _forwardCachedResources
     this._watchers.push({
-      resources,
+      resources: watchedResources,
       onAvailable,
       onUpdated,
       onDestroyed,
@@ -169,7 +201,7 @@ class ResourceWatcher {
     });
 
     if (!ignoreExistingResources) {
-      await this._forwardCachedResources(resources, onAvailable);
+      await this._forwardCachedResources(watchedResources, onAvailable);
     }
   }
 
@@ -195,8 +227,11 @@ class ResourceWatcher {
         watchedResources.push(resource);
       }
     }
-    // Unregister the callbacks from the _watchers registry
-    for (const watcherEntry of this._watchers) {
+    // Unregister the callbacks from the watchers registries.
+    // Check _watchers for the fully initialized watchers, as well as
+    // `_pendingWatchers` for new watchers still being created by `watchResources`
+    const allWatchers = [...this._watchers, ...this._pendingWatchers];
+    for (const watcherEntry of allWatchers) {
       // onAvailable is the only mandatory argument which ends up being used to match
       // the right watcher entry.
       if (watcherEntry.onAvailable == onAvailable) {
@@ -266,6 +301,12 @@ class ResourceWatcher {
    *        composed of a BrowsingContextTargetFront or ContentProcessTargetFront.
    */
   async _onTargetAvailable({ targetFront, isTargetSwitching }) {
+    // We put the resourceWatcher on the targetFront so it can be retrieved in the
+    // inspector and style-rule fronts. This might be removed in the future if/when we
+    // turn the resourceWatcher into a Command.
+    // ⚠️ This shouldn't be used anywhere else ⚠️
+    targetFront.resourceWatcher = this;
+
     const resources = [];
     if (isTargetSwitching) {
       this._onWillNavigate(targetFront);
@@ -326,9 +367,13 @@ class ResourceWatcher {
     );
 
     if (isTargetSwitching) {
-      for (const resourceType of resources) {
-        await this._startListening(resourceType, { bypassListenerCount: true });
-      }
+      await Promise.all(
+        resources.map(resourceType =>
+          this._startListening(resourceType, {
+            bypassListenerCount: true,
+          })
+        )
+      );
     }
   }
 
@@ -368,6 +413,12 @@ class ResourceWatcher {
       if (watcherFront) {
         targetFront = await this._getTargetForWatcherResource(resource);
       }
+
+      // isAlreadyExistingResource indicates that the resources already existed before
+      // the resource watcher started watching for this type of resource.
+      resource.isAlreadyExistingResource = this._processingExistingResources.has(
+        resourceType
+      );
 
       // Put the targetFront on the resource for easy retrieval.
       // (Resources from the legacy listeners may already have the attribute set)
@@ -623,6 +674,16 @@ class ResourceWatcher {
    * @return {Boolean} True, if the server supports this type.
    */
   hasResourceWatcherSupport(resourceType) {
+    // If the targetList top level target is a parent process, we're in the browser console or browser toolbox.
+    // In such case, if the browser toolbox fission pref is disabled, we don't want to use watchers
+    // (even if traits on the server are enabled).
+    if (
+      this.targetList.targetFront.isParentProcess &&
+      !Services.prefs.getBoolPref(BROWSERTOOLBOX_FISSION_ENABLED, false)
+    ) {
+      return false;
+    }
+
     return this.watcherFront?.traits?.resources?.[resourceType];
   }
 
@@ -668,6 +729,8 @@ class ResourceWatcher {
       }
     }
 
+    this._processingExistingResources.add(resourceType);
+
     // If the server supports the Watcher API and the Watcher supports
     // this resource type, use this API
     if (this.hasResourceWatcherSupport(resourceType)) {
@@ -677,6 +740,7 @@ class ResourceWatcher {
         resourceType
       );
       if (!shouldRunLegacyListeners) {
+        this._processingExistingResources.delete(resourceType);
         return;
       }
     }
@@ -691,6 +755,7 @@ class ResourceWatcher {
       promises.push(this._watchResourcesForTarget(target, resourceType));
     }
     await Promise.all(promises);
+    this._processingExistingResources.delete(resourceType);
   }
 
   /**
@@ -749,7 +814,7 @@ class ResourceWatcher {
     const legacyListeners =
       this._existingLegacyListeners.get(targetFront) || [];
     if (legacyListeners.includes(resourceType)) {
-      console.error(
+      console.warn(
         `Already started legacy listener for ${resourceType} on ${targetFront.actorID}`
       );
       return;
@@ -930,11 +995,11 @@ const LegacyListeners = {
   [ResourceWatcher.TYPES
     .COOKIE]: require("devtools/shared/resources/legacy-listeners/cookie"),
   [ResourceWatcher.TYPES
+    .CACHE_STORAGE]: require("devtools/shared/resources/legacy-listeners/cache-storage"),
+  [ResourceWatcher.TYPES
     .LOCAL_STORAGE]: require("devtools/shared/resources/legacy-listeners/local-storage"),
   [ResourceWatcher.TYPES
     .SESSION_STORAGE]: require("devtools/shared/resources/legacy-listeners/session-storage"),
-  [ResourceWatcher.TYPES
-    .CACHE_STORAGE]: require("devtools/shared/resources/legacy-listeners/cache-storage"),
   [ResourceWatcher.TYPES
     .EXTENSION_STORAGE]: require("devtools/shared/resources/legacy-listeners/extension-storage"),
   [ResourceWatcher.TYPES
@@ -958,6 +1023,8 @@ const ResourceTransformers = {
     .CONSOLE_MESSAGE]: require("devtools/shared/resources/transformers/console-messages"),
   [ResourceWatcher.TYPES
     .ERROR_MESSAGE]: require("devtools/shared/resources/transformers/error-messages"),
+  [ResourceWatcher.TYPES
+    .CACHE_STORAGE]: require("devtools/shared/resources/transformers/storage-cache.js"),
   [ResourceWatcher.TYPES
     .LOCAL_STORAGE]: require("devtools/shared/resources/transformers/storage-local-storage.js"),
   [ResourceWatcher.TYPES

@@ -11,8 +11,6 @@ use api::{ColorF, DebugFlags};
 use api::units::*;
 use euclid::Scale;
 use std::{usize, mem};
-use crate::image_tiling;
-use crate::segment::EdgeAaSegmentMask;
 use crate::clip::{ClipStore, ClipChainStack};
 use crate::composite::CompositeState;
 use crate::spatial_tree::{ROOT_SPATIAL_NODE_INDEX, SpatialTree, SpatialNodeIndex};
@@ -25,11 +23,10 @@ use crate::picture::{PictureCompositeMode, ClusterFlags, SurfaceInfo, TileCacheI
 use crate::picture::{PrimitiveList, SurfaceIndex, RasterConfig, SliceId};
 use crate::prim_store::{ClipTaskIndex, PictureIndex, PrimitiveInstanceKind};
 use crate::prim_store::{PrimitiveStore, PrimitiveInstance};
-use crate::prim_store::image::VisibleImageTile;
 use crate::render_backend::{DataStores, ScratchBuffer};
-use crate::resource_cache::{ResourceCache, ImageProperties, ImageRequest};
+use crate::resource_cache::ResourceCache;
 use crate::scene::SceneProperties;
-use crate::space::{SpaceMapper, SpaceSnapper};
+use crate::space::SpaceMapper;
 use crate::internal_types::Filter;
 use crate::util::{MaxRect};
 
@@ -74,53 +71,6 @@ impl<'a> FrameVisibilityState<'a> {
     }
 }
 
-/// A bit mask describing which dirty regions a primitive is visible in.
-/// A value of 0 means not visible in any region, while a mask of 0xffff
-/// would be considered visible in all regions.
-#[derive(Debug, Copy, Clone)]
-#[cfg_attr(feature = "capture", derive(Serialize))]
-#[cfg_attr(feature = "replay", derive(Deserialize))]
-pub struct PrimitiveVisibilityMask {
-    bits: u16,
-}
-
-impl PrimitiveVisibilityMask {
-    /// Construct a default mask, where no regions are considered visible
-    pub fn empty() -> Self {
-        PrimitiveVisibilityMask {
-            bits: 0,
-        }
-    }
-
-    pub fn all() -> Self {
-        PrimitiveVisibilityMask {
-            bits: !0,
-        }
-    }
-
-    pub fn include(&mut self, other: PrimitiveVisibilityMask) {
-        self.bits |= other.bits;
-    }
-
-    pub fn intersects(&self, other: PrimitiveVisibilityMask) -> bool {
-        (self.bits & other.bits) != 0
-    }
-
-    /// Mark a given region index as visible
-    pub fn set_visible(&mut self, region_index: usize) {
-        debug_assert!(region_index < PrimitiveVisibilityMask::MAX_DIRTY_REGIONS);
-        self.bits |= 1 << region_index;
-    }
-
-    /// Returns true if there are no visible regions
-    pub fn is_empty(&self) -> bool {
-        self.bits == 0
-    }
-
-    /// The maximum number of supported dirty regions.
-    pub const MAX_DIRTY_REGIONS: usize = 8 * mem::size_of::<PrimitiveVisibilityMask>();
-}
-
 bitflags! {
     /// A set of bitflags that can be set in the visibility information
     /// for a primitive instance. This can be used to control how primitives
@@ -149,11 +99,12 @@ pub enum VisibilityState {
     Coarse {
         rect_in_pic_space: PictureRect,
     },
-    /// Once coarse visibility is resolved, this provides a bitmask of which dirty tiles
-    /// this primitive should be rasterized into.
+    /// Once coarse visibility is resolved, this will be set if the primitive
+    /// intersected any dirty rects, otherwise prim will be culled.
     Detailed {
-        /// A mask defining which of the dirty regions this primitive is visible in.
-        visibility_mask: PrimitiveVisibilityMask,
+        // TODO(gw): Intersecting Box2D is more efficient than Rect. Consider
+        //           storing here (and perhaps above) as a Box2D.
+        rect_in_pic_space: PictureRect,
     },
 }
 
@@ -388,7 +339,7 @@ pub fn update_primitive_visibility(
             if is_passthrough {
                 // Pass through pictures are always considered visible in all dirty tiles.
                 prim_instance.vis.state = VisibilityState::Detailed {
-                    visibility_mask: PrimitiveVisibilityMask::all(),
+                    rect_in_pic_space: PictureRect::max_rect(),
                 };
             } else {
                 if prim_local_rect.size.width <= 0.0 || prim_local_rect.size.height <= 0.0 {
@@ -501,45 +452,23 @@ pub fn update_primitive_visibility(
                     }
                 }
 
-                match frame_state.tile_cache {
-                    Some(ref mut tile_cache) => {
-                        // TODO(gw): Refactor how tile_cache is stored in frame_state
-                        //           so that we can pass frame_state directly to
-                        //           update_prim_dependencies, rather than splitting borrows.
-                        tile_cache.update_prim_dependencies(
-                            prim_instance,
-                            cluster.spatial_node_index,
-                            prim_local_rect,
-                            frame_context,
-                            frame_state.data_stores,
-                            frame_state.clip_store,
-                            &store.pictures,
-                            frame_state.resource_cache,
-                            &store.color_bindings,
-                            &frame_state.surface_stack,
-                            &mut frame_state.composite_state,
-                        );
-                    }
-                    None => {
-                        // When picture cache is not in use, cull against the main world culling rect only.
-                        let clipped_world_rect = calculate_prim_clipped_world_rect(
-                            &prim_instance.vis.clip_chain.pic_clip_rect,
-                            &world_culling_rect,
-                            &map_surface_to_world,
-                        );
-
-                        prim_instance.vis.state = match clipped_world_rect {
-                            Some(_) => {
-                                VisibilityState::Detailed {
-                                    visibility_mask: PrimitiveVisibilityMask::all(),
-                                }
-                            }
-                            None => {
-                                VisibilityState::Culled
-                            }
-                        };
-                    }
-                }
+                frame_state.tile_cache
+                    .as_mut()
+                    .unwrap()
+                    .update_prim_dependencies(
+                        prim_instance,
+                        cluster.spatial_node_index,
+                        prim_local_rect,
+                        frame_context,
+                        frame_state.data_stores,
+                        frame_state.clip_store,
+                        &store.pictures,
+                        frame_state.resource_cache,
+                        &store.color_bindings,
+                        &frame_state.surface_stack,
+                        &mut frame_state.composite_state,
+                        &mut frame_state.gpu_cache,
+                );
 
                 // Skip post visibility prim update if this primitive was culled above.
                 match prim_instance.vis.state {
@@ -604,11 +533,8 @@ pub fn update_primitive_visibility(
                 update_prim_post_visibility(
                     store,
                     prim_instance,
-                    cluster.spatial_node_index,
                     world_culling_rect,
                     &map_surface_to_world,
-                    frame_context,
-                    frame_state,
                 );
             }
         }
@@ -631,22 +557,8 @@ pub fn update_primitive_visibility(
     //           remove this invalidation here completely.
     if let Some(ref rc) = pic.raster_config {
         // Inflate the local bounding rect if required by the filter effect.
-        // This inflaction factor is to be applied to the surface itstore.
         if pic.options.inflate_if_required {
-            // The picture's local rect is calculated as the union of the
-            // snapped primitive rects, which should result in a snapped
-            // local rect, unless it was inflated. This is also done during
-            // surface configuration when calculating the picture's
-            // estimated local rect.
-            let snap_pic_to_raster = SpaceSnapper::new_with_target(
-                surface.raster_spatial_node_index,
-                pic.spatial_node_index,
-                surface.device_pixel_scale,
-                frame_context.spatial_tree,
-            );
-
             surface_rect = rc.composite_mode.inflate_picture_rect(surface_rect, surface.scale_factors);
-            surface_rect = snap_pic_to_raster.snap_rect(&surface_rect);
         }
 
         // Layout space for the picture is picture space from the
@@ -705,11 +617,8 @@ pub fn update_primitive_visibility(
 fn update_prim_post_visibility(
     store: &mut PrimitiveStore,
     prim_instance: &mut PrimitiveInstance,
-    prim_spatial_node_index: SpatialNodeIndex,
     world_culling_rect: WorldRect,
     map_surface_to_world: &SpaceMapper<PicturePixel, WorldPixel>,
-    frame_context: &FrameVisibilityContext,
-    frame_state: &mut FrameVisibilityState,
 ) {
     profile_scope!("update_prim_post_visibility");
     match prim_instance.kind {
@@ -733,134 +642,8 @@ fn update_prim_post_visibility(
             // TODO(gw): We might be able to detect simple cases of this earlier,
             //           during the picture traversal. But it's probably not worth it?
         }
-        PrimitiveInstanceKind::Image { data_handle, image_instance_index, .. } => {
-            let prim_data = &mut frame_state.data_stores.image[data_handle];
-            let common_data = &mut prim_data.common;
-            let image_data = &mut prim_data.kind;
-            let image_instance = &mut store.images[image_instance_index];
-
-            let image_properties = frame_state
-                .resource_cache
-                .get_image_properties(image_data.key);
-
-            let request = ImageRequest {
-                key: image_data.key,
-                rendering: image_data.image_rendering,
-                tile: None,
-            };
-
-            match image_properties {
-                Some(ImageProperties { tiling: None, .. }) => {
-
-                    frame_state.resource_cache.request_image(
-                        request,
-                        frame_state.gpu_cache,
-                    );
-                }
-                Some(ImageProperties { tiling: Some(tile_size), visible_rect, .. }) => {
-                    image_instance.visible_tiles.clear();
-                    // TODO: rename the blob's visible_rect into something that doesn't conflict
-                    // with the terminology we use during culling since it's not really the same
-                    // thing.
-                    let active_rect = visible_rect;
-
-                    // Tighten the clip rect because decomposing the repeated image can
-                    // produce primitives that are partially covering the original image
-                    // rect and we want to clip these extra parts out.
-                    let prim_info = &prim_instance.vis;
-                    let tight_clip_rect = prim_info
-                        .combined_local_clip_rect
-                        .intersection(&common_data.prim_rect).unwrap();
-                    image_instance.tight_local_clip_rect = tight_clip_rect;
-
-                    let visible_rect = compute_conservative_visible_rect(
-                        &prim_instance.vis.clip_chain,
-                        world_culling_rect,
-                        prim_spatial_node_index,
-                        frame_context.spatial_tree,
-                    );
-
-                    let base_edge_flags = edge_flags_for_tile_spacing(&image_data.tile_spacing);
-
-                    let stride = image_data.stretch_size + image_data.tile_spacing;
-
-                    // We are performing the decomposition on the CPU here, no need to
-                    // have it in the shader.
-                    common_data.may_need_repetition = false;
-
-                    let repetitions = image_tiling::repetitions(
-                        &common_data.prim_rect,
-                        &visible_rect,
-                        stride,
-                    );
-
-                    for image_tiling::Repetition { origin, edge_flags } in repetitions {
-                        let edge_flags = base_edge_flags | edge_flags;
-
-                        let layout_image_rect = LayoutRect {
-                            origin,
-                            size: image_data.stretch_size,
-                        };
-
-                        let tiles = image_tiling::tiles(
-                            &layout_image_rect,
-                            &visible_rect,
-                            &active_rect,
-                            tile_size as i32,
-                        );
-
-                        for tile in tiles {
-                            frame_state.resource_cache.request_image(
-                                request.with_tile(tile.offset),
-                                frame_state.gpu_cache,
-                            );
-
-                            image_instance.visible_tiles.push(VisibleImageTile {
-                                tile_offset: tile.offset,
-                                edge_flags: tile.edge_flags & edge_flags,
-                                local_rect: tile.rect,
-                                local_clip_rect: tight_clip_rect,
-                            });
-                        }
-                    }
-
-                    if image_instance.visible_tiles.is_empty() {
-                        // Mark as invisible
-                        prim_instance.clear_visibility();
-                    }
-                }
-                None => {}
-            }
-        }
-        PrimitiveInstanceKind::ImageBorder { data_handle, .. } => {
-            let prim_data = &mut frame_state.data_stores.image_border[data_handle];
-            prim_data.kind.request_resources(
-                frame_state.resource_cache,
-                frame_state.gpu_cache,
-            );
-        }
-        PrimitiveInstanceKind::YuvImage { data_handle, .. } => {
-            let prim_data = &mut frame_state.data_stores.yuv_image[data_handle];
-            prim_data.kind.request_resources(
-                frame_state.resource_cache,
-                frame_state.gpu_cache,
-            );
-        }
         _ => {}
     }
-}
-
-fn edge_flags_for_tile_spacing(tile_spacing: &LayoutSize) -> EdgeAaSegmentMask {
-    let mut flags = EdgeAaSegmentMask::empty();
-
-    if tile_spacing.width > 0.0 {
-        flags |= EdgeAaSegmentMask::LEFT | EdgeAaSegmentMask::RIGHT;
-    }
-    if tile_spacing.height > 0.0 {
-        flags |= EdgeAaSegmentMask::TOP | EdgeAaSegmentMask::BOTTOM;
-    }
-
-    flags
 }
 
 pub fn compute_conservative_visible_rect(

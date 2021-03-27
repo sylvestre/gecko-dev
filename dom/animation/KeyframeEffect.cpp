@@ -102,11 +102,7 @@ KeyframeEffect::KeyframeEffect(Document* aDocument,
                      mTarget.mPseudoType},
       mKeyframes(aOther.mKeyframes.Clone()),
       mProperties(aOther.mProperties.Clone()),
-      mBaseValues(aOther.mBaseValues.Count()) {
-  for (auto iter = aOther.mBaseValues.ConstIter(); !iter.Done(); iter.Next()) {
-    mBaseValues.Put(iter.Key(), RefPtr{iter.Data()});
-  }
-}
+      mBaseValues(aOther.mBaseValues.Clone()) {}
 
 JSObject* KeyframeEffect::WrapObject(JSContext* aCx,
                                      JS::Handle<JSObject*> aGivenProto) {
@@ -532,14 +528,13 @@ void KeyframeEffect::EnsureBaseStyles(
     EnsureBaseStyle(property, presContext, aComputedValues, baseComputedStyle);
   }
 
-  if (aBaseStylesChanged != nullptr) {
-    for (auto iter = mBaseValues.Iter(); !iter.Done(); iter.Next()) {
-      if (AnimationValue(iter.Data()) !=
-          AnimationValue(previousBaseStyles.Get(iter.Key()))) {
-        *aBaseStylesChanged = true;
-        break;
-      }
-    }
+  if (aBaseStylesChanged != nullptr &&
+      std::any_of(
+          mBaseValues.cbegin(), mBaseValues.cend(), [&](const auto& entry) {
+            return AnimationValue(entry.GetData()) !=
+                   AnimationValue(previousBaseStyles.Get(entry.GetKey()));
+          })) {
+    *aBaseStylesChanged = true;
   }
 }
 
@@ -575,7 +570,7 @@ void KeyframeEffect::EnsureBaseStyle(
       Servo_ComputedValues_ExtractAnimationValue(aBaseComputedStyle,
                                                  aProperty.mProperty)
           .Consume();
-  mBaseValues.Put(aProperty.mProperty, std::move(baseValue));
+  mBaseValues.InsertOrUpdate(aProperty.mProperty, std::move(baseValue));
 }
 
 void KeyframeEffect::WillComposeStyle() {

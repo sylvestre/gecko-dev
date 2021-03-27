@@ -66,6 +66,7 @@ class SingleTestMixin(object):
                 "xpcshell",
             ),
         ]
+        is_fission = "fission.autostart=true" in self.config.get("extra_prefs", [])
         tests_by_path = {}
         all_disabled = []
         for (path, suite) in manifests:
@@ -172,7 +173,7 @@ class SingleTestMixin(object):
                 if file in all_disabled:
                     self.info("'%s' has been skipped on this platform." % file)
                 if os.environ.get("MOZHARNESS_TEST_PATHS", None) is not None:
-                    self.fatal("Per-test run could not find requested test '%s'" % file)
+                    self.info("Per-test run could not find requested test '%s'" % file)
                 continue
 
             if gpu and not self._is_gpu_suite(entry[1]):
@@ -185,6 +186,15 @@ class SingleTestMixin(object):
                 self.info(
                     "Per-test run (non-gpu) discarded gpu test %s (%s)"
                     % (file, entry[1])
+                )
+                continue
+
+            if is_fission and (
+                (entry[0] == "mochitest-a11y") or (entry[0] == "mochitest-chrome")
+            ):
+                self.info(
+                    "Per-test run (fission) discarded non-e10s test %s (%s)"
+                    % (file, entry[0])
                 )
                 continue
 
@@ -283,7 +293,7 @@ class SingleTestMixin(object):
 
         if os.environ.get("MOZHARNESS_TEST_PATHS", None) is not None:
             for file in changed_files:
-                self.fatal(
+                self.info(
                     "Per-test run could not find requested web-platform test '%s'"
                     % file
                 )

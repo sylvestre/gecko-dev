@@ -13,7 +13,6 @@
 #include <cstdlib>
 #include <new>
 #include <utility>
-#include "GeckoProfiler.h"
 #include "ReferrerInfo.h"
 #include "js/RootingAPI.h"
 #include "mozilla/ArrayIterator.h"
@@ -25,6 +24,7 @@
 #include "mozilla/NotNull.h"
 #include "mozilla/PluginLibrary.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/ProfilerLabels.h"
 #include "mozilla/Services.h"
 #include "mozilla/SpinEventLoopUntil.h"
 #include "mozilla/StaticPtr.h"
@@ -109,12 +109,11 @@
 #if defined(XP_WIN)
 #  include "nsIWindowMediator.h"
 #  include "nsIBaseWindow.h"
-#  include "windows.h"
-#  include "winbase.h"
+#  include <windows.h>
+#  include <winbase.h>
 #endif
 #if (MOZ_WIDGET_GTK)
-#  include <gdk/gdk.h>
-#  include <gdk/gdkx.h>
+#  include "mozilla/WidgetUtilsGtk.h"
 #endif
 
 using namespace mozilla;
@@ -289,11 +288,8 @@ nsPluginHost::nsPluginHost()
       Preferences::GetBool("plugin.override_internal_types", false);
 
   bool waylandBackend = false;
-#if defined(MOZ_WIDGET_GTK) && defined(MOZ_X11)
-  GdkDisplay* display = gdk_display_get_default();
-  if (display) {
-    waylandBackend = !GDK_IS_X11_DISPLAY(display);
-  }
+#if defined(MOZ_WIDGET_GTK)
+  waylandBackend = mozilla::widget::GdkIsWaylandDisplay();
 #endif
   mPluginsDisabled =
       Preferences::GetBool("plugin.disable", false) || waylandBackend;

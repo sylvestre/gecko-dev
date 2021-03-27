@@ -31,6 +31,7 @@ class ImportRowProcessor {
   uniqueLoginIdentifiers = new Set();
   originToRows = new Map();
   summary = [];
+  mandatoryFields = ["origin", "password"];
 
   /**
    * Validates if the login data contains a GUID that was already found in a previous row in the current import.
@@ -59,13 +60,15 @@ class ImportRowProcessor {
    */
   checkMissingMandatoryFieldsError(loginData) {
     loginData.origin = LoginHelper.getLoginOrigin(loginData.origin);
-    if (!loginData.origin) {
-      this.addLoginToSummary({ ...loginData }, "error_invalid_origin");
-      return true;
-    }
-    if (!loginData.password) {
-      this.addLoginToSummary({ ...loginData }, "error_invalid_password");
-      return true;
+    for (let mandatoryField of this.mandatoryFields) {
+      if (!loginData[mandatoryField]) {
+        const missingFieldRow = this.addLoginToSummary(
+          { ...loginData },
+          "error_missing_field"
+        );
+        missingFieldRow.field_name = mandatoryField;
+        return true;
+      }
     }
     return false;
   }
@@ -263,9 +266,11 @@ class ImportRowProcessor {
    *        An vanilla object for the login without any methods.
    */
   cleanupActionAndRealmFields(loginData) {
+    const cleanOrigin = loginData.formActionOrigin
+      ? LoginHelper.getLoginOrigin(loginData.formActionOrigin, true)
+      : "";
     loginData.formActionOrigin =
-      LoginHelper.getLoginOrigin(loginData.formActionOrigin, true) ||
-      (typeof loginData.httpRealm == "string" ? null : "");
+      cleanOrigin || (typeof loginData.httpRealm == "string" ? null : "");
 
     loginData.httpRealm =
       typeof loginData.httpRealm == "string" ? loginData.httpRealm : null;
@@ -279,6 +284,7 @@ class ImportRowProcessor {
    *        The result type. One of "added", "modified", "error", "error_invalid_origin", "error_invalid_password" or "no_change".
    * @param {object} propBag
    *        An optional parameter with the properties bag.
+   * @returns {object} The row that was added.
    */
   addLoginToSummary(login, result, propBag) {
     let rows = this.originToRows.get(login.origin) || [];
@@ -288,6 +294,7 @@ class ImportRowProcessor {
     const newSummaryRow = { result, login, propBag };
     rows.push(newSummaryRow);
     this.summary.push(newSummaryRow);
+    return newSummaryRow;
   }
 
   /**
@@ -355,6 +362,7 @@ this.LoginHelper = {
   enabled: null,
   storageEnabled: null,
   formlessCaptureEnabled: null,
+  formRemovalCaptureEnabled: null,
   generationAvailable: null,
   generationConfidenceThreshold: null,
   generationEnabled: null,
@@ -363,6 +371,8 @@ this.LoginHelper = {
   privateBrowsingCaptureEnabled: null,
   remoteRecipesEnabled: null,
   remoteRecipesCollection: "password-recipes",
+  relatedRealmsEnabled: null,
+  relatedRealmsCollection: "websites-with-shared-credential-backends",
   schemeUpgrades: null,
   showAutoCompleteFooter: null,
   showAutoCompleteImport: null,
@@ -394,6 +404,9 @@ this.LoginHelper = {
     );
     this.formlessCaptureEnabled = Services.prefs.getBoolPref(
       "signon.formlessCapture.enabled"
+    );
+    this.formRemovalCaptureEnabled = Services.prefs.getBoolPref(
+      "signon.formRemovalCapture.enabled"
     );
     this.generationAvailable = Services.prefs.getBoolPref(
       "signon.generation.available"
@@ -458,6 +471,9 @@ this.LoginHelper = {
     );
     this.remoteRecipesEnabled = Services.prefs.getBoolPref(
       "signon.recipes.remoteRecipesEnabled"
+    );
+    this.relatedRealmsEnabled = Services.prefs.getBoolPref(
+      "signon.relatedRealms.enabled"
     );
   },
 
@@ -671,6 +687,8 @@ this.LoginHelper = {
       schemeUpgrades: false,
       acceptWildcardMatch: false,
       acceptDifferentSubdomains: false,
+      acceptRelatedRealms: false,
+      relatedRealms: [],
     }
   ) {
     if (aLoginOrigin == aSearchOrigin) {
@@ -706,6 +724,18 @@ this.LoginHelper = {
             (aOptions.schemeUpgrades && schemeMatches))
         ) {
           return true;
+        }
+        if (
+          aOptions.acceptRelatedRealms &&
+          aOptions.relatedRealms.length &&
+          (loginURI.scheme == searchURI.scheme ||
+            (aOptions.schemeUpgrades && schemeMatches))
+        ) {
+          for (let relatedOrigin of aOptions.relatedRealms) {
+            if (Services.eTLD.hasRootDomain(loginURI.host, relatedOrigin)) {
+              return true;
+            }
+          }
         }
       }
 
@@ -1200,16 +1230,19 @@ this.LoginHelper = {
    *
    * @param {Element} element
    *                  the field we want to check.
+   * @param {Object} options
+   * @param {bool} [options.ignoreConnect] - Whether to ignore checking isConnected
+   *                                         of the element.
    *
    * @returns {Boolean} true if the field can
    *                    be treated as a password input
    */
-  isPasswordFieldType(element) {
+  isPasswordFieldType(element, { ignoreConnect = false } = {}) {
     if (ChromeUtils.getClassName(element) !== "HTMLInputElement") {
       return false;
     }
 
-    if (!element.isConnected) {
+    if (!element.isConnected && !ignoreConnect) {
       // If the element isn't connected then it isn't visible to the user so
       // shouldn't be considered. It must have been connected in the past.
       return false;
@@ -1235,16 +1268,19 @@ this.LoginHelper = {
    *
    * @param {Element} element
    *                  the field we want to check.
+   * @param {Object} options
+   * @param {bool} [options.ignoreConnect] - Whether to ignore checking isConnected
+   *                                         of the element.
    *
    * @returns {Boolean} true if the field type is one
    *                    of the username types.
    */
-  isUsernameFieldType(element) {
+  isUsernameFieldType(element, { ignoreConnect = false } = {}) {
     if (ChromeUtils.getClassName(element) !== "HTMLInputElement") {
       return false;
     }
 
-    if (!element.isConnected) {
+    if (!element.isConnected && !ignoreConnect) {
       // If the element isn't connected then it isn't visible to the user so
       // shouldn't be considered. It must have been connected in the past.
       return false;

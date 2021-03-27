@@ -46,9 +46,13 @@ NS_IMPL_ISUPPORTS(nsNativeTheme, nsITimerCallback, nsINamed)
   bool isXULCheckboxRadio = (aAppearance == StyleAppearance::Checkbox ||
                              aAppearance == StyleAppearance::Radio) &&
                             aFrame->GetContent()->IsXULElement();
-  if (isXULCheckboxRadio) aFrame = aFrame->GetParent();
+  if (isXULCheckboxRadio) {
+    aFrame = aFrame->GetParent();
+  }
 
-  if (!aFrame->GetContent()) return EventStates();
+  if (!aFrame->GetContent()) {
+    return EventStates();
+  }
 
   nsIContent* frameContent = aFrame->GetContent();
   EventStates flags;
@@ -192,7 +196,9 @@ bool nsNativeTheme::IsWidgetStyled(nsPresContext* aPresContext,
                                    nsIFrame* aFrame,
                                    StyleAppearance aAppearance) {
   // Check for specific widgets to see if HTML has overridden the style.
-  if (!aFrame) return false;
+  if (!aFrame) {
+    return false;
+  }
 
   // Resizers have some special handling, dependent on whether in a scrollable
   // container or not. If so, use the scrollable container's to determine
@@ -204,12 +210,18 @@ bool nsNativeTheme::IsWidgetStyled(nsPresContext* aPresContext,
     if (parentFrame && parentFrame->IsScrollFrame()) {
       // if the parent is a scrollframe, the resizer should be native themed
       // only if the scrollable area doesn't override the widget style.
+      //
+      // note that the condition below looks a bit suspect but it's the right
+      // one. If there's no valid appearance, then we should return true, it's
+      // effectively the same as if it had overridden the appearance.
       parentFrame = parentFrame->GetParent();
-      if (parentFrame) {
-        return IsWidgetStyled(
-            aPresContext, parentFrame,
-            parentFrame->StyleDisplay()->EffectiveAppearance());
+      if (!parentFrame) {
+        return false;
       }
+      auto parentAppearance =
+          parentFrame->StyleDisplay()->EffectiveAppearance();
+      return parentAppearance == StyleAppearance::None ||
+             IsWidgetStyled(aPresContext, parentFrame, parentAppearance);
     }
   }
 
@@ -256,22 +268,8 @@ bool nsNativeTheme::IsWidgetStyled(nsPresContext* aPresContext,
     }
   }
 
-  if (aAppearance == StyleAppearance::SpinnerUpbutton ||
-      aAppearance == StyleAppearance::SpinnerDownbutton) {
-    nsNumberControlFrame* numberControlFrame =
-        nsNumberControlFrame::GetNumberControlFrameForSpinButton(aFrame);
-    if (numberControlFrame) {
-      return !numberControlFrame->ShouldUseNativeStyleForSpinner();
-    }
-  }
-
-  return (aAppearance == StyleAppearance::NumberInput ||
-          aAppearance == StyleAppearance::Button ||
-          aAppearance == StyleAppearance::Textfield ||
-          aAppearance == StyleAppearance::Textarea ||
-          aAppearance == StyleAppearance::Listbox ||
-          aAppearance == StyleAppearance::Menulist ||
-          aAppearance == StyleAppearance::MenulistButton) &&
+  return nsLayoutUtils::AuthorSpecifiedBorderBackgroundDisablesTheming(
+             aAppearance) &&
          aFrame->GetContent()->IsHTMLElement() &&
          aPresContext->HasAuthorSpecifiedRules(
              aFrame, NS_AUTHOR_SPECIFIED_BORDER_OR_BACKGROUND);

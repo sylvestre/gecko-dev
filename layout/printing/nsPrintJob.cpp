@@ -988,7 +988,7 @@ void nsPrintJob::GetDisplayTitleAndURL(Document& aDoc,
       } else {
         nsCOMPtr<nsIStringBundle> brandBundle;
         nsCOMPtr<nsIStringBundleService> svc =
-            mozilla::services::GetStringBundleService();
+            mozilla::components::StringBundle::Service();
         if (svc) {
           svc->CreateBundle("chrome://branding/locale/brand.properties",
                             getter_AddRefs(brandBundle));
@@ -1991,7 +1991,7 @@ struct MOZ_STACK_CLASS SelectionRangeState {
 
   // A map from subtree root (document or shadow root) to the start position of
   // the non-selected content (so far).
-  nsDataHashtable<nsPtrHashKey<nsINode>, Position> mPositions;
+  nsTHashMap<nsPtrHashKey<nsINode>, Position> mPositions;
 
   // The selection we're adding the ranges to.
   const RefPtr<Selection> mSelection;
@@ -2739,9 +2739,9 @@ void nsPrintJob::DisconnectPagePrintTimer() {
 //---------------------------------------------------------------
 //---------------------------------------------------------------
 #if defined(XP_WIN) && defined(EXTENDED_DEBUG_PRINTING)
-#  include "windows.h"
-#  include "process.h"
-#  include "direct.h"
+#  include <windows.h>
+#  include <process.h>
+#  include <direct.h>
 
 #  define MY_FINDFIRST(a, b) FindFirstFile(a, b)
 #  define MY_FINDNEXT(a, b) FindNextFile(a, b)

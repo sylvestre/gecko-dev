@@ -4,6 +4,7 @@
 
 use api::{AlphaType, PremultipliedColorF, YuvFormat, YuvColorSpace};
 use api::units::*;
+use crate::composite::CompositeFeatures;
 use crate::segment::EdgeAaSegmentMask;
 use crate::spatial_tree::{SpatialTree, ROOT_SPATIAL_NODE_INDEX, SpatialNodeIndex};
 use crate::gpu_cache::{GpuCacheAddress, GpuDataRequest};
@@ -99,8 +100,7 @@ pub struct BlurInstance {
 #[cfg_attr(feature = "replay", derive(Deserialize))]
 pub struct ScalingInstance {
     pub target_rect: DeviceRect,
-    pub source_rect: DeviceIntRect,
-    pub source_layer: i32,
+    pub source_rect: DeviceRect,
 }
 
 #[derive(Clone, Debug)]
@@ -231,6 +231,11 @@ pub struct PrimitiveInstanceData {
     data: [i32; 4],
 }
 
+/// Specifies that an RGB CompositeInstance's UV coordinates are normalized.
+const UV_TYPE_NORMALIZED: u32 = 0;
+/// Specifies that an RGB CompositeInstance's UV coordinates are not normalized.
+const UV_TYPE_UNNORMALIZED: u32 = 1;
+
 /// Vertex format for picture cache composite shader.
 /// When editing the members, update desc::COMPOSITE
 /// so its list of instance_attributes matches:
@@ -253,9 +258,6 @@ pub struct CompositeInstance {
 
     // UV rectangles (pixel space) for color / yuv texture planes
     uv_rects: [TexelRect; 3],
-
-    // Texture array layers for color / yuv texture planes
-    texture_layers: [f32; 3],
 }
 
 impl CompositeInstance {
@@ -263,7 +265,6 @@ impl CompositeInstance {
         rect: DeviceRect,
         clip_rect: DeviceRect,
         color: PremultipliedColorF,
-        layer: f32,
         z_id: ZBufferId,
     ) -> Self {
         let uv = TexelRect::new(0.0, 0.0, 1.0, 1.0);
@@ -272,10 +273,9 @@ impl CompositeInstance {
             clip_rect,
             color,
             z_id: z_id.0 as f32,
-            color_space_or_uv_type: pack_as_float(0u32),
+            color_space_or_uv_type: pack_as_float(UV_TYPE_NORMALIZED),
             yuv_format: 0.0,
             yuv_rescale: 0.0,
-            texture_layers: [layer, 0.0, 0.0],
             uv_rects: [uv, uv, uv],
         }
     }
@@ -284,7 +284,6 @@ impl CompositeInstance {
         rect: DeviceRect,
         clip_rect: DeviceRect,
         color: PremultipliedColorF,
-        layer: f32,
         z_id: ZBufferId,
         uv_rect: TexelRect,
     ) -> Self {
@@ -293,10 +292,9 @@ impl CompositeInstance {
             clip_rect,
             color,
             z_id: z_id.0 as f32,
-            color_space_or_uv_type: pack_as_float(1u32),
+            color_space_or_uv_type: pack_as_float(UV_TYPE_UNNORMALIZED),
             yuv_format: 0.0,
             yuv_rescale: 0.0,
-            texture_layers: [layer, 0.0, 0.0],
             uv_rects: [uv_rect, uv_rect, uv_rect],
         }
     }
@@ -308,7 +306,6 @@ impl CompositeInstance {
         yuv_color_space: YuvColorSpace,
         yuv_format: YuvFormat,
         yuv_rescale: f32,
-        texture_layers: [f32; 3],
         uv_rects: [TexelRect; 3],
     ) -> Self {
         CompositeInstance {
@@ -319,9 +316,28 @@ impl CompositeInstance {
             color_space_or_uv_type: pack_as_float(yuv_color_space as u32),
             yuv_format: pack_as_float(yuv_format as u32),
             yuv_rescale,
-            texture_layers,
             uv_rects,
         }
+    }
+
+    // Returns the CompositeFeatures that can be used to composite
+    // this RGB instance.
+    pub fn get_rgb_features(&self) -> CompositeFeatures {
+        let mut features = CompositeFeatures::empty();
+
+        // If the UV rect covers the entire texture then we can avoid UV clamping.
+        // We should try harder to determine this for unnormalized UVs too.
+        if self.color_space_or_uv_type == pack_as_float(UV_TYPE_NORMALIZED)
+            && self.uv_rects[0] == TexelRect::new(0.0, 0.0, 1.0, 1.0)
+        {
+            features |= CompositeFeatures::NO_UV_CLAMP;
+        }
+
+        if self.color == PremultipliedColorF::WHITE {
+            features |= CompositeFeatures::NO_COLOR_MODULATION
+        }
+
+        features
     }
 }
 
@@ -750,8 +766,11 @@ pub enum UvRectKind {
 pub struct ImageSource {
     pub p0: DevicePoint,
     pub p1: DevicePoint,
-    pub texture_layer: f32,
-    pub user_data: [f32; 3],
+    // TODO: It appears that only glyphs make use of user_data (to store glyph offset
+    // and scale).
+    // Perhaps we should separate the two so we don't have to push an empty unused vec4
+    // for all image sources.
+    pub user_data: [f32; 4],
     pub uv_rect_kind: UvRectKind,
 }
 
@@ -765,12 +784,7 @@ impl ImageSource {
             self.p1.x,
             self.p1.y,
         ]);
-        request.push([
-            self.texture_layer,
-            self.user_data[0],
-            self.user_data[1],
-            self.user_data[2],
-        ]);
+        request.push(self.user_data);
 
         // If this is a polygon uv kind, then upload the four vertices.
         if let UvRectKind::Quad { top_left, top_right, bottom_left, bottom_right } = self.uv_rect_kind {

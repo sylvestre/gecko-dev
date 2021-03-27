@@ -122,14 +122,15 @@ nsresult nsHttpAuthCache::SetAuthEntry(const char* scheme, const char* host,
 
   if (!node) {
     // create a new entry node and set the given entry
-    node = new nsHttpAuthNode();
-    LOG(("  new nsHttpAuthNode %p for key='%s'", node, key.get()));
+    auto node = UniquePtr<nsHttpAuthNode>(new nsHttpAuthNode);
+    LOG(("  new nsHttpAuthNode %p for key='%s'", node.get(), key.get()));
     rv = node->SetAuthEntry(path, realm, creds, challenge, ident, metadata);
-    if (NS_FAILED(rv))
-      delete node;
-    else
-      mDB.Put(key, node);
-    return rv;
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
+
+    mDB.InsertOrUpdate(key, std::move(node));
+    return NS_OK;
   }
 
   return node->SetAuthEntry(path, realm, creds, challenge, ident, metadata);
@@ -207,9 +208,7 @@ void nsHttpAuthCache::ClearOriginData(OriginAttributesPattern const& pattern) {
 }
 
 void nsHttpAuthCache::CollectKeys(nsTArray<nsCString>& aValue) {
-  for (auto iter = mDB.Iter(); !iter.Done(); iter.Next()) {
-    aValue.AppendElement(iter.Key());
-  }
+  AppendToArray(aValue, mDB.Keys());
 }
 
 //-----------------------------------------------------------------------------

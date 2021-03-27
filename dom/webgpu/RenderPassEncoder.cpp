@@ -57,7 +57,7 @@ ffi::WGPURenderPass* BeginRenderPass(
   ffi::WGPUDepthStencilAttachmentDescriptor dsDesc = {};
   if (aDesc.mDepthStencilAttachment.WasPassed()) {
     const auto& dsa = aDesc.mDepthStencilAttachment.Value();
-    dsDesc.attachment = dsa.mAttachment->mId;
+    dsDesc.attachment = dsa.mView->mId;
 
     if (dsa.mDepthLoadValue.IsFloat()) {
       dsDesc.depth.load_op = ffi::WGPULoadOp_Clear;
@@ -91,7 +91,7 @@ ffi::WGPURenderPass* BeginRenderPass(
   for (size_t i = 0; i < aDesc.mColorAttachments.Length(); ++i) {
     const auto& ca = aDesc.mColorAttachments[i];
     ffi::WGPUColorAttachmentDescriptor& cd = colorDescs[i];
-    cd.attachment = ca.mAttachment->mId;
+    cd.attachment = ca.mView->mId;
     cd.channel.store_op = ConvertStoreOp(ca.mStoreOp);
 
     if (ca.mResolveTarget.WasPassed()) {
@@ -130,11 +130,11 @@ RenderPassEncoder::RenderPassEncoder(CommandEncoder* const aParent,
                                      const dom::GPURenderPassDescriptor& aDesc)
     : ChildOf(aParent), mPass(BeginRenderPass(aParent->mId, aDesc)) {
   for (const auto& at : aDesc.mColorAttachments) {
-    mUsedTextureViews.AppendElement(at.mAttachment);
+    mUsedTextureViews.AppendElement(at.mView);
   }
   if (aDesc.mDepthStencilAttachment.WasPassed()) {
     mUsedTextureViews.AppendElement(
-        aDesc.mDepthStencilAttachment.Value().mAttachment);
+        aDesc.mDepthStencilAttachment.Value().mView);
   }
 }
 
@@ -162,11 +162,16 @@ void RenderPassEncoder::SetPipeline(const RenderPipeline& aPipeline) {
   }
 }
 
-void RenderPassEncoder::SetIndexBuffer(const Buffer& aBuffer, uint64_t aOffset,
-                                       uint64_t aSize) {
+void RenderPassEncoder::SetIndexBuffer(const Buffer& aBuffer,
+                                       const dom::GPUIndexFormat& aIndexFormat,
+                                       uint64_t aOffset, uint64_t aSize) {
   if (mValid) {
     mUsedBuffers.AppendElement(&aBuffer);
-    ffi::wgpu_render_pass_set_index_buffer(mPass, aBuffer.mId, aOffset, aSize);
+    const auto iformat = aIndexFormat == dom::GPUIndexFormat::Uint32
+                             ? ffi::WGPUIndexFormat_Uint32
+                             : ffi::WGPUIndexFormat_Uint16;
+    ffi::wgpu_render_pass_set_index_buffer(mPass, aBuffer.mId, iformat, aOffset,
+                                           aSize);
   }
 }
 

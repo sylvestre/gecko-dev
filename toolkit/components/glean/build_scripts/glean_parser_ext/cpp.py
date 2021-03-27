@@ -17,7 +17,7 @@ from glean_parser import util
 
 def cpp_datatypes_filter(value):
     """
-    A Jinja2 filter that renders Rust literals.
+    A Jinja2 filter that renders C++ literals.
 
     Based on Python's JSONEncoder, but overrides:
       - lists to array literals {}
@@ -55,7 +55,7 @@ def type_name(obj):
     if len(generate_enums):
         for name, suffix in generate_enums:
             if not len(getattr(obj, name)) and suffix == "Keys":
-                return util.Camelize(obj.type) + "Metric<uint32_t>"
+                return util.Camelize(obj.type) + "Metric<NoExtraKeys>"
             else:
                 return "{}Metric<{}>".format(
                     util.Camelize(obj.type), util.Camelize(obj.name) + suffix

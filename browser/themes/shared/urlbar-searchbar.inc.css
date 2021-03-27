@@ -4,78 +4,89 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 %endif
 
-%define fieldBorderColor hsla(240,5%,5%,.25)
 %define fieldHoverBorderColor hsla(240,5%,5%,.35)
 %define urlbarMarginInline 5px
-%define urlbarSearchButtonWidth calc(16px + 2 * @identityBoxPaddingInline@)
+%define urlbarSearchButtonWidth calc(16px + 2 * var(--urlbar-icon-padding))
 
 :root {
-  --toolbar-field-focus-border-color: -moz-accent-color;
-
-  /* 28x28 box - 16x16 image = 12x12 padding, 6 on each side */
-  --urlbar-icon-padding: 6px;
+  --toolbar-field-border-color: hsla(240,5%,5%,.25);
 }
+
+@supports not -moz-bool-pref("browser.proton.urlbar.enabled") {
+:root {
+  --toolbar-field-focus-border-color: -moz-accent-color;
+  /* px because it's used in calc */
+  --urlbar-container-padding: 0px;
+}
+} /*** END !proton ***/
 
 @supports -moz-bool-pref("browser.proton.urlbar.enabled") {
-/* Override this value in the default dark theme. This value should be moved
-    to default-theme/manifest.json when the Proton prefs are removed. */
-:root[lwt-default-theme-in-dark-mode] {
-  --lwt-toolbar-field-border-color: transparent !important;
-}
-/* TODO: Bug 1692046: Add --lwt-toolbar-field-background-color override for
-  [lwt-default-theme-in-dark-mode]. */
+:root {
+  --toolbar-field-focus-border-color: var(--focus-outline-color);
+  --urlbar-container-padding: 1px;
 }
 
-:root[uidensity=compact] {
-  /* 24x24 box - 16x16 image = 8x8 padding, 4 on each side */
-  --urlbar-icon-padding: 4px;
+@media not (prefers-contrast) {
+  :root {
+    --toolbar-field-focus-border-color: color-mix(in srgb, var(--focus-outline-color) 50%, transparent);
+  }
 }
-
-:root[uidensity=touch] {
-  /* 30x30 box - 16x16 image = 14x14 padding, 7 on each side */
-  --urlbar-icon-padding: 7px;
-}
+} /*** END proton ***/
 
 #urlbar-container,
 #search-container {
-  padding-block: 3px;
+  padding-block: 4px;
   margin-inline: @urlbarMarginInline@;
+}
+
+@supports -moz-bool-pref("browser.proton.enabled") {
+:root[uidensity=touch] #urlbar-container,
+:root[uidensity=touch] #search-container {
+  padding-block: 6px;
+}
 }
 
 #urlbar,
 #searchbar {
-  min-height: 30px;
+  min-height: var(--urlbar-min-height);
   text-shadow: none;
   color: FieldText;
 }
+
+@supports not -moz-bool-pref("browser.proton.enabled") {
+#urlbar-container,
+#search-container {
+  padding-block: 3px;
+}
+} /* END !proton */
 
 #urlbar-background,
 #searchbar {
   background-color: Field;
   background-clip: padding-box;
-  border: 1px solid @fieldBorderColor@;
+  border: 1px solid var(--toolbar-field-border-color);
   border-radius: var(--toolbarbutton-border-radius);
 }
-
 
 @supports -moz-bool-pref("browser.proton.urlbar.enabled") {
 #urlbar-background,
 #searchbar {
   border-color: transparent;
+  background-clip: border-box;
 }
 
-#urlbar:not([open]) > #urlbar-background,
-#searchbar {
+#urlbar:not([focused="true"]) > #urlbar-background,
+#searchbar:not(:focus-within) {
   background-color: var(--toolbar-field-non-lwt-bgcolor, Field);
 }
-}
+} /*** END proton ***/
 
 @supports not -moz-bool-pref("browser.proton.urlbar.enabled") {
 #urlbar-background,
 #searchbar {
   box-shadow: 0 1px 4px rgba(0,0,0,.05);
 }
-}
+} /*** END !proton ***/
 
 #urlbar-input-container,
 #searchbar {
@@ -101,12 +112,45 @@
   border-color: @fieldHoverBorderColor@;
   box-shadow: 0 1px 6px rgba(0,0,0,.1);
 }
-}
 
 #urlbar[focused="true"] > #urlbar-background,
 #searchbar:focus-within {
   border-color: var(--toolbar-field-focus-border-color);
 }
+} /*** END !proton ***/
+
+@supports -moz-bool-pref("browser.proton.urlbar.enabled") {
+#urlbar[focused="true"]:not([suppress-focus-border]) > #urlbar-background {
+  border: var(--focus-outline);
+  /* We used --focus-outline above to inherit its width and style properties,
+     but we still want to use the theme's border-color.
+     --toolbar-field-focus-border-color is set equal to --focus-outline-color
+     on :root, but LWT themes can override this value. */
+  border-color: var(--toolbar-field-focus-border-color);
+}
+
+#urlbar[focused="true"] > #urlbar-background {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.13);
+}
+
+#urlbar[focused="true"][open] > #urlbar-background {
+  border-color: var(--arrowpanel-border-color);
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.13);
+}
+
+/* We draw the searchbar's border as a combination of its 1px unfocused border
+   and a 1px inset box-shadow. If we did it all as a border, the searchbar's
+   contents would shift when its border-width expanded by 1px when focused.
+   Removing the border when focused would also shift contents. #urlbar gets
+   around this problem by applying its border to #urlbar-background, which is
+   positioned absolutely. We don't plan on changing the searchbar's UX
+   significantly, so it's better to avoid that extra complexity. */
+#searchbar:focus-within {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.13),
+              0 0 0 1px var(--toolbar-field-focus-border-color) inset;
+  border-color: var(--toolbar-field-focus-border-color);
+}
+} /*** END proton ***/
 
 #urlbar:-moz-lwtheme,
 #navigator-toolbox #searchbar:-moz-lwtheme {
@@ -120,7 +164,7 @@
 
 #urlbar:not([focused="true"]):-moz-lwtheme > #urlbar-background,
 #navigator-toolbox #searchbar:not(:focus-within):-moz-lwtheme {
-  border-color: var(--lwt-toolbar-field-border-color, @fieldBorderColor@);
+  border-color: var(--lwt-toolbar-field-border-color, var(--toolbar-field-border-color));
 }
 
 #urlbar:not([focused="true"]):-moz-lwtheme:hover > #urlbar-background,
@@ -193,6 +237,7 @@
 #urlbar-input-container {
   /* Match urlbar-background's border. */
   border: 1px solid transparent;
+  padding: var(--urlbar-container-padding);
 }
 
 #urlbar-container[breakout] {
@@ -233,6 +278,15 @@
   width: calc(100% + 2 * @urlbarMarginInline@ + 2 * @urlbarBreakoutExtend@);
 }
 
+@supports -moz-bool-pref("browser.proton.urlbar.enabled") {
+#urlbar[breakout][breakout-extend] {
+  top: 0;
+  left: -@urlbarMarginInline@;
+  width: calc(100% + 2 * @urlbarMarginInline@);
+}
+} /*** END proton ***/
+
+@supports not -moz-bool-pref("browser.proton.urlbar.enabled") {
 #urlbar[breakout][breakout-extend] > #urlbar-background {
   box-shadow: 0 3px 8px 0 rgba(0,0,0,.15)
 }
@@ -240,12 +294,21 @@
 #urlbar[breakout][breakout-extend][open] > #urlbar-background {
   box-shadow: 0 5px 18px rgba(0,0,0,.2);
 }
+} /*** END !proton ***/
 
 #urlbar[breakout][breakout-extend] > #urlbar-input-container {
   height: calc(var(--urlbar-toolbar-height) + 2 * @urlbarBreakoutExtend@);
   padding-block: calc(@urlbarBreakoutExtend@ + (var(--urlbar-toolbar-height) - var(--urlbar-height)) / 2);
   padding-inline: calc(@urlbarMarginInline@ + @urlbarBreakoutExtend@);
 }
+
+@supports -moz-bool-pref("browser.proton.urlbar.enabled") {
+#urlbar[breakout][breakout-extend] > #urlbar-input-container {
+  height: var(--urlbar-toolbar-height);
+  padding-block: calc((var(--urlbar-toolbar-height) - var(--urlbar-height)) / 2 + var(--urlbar-container-padding));
+  padding-inline: calc(@urlbarMarginInline@ + var(--urlbar-container-padding));
+}
+} /*** END proton ***/
 
 #urlbar.searchButton[breakout][breakout-extend] > #urlbar-input-container > #urlbar-search-button {
   fill: currentColor;
@@ -271,16 +334,6 @@
   #urlbar[breakout][breakout-extend][breakout-extend-animate] > #urlbar-background {
     animation-duration: 150ms;
   }
-}
-
-:root[uidensity=compact] #urlbar,
-:root[uidensity=compact] #searchbar {
-  min-height: 26px;
-}
-
-:root[uidensity=touch] #urlbar,
-:root[uidensity=touch] #searchbar {
-  min-height: 32px;
 }
 
 :root[chromehidden~="toolbar"] #urlbar-container {
@@ -310,18 +363,22 @@
 /* Urlbar search mode indicator */
 #urlbar-search-mode-indicator {
   display: none;
-  -moz-outline-radius: 2px;
+  background-color: var(--urlbar-box-bgcolor);
   margin-inline-end: 8px;
-  min-width: 16px; /* So the close button never causes motion */
   align-items: center;
+  border-radius: var(--toolbarbutton-border-radius);
+  padding-inline: 8px 3px;
+}
 
+@supports not -moz-bool-pref("browser.proton.urlbar.enabled") {
+#urlbar-search-mode-indicator {
+  -moz-outline-radius: 2px;
+  min-width: 16px; /* So the close button never causes motion */
   background-color: #d6ebff;
   outline: 1px solid #0060df; /* Blue 60 */
   color: #0060df; /* Blue 60 */
-}
-
-#urlbar[searchmode][breakout-extend] > #urlbar-input-container > #urlbar-search-mode-indicator {
-  display: inline-flex;
+  border-radius: 0;
+  padding-inline: 0;
 }
 
 /* Invert the colors in the search mode indicator in dark mode. */
@@ -329,6 +386,11 @@
   background-color: #0060df;
   outline-color: #d6ebff;
   color: #d6ebff;
+}
+} /*** END !proton ***/
+
+#urlbar[searchmode][breakout-extend] > #urlbar-input-container > #urlbar-search-mode-indicator {
+  display: inline-flex;
 }
 
 /* Use system colors for low/high contrast mode */
@@ -341,58 +403,68 @@
 }
 
 #urlbar-search-mode-indicator-title {
-  padding-inline: 5px;
+  padding-inline: 0 4px;
+  opacity: var(--identity-box-label-opacity);
 }
+@supports not -moz-bool-pref("browser.proton.urlbar.enabled") {
+#urlbar-search-mode-indicator-title {
+  padding-inline: 5px;
+  opacity: 1;
+}
+} /*** END !proton ***/
 
 #urlbar-search-mode-indicator-close {
-  display: none;
   background: url(chrome://global/skin/icons/close.svg) no-repeat center;
-  background-size: 100% 16px;
+  background-size: 14px 14px;
   width: 16px;
   height: 100%;
+  -moz-context-properties: fill, fill-opacity;
+  fill-opacity: 0.6;
+  stroke-opacity: var(--identity-box-label-opacity);
+  fill: var(--lwt-toolbar-field-focus-color);
+}
+
+@supports -moz-bool-pref("browser.proton.urlbar.enabled") {
+#urlbar-search-mode-indicator-close {
+  height: 16px;
+  border-radius: var(--toolbarbutton-border-radius);
+}
+#urlbar-search-mode-indicator-close:hover {
+  background-color: hsla(0,0%,70%,.2);
+}
+#urlbar-search-mode-indicator-close:hover:active {
+  background-color: hsla(0,0%,70%,.3);
+}
+} /*** END proton ***/
+
+@media (prefers-contrast) {
+  #urlbar-search-mode-indicator-close {
+    fill-opacity: 1.0;
+  }
+  @supports -moz-bool-pref("browser.proton.urlbar.enabled") {
+  #urlbar-search-mode-indicator-close {
+    fill: HighlightText;
+  }
+  } /*** END proton ***/
+}
+
+@supports not -moz-bool-pref("browser.proton.urlbar.enabled") {
+#urlbar-search-mode-indicator-close {
+  display: none;
   margin-inline-start: -16px;
-  -moz-context-properties: fill, fill-opacity, stroke-opacity;
-  fill-opacity: 0;
-  stroke-opacity: 0.6;
-  /* fill and background-color should match the urlbar focused color and
-     background. */
-  fill: FieldText;
+  /* background-color should match the urlbar background. */
   background-color: Field;
 }
 
 #urlbar-search-mode-indicator-close:-moz-lwtheme {
-  /* fill and background-color should match the urlbar focused color and
-     background. */
-  fill: var(--lwt-toolbar-field-focus-color);
+  /* Background-color should match the urlbar background. */
   background-color: var(--lwt-toolbar-field-focus);
-}
-
-@media (prefers-contrast) {
-  #urlbar-search-mode-indicator-close {
-    stroke-opacity: 1.0;
-  }
 }
 
 #urlbar-search-mode-indicator:hover > #urlbar-search-mode-indicator-close {
   display: block;
 }
-
-@supports -moz-bool-pref("browser.urlbar.experimental.searchModeIndicatorHover") {
-  #urlbar-search-mode-indicator-close:hover {
-    background-color: #ededf0; /* Grey 20 */
-  }
-  #urlbar-search-mode-indicator-close:hover:active {
-    background-color: #d7d7db; /* Grey 30 */
-  }
-
-  :root[lwt-toolbar-field-brighttext] #urlbar-search-mode-indicator-close:hover {
-    background-color: #737373; /* Grey 50 */
-  }
-
-  :root[lwt-toolbar-field-brighttext] #urlbar-search-mode-indicator-close:hover:active {
-    background-color: #b1b1b3; /* Grey 40 */
-  }
-}
+} /*** END !proton ***/
 
 /* Page action panel */
 .pageAction-panel-button > .toolbarbutton-icon {
@@ -411,18 +483,6 @@
 #star-button[starred] {
   fill-opacity: 1;
   fill: var(--toolbarbutton-icon-fill-attention);
-}
-
-#pocket-button,
-#pageAction-panel-pocket {
-  list-style-image: url("chrome://browser/skin/pocket-outline.svg");
-}
-
-#pocket-button[open="true"],
-#pocket-button[pocketed="true"] {
-  list-style-image: url("chrome://browser/skin/pocket.svg");
-  fill: #ef4056;
-  fill-opacity: 1;
 }
 
 #pageAction-panel-pinTab,
@@ -500,16 +560,16 @@
   min-height: 11px;
 }
 
-#pageActionActivatedActionPanel[actionID="pocket"] {
-  --arrowpanel-background: #fbfbfb;
-}
-
 /* URL bar and page action buttons */
 
-#page-action-buttons {
-  -moz-box-align: center;
+@supports -moz-bool-pref("browser.proton.urlbar.enabled") {
+#pageActionSeparator {
+  /* Just remove this element once Proton is released */
+  display: none;
 }
+} /*** END proton ***/
 
+@supports not -moz-bool-pref("browser.proton.urlbar.enabled") {
 #pageActionSeparator {
   /* This draws the separator the same way that #urlbar-label-box draws its
      left and right borders, which end up looking like separators.  It might not
@@ -519,16 +579,7 @@
   border-image: linear-gradient(transparent 15%, var(--urlbar-separator-color) 15%, var(--urlbar-separator-color) 85%, transparent 85%);
   border-image-slice: 1;
   width: 1px;
-  height: 28px;
   visibility: hidden;
-}
-
-:root[uidensity=compact] #pageActionSeparator {
-  height: 24px;
-}
-
-:root[uidensity=touch] #pageActionSeparator {
-  height: 30px;
 }
 
 #page-action-buttons > :not([hidden], toolbartabstop) ~ #pageActionSeparator {
@@ -537,6 +588,7 @@
   visibility: visible;
   margin-inline: 6px;
 }
+} /*** END !proton ***/
 
 #userContext-icons,
 #urlbar-zoom-button {
@@ -544,8 +596,8 @@
 }
 
 .urlbar-icon {
-  width: 28px;
-  height: 28px;
+  width: calc(var(--urlbar-min-height) - 2px /* border */ - 2 * var(--urlbar-container-padding));
+  height: calc(var(--urlbar-min-height) - 2px /* border */ - 2 * var(--urlbar-container-padding));
   padding: var(--urlbar-icon-padding);
   -moz-context-properties: fill, fill-opacity;
   fill: currentColor;
@@ -553,18 +605,30 @@
   color: inherit;
 }
 
-.urlbar-page-action[disabled] {
-  fill-opacity: 0.3;
+.urlbar-icon,
+.urlbar-icon-wrapper {
+  border-radius: var(--toolbarbutton-border-radius);
 }
 
 :root[uidensity=compact] .urlbar-icon {
-  width: 24px;
-  height: 24px;
+  margin-inline: 1px;
 }
 
-:root[uidensity=touch] .urlbar-icon {
-  width: 30px;
-  height: 30px;
+@supports not -moz-bool-pref("browser.proton.urlbar.enabled") {
+.urlbar-icon {
+  width: calc(var(--urlbar-min-height) - 2px);
+  height: calc(var(--urlbar-min-height) - 2px);
+  margin-inline: 0;
+}
+
+.urlbar-icon,
+.urlbar-icon-wrapper {
+  border-radius: 0;
+}
+} /*** END !proton ***/
+
+.urlbar-page-action[disabled] {
+  fill-opacity: 0.3;
 }
 
 :not(.urlbar-icon-wrapper) > .urlbar-icon:not([disabled]):hover,
@@ -608,15 +672,6 @@
     }
     to {
       transform: translateX(-627px);
-    }
-  }
-
-  @keyframes bookmark-animation-rtl {
-    from {
-      transform: scaleX(-1) translateX(0);
-    }
-    to {
-      transform: scaleX(-1) translateX(-627px);
     }
   }
 
@@ -676,7 +731,7 @@
   }
 
   #star-button[starred][animate]:-moz-locale-dir(rtl) + #star-button-animatable-box > #star-button-animatable-image {
-    animation-name: bookmark-animation-rtl;
+    scale: -1 1;
   }
 }
 
@@ -763,6 +818,8 @@
   transition-property: background-color, mask-position-x, width, margin-inline-end;
   transition-timing-function: ease-in-out, ease-in-out, step-end, step-end;
   transition-duration: var(--cfr-animation-duration);
+  -moz-box-align: center;
+  margin-block: calc((var(--urlbar-min-height) - var(--urlbar-container-padding) - 2px /* border */ - 24px) / 2);
 }
 #cfr-label-container:-moz-locale-dir(rtl) {
   mask-position-x: calc(var(--cfr-label-width) * -1);
@@ -815,7 +872,7 @@
 /* Reader mode icon */
 
 #reader-mode-button {
-  list-style-image: url(chrome://browser/skin/readerMode.svg);
+  list-style-image: url(chrome://browser/skin/reader-mode.svg);
 }
 
 #reader-mode-button[readeractive] {
@@ -829,10 +886,19 @@
   appearance: none;
   color: inherit;
   font-size: .8em;
-  padding: 0 8px;
-  border-radius: 1em;
-  background-color: hsla(0,0%,0%,.05);
-  border: 1px solid hsla(210,4%,50%,.3);
+  padding: 3px 7px;
+  border-radius: var(--toolbarbutton-border-radius);
+  background-color: var(--urlbar-box-bgcolor);
+  margin-block: calc((var(--urlbar-min-height) - 20px) / 2 - 1px /* border */ - var(--urlbar-container-padding));
+  overflow: hidden;
+}
+
+#urlbar-zoom-button:hover {
+  background-color: var(--urlbar-box-hover-bgcolor);
+}
+
+#urlbar-zoom-button:hover:active {
+  background-color: var(--urlbar-box-active-bgcolor);
 }
 
 @keyframes urlbar-zoom-reset-pulse {
@@ -852,25 +918,27 @@
   animation-duration: 250ms;
 }
 
+@supports not -moz-bool-pref("browser.proton.urlbar.enabled") {
+#urlbar-zoom-button {
+  background-color: hsla(0,0%,0%,.05);
+  border: 1px solid hsla(210,4%,50%,.3);
+  border-radius: 1em;
+  padding: 0 8px;
+  margin-block: calc((var(--urlbar-min-height) - 18px) / 2  - 1px /* border */ - var(--urlbar-container-padding));
+}
+
 #urlbar-zoom-button:hover {
-  background-color: hsla(0,0%,0%,.1);
+  background-color: color-mix(in srgb, currentColor 10%, transparent);
 }
 
 #urlbar-zoom-button:hover:active {
-  background-color: hsla(0,0%,0%,.15);
+  background-color: color-mix(in srgb, currentColor 17%, transparent);
 }
-
-:root[lwt-toolbar-field-brighttext] #urlbar-zoom-button:hover {
-  background-color: rgba(255,255,255,.2);
-}
-
-:root[lwt-toolbar-field-brighttext] #urlbar-zoom-button:hover:active {
-  background-color: rgba(255,255,255,.3);
-}
+} /*** END !proton ***/
 
 #urlbar-zoom-button:-moz-focusring {
   outline: var(--toolbarbutton-focus-outline);
-  outline-offset: unset;
+  outline-offset: calc(var(--focus-outline-width) * -1);
   -moz-outline-radius: 1em;
 }
 
@@ -936,4 +1004,52 @@
 
 .searchbar-search-button:hover:not([addengines=true]) > .searchbar-search-icon-overlay:-moz-locale-dir(rtl) {
   margin-inline: -26px 20px;
+}
+
+.searchbar-engine-one-off-add-engine:not([image]),
+moz-input-box > menupopup .context-menu-add-engine:not([image]) {
+  list-style-image: url("chrome://browser/skin/search-engine-placeholder.png");
+}
+
+@media (min-resolution: 1.1dppx) {
+  .searchbar-engine-one-off-add-engine:not([image]),
+  moz-input-box > menupopup .context-menu-add-engine:not([image]) {
+    list-style-image: url("chrome://browser/skin/search-engine-placeholder@2x.png");
+  }
+}
+
+.searchbar-engine-one-off-add-engine > .button-box::after,
+moz-input-box > menupopup .context-menu-add-engine > .menu-iconic-left::after {
+  content: "";
+  position: relative;
+  display: -moz-box;
+  background: url(chrome://browser/skin/search-indicator-badge-add.svg) no-repeat center;
+  height: 11px;
+  width: 11px;
+  margin-inline: -4px -7px;
+  margin-top: -13px;
+}
+
+#urlbar .searchbar-separator {
+  display: none;
+}
+
+#urlbar .search-one-offs {
+  border-top: 1px solid var(--panel-separator-color);
+}
+
+moz-input-box > menupopup .context-menu-add-engine > .menu-iconic-left::after {
+  /* These differ from the urlbar and searchbar because the context menu
+     may not have enough space */
+  margin-inline: -7px -4px;
+  margin-top: -8px;
+}
+
+/* Fade a little the icon so that the + badge is more evident and the button
+   is less likely to be visually confused with a normal search shortcut */
+.searchbar-engine-one-off-add-engine[image]:not(:hover) > .button-box > .button-icon {
+  opacity: 0.7;
+}
+.searchbar-engine-one-off-add-engine[image]:hover > .button-box > .button-icon {
+  opacity: 1;
 }

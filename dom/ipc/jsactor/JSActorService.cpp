@@ -128,26 +128,26 @@ void JSActorService::UnregisterWindowActor(const nsACString& aName) {
     if (XRE_IsParentProcess()) {
       for (auto* cp : ContentParent::AllProcesses(ContentParent::eLive)) {
         Unused << cp->SendUnregisterJSWindowActor(name);
-        for (auto& bp : cp->ManagedPBrowserParent()) {
-          for (auto& wgp : bp.GetKey()->ManagedPWindowGlobalParent()) {
-            managers.AppendElement(
-                static_cast<WindowGlobalParent*>(wgp.GetKey()));
+        for (const auto& bp : cp->ManagedPBrowserParent()) {
+          for (const auto& wgp : bp->ManagedPWindowGlobalParent()) {
+            managers.AppendElement(static_cast<WindowGlobalParent*>(wgp));
           }
         }
       }
 
-      for (auto& wgp :
+      for (const auto& wgp :
            InProcessParent::Singleton()->ManagedPWindowGlobalParent()) {
-        managers.AppendElement(static_cast<WindowGlobalParent*>(wgp.GetKey()));
+        managers.AppendElement(static_cast<WindowGlobalParent*>(wgp));
       }
-      for (auto& wgc :
+      for (const auto& wgc :
            InProcessChild::Singleton()->ManagedPWindowGlobalChild()) {
-        managers.AppendElement(static_cast<WindowGlobalChild*>(wgc.GetKey()));
+        managers.AppendElement(static_cast<WindowGlobalChild*>(wgc));
       }
     } else {
-      for (auto& bc : ContentChild::GetSingleton()->ManagedPBrowserChild()) {
-        for (auto& wgc : bc.GetKey()->ManagedPWindowGlobalChild()) {
-          managers.AppendElement(static_cast<WindowGlobalChild*>(wgc.GetKey()));
+      for (const auto& bc :
+           ContentChild::GetSingleton()->ManagedPBrowserChild()) {
+        for (const auto& wgc : bc->ManagedPWindowGlobalChild()) {
+          managers.AppendElement(static_cast<WindowGlobalChild*>(wgc));
         }
       }
     }
@@ -169,7 +169,7 @@ void JSActorService::LoadJSActorInfos(nsTArray<JSProcessActorInfo>& aProcess,
     auto name = info.name();
     RefPtr<JSProcessActorProtocol> proto =
         JSProcessActorProtocol::FromIPC(std::move(info));
-    mProcessActorDescriptors.Put(std::move(name), RefPtr{proto});
+    mProcessActorDescriptors.InsertOrUpdate(std::move(name), RefPtr{proto});
 
     // Add observers for each actor.
     proto->AddObservers();
@@ -179,7 +179,7 @@ void JSActorService::LoadJSActorInfos(nsTArray<JSProcessActorInfo>& aProcess,
     auto name = info.name();
     RefPtr<JSWindowActorProtocol> proto =
         JSWindowActorProtocol::FromIPC(std::move(info));
-    mWindowActorDescriptors.Put(std::move(name), RefPtr{proto});
+    mWindowActorDescriptors.InsertOrUpdate(std::move(name), RefPtr{proto});
 
     // Register listeners for each chrome target.
     for (EventTarget* target : mChromeEventTargets) {
@@ -196,9 +196,8 @@ void JSActorService::GetJSWindowActorInfos(
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(XRE_IsParentProcess());
 
-  for (auto iter = mWindowActorDescriptors.ConstIter(); !iter.Done();
-       iter.Next()) {
-    aInfos.AppendElement(iter.Data()->ToIPC());
+  for (const auto& data : mWindowActorDescriptors.Values()) {
+    aInfos.AppendElement(data->ToIPC());
   }
 }
 
@@ -207,8 +206,8 @@ void JSActorService::RegisterChromeEventTarget(EventTarget* aTarget) {
   mChromeEventTargets.AppendElement(aTarget);
 
   // Register event listeners on the newly added Window Root.
-  for (auto iter = mWindowActorDescriptors.Iter(); !iter.Done(); iter.Next()) {
-    iter.Data()->RegisterListenersFor(aTarget);
+  for (const auto& data : mWindowActorDescriptors.Values()) {
+    data->RegisterListenersFor(aTarget);
   }
 
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
@@ -305,9 +304,8 @@ void JSActorService::GetJSProcessActorInfos(
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(XRE_IsParentProcess());
 
-  for (auto iter = mProcessActorDescriptors.ConstIter(); !iter.Done();
-       iter.Next()) {
-    aInfos.AppendElement(iter.Data()->ToIPC());
+  for (const auto& data : mProcessActorDescriptors.Values()) {
+    aInfos.AppendElement(data->ToIPC());
   }
 }
 

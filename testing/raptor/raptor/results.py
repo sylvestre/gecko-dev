@@ -10,6 +10,7 @@ import json
 import os
 import shutil
 from abc import ABCMeta, abstractmethod
+from io import open
 
 import six
 from logger.logger import RaptorLogger
@@ -229,7 +230,7 @@ class PerftestResultsHandler(object):
         )
         LOG.info("Validating PERFHERDER_DATA against %s" % schema_path)
         try:
-            with open(schema_path) as f:
+            with open(schema_path, encoding="utf-8") as f:
                 schema = json.load(f)
             if output.summarized_results:
                 data = output.summarized_results
@@ -553,7 +554,7 @@ class BrowsertimeResultsHandler(PerftestResultsHandler):
                 vismet_result["statistics"] = raw_result["statistics"]["visualMetrics"]
                 results.append(vismet_result)
 
-            custom_types = raw_result["browserScripts"][0].get("custom")
+            custom_types = raw_result["extras"][0]
             if custom_types:
                 for custom_type in custom_types:
                     bt_result["measurements"].update(
@@ -573,9 +574,6 @@ class BrowsertimeResultsHandler(PerftestResultsHandler):
                         )
                         and bt in ("fnbpaint", "dcf")
                     ):
-                        continue
-                    # fennec doesn't support 'fcp'
-                    if self.app and "fennec" in self.app.lower() and bt == "fcp":
                         continue
 
                     # FCP uses a different path to get the timing, so we need to do
@@ -673,7 +671,7 @@ class BrowsertimeResultsHandler(PerftestResultsHandler):
                 return False
 
             try:
-                with open(bt_res_json, "r") as f:
+                with open(bt_res_json, "r", encoding="utf8") as f:
                     raw_btresults = json.load(f)
             except Exception as e:
                 LOG.error("Exception reading %s" % bt_res_json)

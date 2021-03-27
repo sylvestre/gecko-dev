@@ -506,9 +506,8 @@ strong {
   list-style-image: none;
   -moz-context-properties: fill;
   fill: currentColor;
-  background: url(chrome://global/skin/icons/check.svg) no-repeat transparent;
-  background-size: 11px 11px;
-  background-position: center left 7px;
+  background: url(chrome://devtools/skin/images/check.svg) no-repeat transparent;
+  background-position: 7px center;
 }
 
 .tooltip-container[type="doorhanger"] .menuitem > .command[aria-checked="true"]:-moz-locale-dir(rtl),

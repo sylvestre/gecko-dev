@@ -51,7 +51,8 @@ const PanelUI = {
   _notifications: null,
   _notificationPanel: null,
 
-  init() {
+  init(shouldSuppress) {
+    this._shouldSuppress = shouldSuppress;
     this._initElements();
 
     this.menuButton.addEventListener("mousedown", this);
@@ -82,7 +83,7 @@ const PanelUI = {
           window.removeEventListener("fullscreen", this);
         }
 
-        this._updateNotifications(false);
+        this.updateNotifications(false);
       },
       autoHidePref => autoHidePref && Services.appinfo.OS !== "Darwin"
     );
@@ -97,7 +98,7 @@ const PanelUI = {
     XPCOMUtils.defineLazyPreferenceGetter(
       this,
       "protonAppMenuEnabled",
-      "browser.proton.appmenu.enabled",
+      "browser.proton.enabled",
       false
     );
 
@@ -265,7 +266,7 @@ const PanelUI = {
     switch (topic) {
       case "fullscreen-nav-toolbox":
         if (this._notifications) {
-          this._updateNotifications(false);
+          this.updateNotifications(false);
         }
         break;
       case "appMenu-notifications":
@@ -274,7 +275,7 @@ const PanelUI = {
           break;
         }
         this._notifications = AppMenuNotifications.notifications;
-        this._updateNotifications(true);
+        this.updateNotifications(true);
         break;
       case "show-update-progress":
         openAboutDialog();
@@ -302,7 +303,7 @@ const PanelUI = {
         }
       // Fall through
       case "popuphidden":
-        this._updateNotifications();
+        this.updateNotifications();
         this._updatePanelButton(aEvent.target);
         if (aEvent.type == "popuphidden") {
           CustomizableUI.removePanelCloseListeners(this.panel);
@@ -328,7 +329,7 @@ const PanelUI = {
       case "MozDOMFullscreen:Exited":
       case "fullscreen":
       case "activate":
-        this._updateNotifications();
+        this.updateNotifications();
         break;
       case "ViewShowing":
         if (aEvent.target == this.whatsNewPanel) {
@@ -665,8 +666,20 @@ const PanelUI = {
    * on the state of the panel.
    */
   _updatePanelButton() {
-    this.menuButton.open =
-      this.panel.state == "open" || this.panel.state == "showing";
+    let { state } = this.panel;
+    if (state == "open" || state == "showing") {
+      this.menuButton.open = true;
+      document.l10n.setAttributes(
+        this.menuButton,
+        "appmenu-menu-button-opened"
+      );
+    } else {
+      this.menuButton.open = false;
+      document.l10n.setAttributes(
+        this.menuButton,
+        "appmenu-menu-button-closed"
+      );
+    }
   },
 
   _onHelpViewShow(aEvent) {
@@ -675,7 +688,15 @@ const PanelUI = {
 
     let helpMenu = document.getElementById("menu_HelpPopup");
     let items = this.getElementsByTagName("vbox")[0];
-    let attrs = ["command", "oncommand", "onclick", "key", "disabled"];
+    let attrs = [
+      "command",
+      "oncommand",
+      "onclick",
+      "key",
+      "disabled",
+      "accesskey",
+      "label",
+    ];
 
     // Remove all buttons from the view
     while (items.firstChild) {
@@ -703,7 +724,9 @@ const PanelUI = {
       // We have AppMenu-specific strings for the Help menu. By convention,
       // their localization IDs are set on "appmenu-data-l10n-id" attributes.
       let l10nId = node.getAttribute("appmenu-data-l10n-id");
-      button.setAttribute("data-l10n-id", l10nId);
+      if (l10nId) {
+        button.setAttribute("data-l10n-id", l10nId);
+      }
 
       if (node.id) {
         button.id = "appMenu_" + node.id;
@@ -720,33 +743,21 @@ const PanelUI = {
       }
       fragment.appendChild(button);
     }
-    items.appendChild(fragment);
-  },
 
-  _updateQuitTooltip() {
-    if (AppConstants.platform == "win") {
-      return;
+    // The Enterprise Support menu item has a different location than its
+    // placement in the menubar, so we need to specify it here.
+    let helpPolicySupport = fragment.querySelector(
+      "#appMenu_helpPolicySupport"
+    );
+    if (helpPolicySupport) {
+      fragment.insertBefore(
+        helpPolicySupport,
+        fragment.querySelector("#appMenu_menu_HelpPopup_reportPhishingtoolmenu")
+          .nextSibling
+      );
     }
 
-    let tooltipId =
-      AppConstants.platform == "macosx"
-        ? "quit-button.tooltiptext.mac"
-        : "quit-button.tooltiptext.linux2";
-
-    let brands = Services.strings.createBundle(
-      "chrome://branding/locale/brand.properties"
-    );
-    let stringArgs = [brands.GetStringFromName("brandShortName")];
-
-    let key = document.getElementById("key_quitApplication");
-    stringArgs.push(ShortcutUtils.prettifyShortcut(key));
-    let tooltipString = CustomizableUI.getLocalizedProperty(
-      { x: tooltipId },
-      "x",
-      stringArgs
-    );
-    let quitButton = document.getElementById("PanelUI-quit");
-    quitButton.setAttribute("tooltiptext", tooltipString);
+    items.appendChild(fragment);
   },
 
   _hidePopup() {
@@ -759,7 +770,7 @@ const PanelUI = {
     }
   },
 
-  _updateNotifications(notificationsChanged) {
+  updateNotifications(notificationsChanged) {
     let notifications = this._notifications;
     if (!notifications || !notifications.length) {
       if (notificationsChanged) {
@@ -771,7 +782,8 @@ const PanelUI = {
 
     if (
       (window.fullScreen && FullScreen.navToolboxHidden) ||
-      document.fullscreenElement
+      document.fullscreenElement ||
+      this._shouldSuppress()
     ) {
       this._hidePopup();
       return;
@@ -782,8 +794,10 @@ const PanelUI = {
     );
 
     if (this.panel.state == "showing" || this.panel.state == "open") {
-      // If the menu is already showing, then we need to dismiss all notifications
-      // since we don't want their doorhangers competing for attention
+      // If the menu is already showing, then we need to dismiss all
+      // notifications since we don't want their doorhangers competing for
+      // attention. Don't hide the badge though; it isn't really in competition
+      // with anything.
       doorhangers.forEach(n => {
         n.dismissed = true;
         if (n.options.onDismissed) {
@@ -791,7 +805,6 @@ const PanelUI = {
         }
       });
       this._hidePopup();
-      this._clearBadge();
       if (!notifications[0].options.badgeOnly) {
         this._showBannerItem(notifications[0]);
       }

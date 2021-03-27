@@ -11,15 +11,17 @@ const TEST_URI = `data:text/html;charset=utf-8,<style>${encodeURIComponent(
 )}</style>`;
 
 add_task(async function() {
-  const target = await addTabTarget(TEST_URI);
+  const browser = await addTab(TEST_URI);
+  const tab = gBrowser.getTabForBrowser(browser);
 
   const {
     ResourceWatcher,
   } = require("devtools/shared/resources/resource-watcher");
-  const { TargetList } = require("devtools/shared/resources/target-list");
 
-  const targetList = new TargetList(target.client.mainRoot, target);
+  const commands = await CommandsFactory.forTab(tab);
+  const targetList = commands.targetCommand;
   await targetList.startListening();
+  const target = targetList.targetFront;
   const resourceWatcher = new ResourceWatcher(targetList);
 
   const styleSheetsFront = await target.getFront("stylesheets");

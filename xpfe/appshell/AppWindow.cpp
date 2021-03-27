@@ -11,13 +11,13 @@
 #include <algorithm>
 
 // Helper classes
-#include "GeckoProfiler.h"
 #include "nsPrintfCString.h"
 #include "nsString.h"
 #include "nsWidgetsCID.h"
 #include "nsThreadUtils.h"
 #include "nsNetCID.h"
 #include "nsQueryObject.h"
+#include "mozilla/ProfilerLabels.h"
 #include "mozilla/Sprintf.h"
 
 // Interfaces needed to be included
@@ -2911,6 +2911,15 @@ void AppWindow::FinishFullscreenChange(bool aInFullscreen) {
   }
 }
 
+void AppWindow::MacFullscreenMenubarOverlapChanged(
+    mozilla::DesktopCoord aOverlapAmount) {
+  if (mDocShell) {
+    if (nsCOMPtr<nsPIDOMWindowOuter> ourWindow = mDocShell->GetWindow()) {
+      ourWindow->MacFullscreenMenubarOverlapChanged(aOverlapAmount);
+    }
+  }
+}
+
 void AppWindow::OcclusionStateChanged(bool aIsFullyOccluded) {
   nsCOMPtr<nsPIDOMWindowOuter> ourWindow =
       mDocShell ? mDocShell->GetWindow() : nullptr;
@@ -3295,6 +3304,12 @@ void AppWindow::WidgetListenerDelegate::FullscreenWillChange(
 void AppWindow::WidgetListenerDelegate::FullscreenChanged(bool aInFullscreen) {
   RefPtr<AppWindow> holder = mAppWindow;
   holder->FullscreenChanged(aInFullscreen);
+}
+
+void AppWindow::WidgetListenerDelegate::MacFullscreenMenubarOverlapChanged(
+    DesktopCoord aOverlapAmount) {
+  RefPtr<AppWindow> holder = mAppWindow;
+  return holder->MacFullscreenMenubarOverlapChanged(aOverlapAmount);
 }
 
 void AppWindow::WidgetListenerDelegate::OcclusionStateChanged(

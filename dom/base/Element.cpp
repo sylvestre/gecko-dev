@@ -1014,10 +1014,7 @@ already_AddRefed<DOMRect> Element::GetBoundingClientRect() {
     return rect.forget();
   }
 
-  nsRect r = nsLayoutUtils::GetAllInFlowRectsUnion(
-      frame, nsLayoutUtils::GetContainingBlockForClientRect(frame),
-      nsLayoutUtils::RECTS_ACCOUNT_FOR_TRANSFORMS);
-  rect->SetLayoutRect(r);
+  rect->SetLayoutRect(frame->GetBoundingClientRect());
   return rect.forget();
 }
 
@@ -2849,7 +2846,7 @@ void Element::DescribeAttribute(uint32_t index,
   aOutDescription.Append('"');
 }
 
-#ifdef DEBUG
+#ifdef MOZ_DOM_LIST
 void Element::ListAttributes(FILE* out) const {
   uint32_t index, count = mAttrs.AttrCount();
   for (index = 0; index < count; index++) {
@@ -3108,8 +3105,8 @@ nsresult Element::PostHandleEventForLinks(EventChainPostVisitor& aVisitor) {
       WidgetKeyboardEvent* keyEvent = aVisitor.mEvent->AsKeyboardEvent();
       if (keyEvent && keyEvent->mKeyCode == NS_VK_RETURN) {
         nsEventStatus status = nsEventStatus_eIgnore;
-        rv = DispatchClickEvent(MOZ_KnownLive(aVisitor.mPresContext), keyEvent,
-                                this, false, nullptr, &status);
+        rv = DispatchClickEvent(aVisitor.mPresContext, keyEvent, this, false,
+                                nullptr, &status);
         if (NS_SUCCEEDED(rv)) {
           aVisitor.mEventStatus = nsEventStatus_eConsumeNoDefault;
         }
@@ -3935,8 +3932,7 @@ static void IntersectionObserverPropertyDtor(void* aObject,
                                              void* aData) {
   auto* element = static_cast<Element*>(aObject);
   auto* observers = static_cast<IntersectionObserverList*>(aPropertyValue);
-  for (auto iter = observers->Iter(); !iter.Done(); iter.Next()) {
-    DOMIntersectionObserver* observer = iter.Key();
+  for (DOMIntersectionObserver* observer : observers->Keys()) {
     observer->UnlinkTarget(*element);
   }
   delete observers;
@@ -3948,20 +3944,18 @@ void Element::RegisterIntersectionObserver(DOMIntersectionObserver* aObserver) {
 
   if (!observers) {
     observers = new IntersectionObserverList();
-    observers->Put(aObserver, eUninitialized);
+    observers->InsertOrUpdate(aObserver, eUninitialized);
     SetProperty(nsGkAtoms::intersectionobserverlist, observers,
                 IntersectionObserverPropertyDtor, /* aTransfer = */ true);
     return;
   }
 
-  observers->WithEntryHandle(aObserver, [](auto&& entry) {
-    // Value can be:
-    //   -2:   Makes sure next calculated threshold always differs, leading to a
-    //         notification task being scheduled.
-    //   -1:   Non-intersecting.
-    //   >= 0: Intersecting, valid index of aObserver->mThresholds.
-    entry.OrInsert(eUninitialized);
-  });
+  // Value can be:
+  //   -2:   Makes sure next calculated threshold always differs, leading to a
+  //         notification task being scheduled.
+  //   -1:   Non-intersecting.
+  //   >= 0: Intersecting, valid index of aObserver->mThresholds.
+  observers->LookupOrInsert(aObserver, eUninitialized);
 }
 
 void Element::UnregisterIntersectionObserver(
@@ -4481,6 +4475,27 @@ nsAtom* Element::GetEventNameForAttr(nsAtom* aAttr) {
     return nsGkAtoms::onwebkitTransitionEnd;
   }
   return aAttr;
+}
+
+void Element::RegUnRegAccessKey(bool aDoReg) {
+  // first check to see if we have an access key
+  nsAutoString accessKey;
+  GetAttr(kNameSpaceID_None, nsGkAtoms::accesskey, accessKey);
+  if (accessKey.IsEmpty()) {
+    return;
+  }
+
+  // We have an access key, so get the ESM from the pres context.
+  if (nsPresContext* presContext = GetPresContext(eForUncomposedDoc)) {
+    EventStateManager* esm = presContext->EventStateManager();
+
+    // Register or unregister as appropriate.
+    if (aDoReg) {
+      esm->RegisterAccessKey(this, (uint32_t)accessKey.First());
+    } else {
+      esm->UnregisterAccessKey(this, (uint32_t)accessKey.First());
+    }
+  }
 }
 
 }  // namespace mozilla::dom

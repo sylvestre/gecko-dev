@@ -4,10 +4,14 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
        <menubar id="main-menubar"
-                onpopupshowing="if (event.target.parentNode.parentNode == this &amp;&amp;
-                                    !('@mozilla.org/widget/nativemenuservice;1' in Cc))
+# On macOS, we don't track whether activation of the native menubar happened
+# with the keyboard.
+#ifndef XP_MACOSX
+                onpopupshowing="if (event.target.parentNode.parentNode == this)
                                   this.setAttribute('openedwithkey',
-                                                    event.target.parentNode.openedWithKey);">
+                                                    event.target.parentNode.openedWithKey);"
+#endif
+                >
             <menu id="file-menu" data-l10n-id="menu-file">
               <menupopup id="menu_FilePopup"
                          onpopupshowing="updateFileMenuUserContextUIVisibility('menu_newUserContext');
@@ -116,7 +120,7 @@
                 <menuseparator/>
                 <menuitem id="menu_find"
                           key="key_find"
-                          command="cmd_find" data-l10n-id="menu-edit-find-on"/>
+                          command="cmd_find" data-l10n-id="menu-edit-find-in-page"/>
                 <menuitem id="menu_findAgain"
                           class="show-only-for-keyboard"
                           key="key_findAgain"
@@ -130,7 +134,13 @@
 #ifndef XP_MACOSX
                 <menuseparator/>
                 <menuitem id="menu_preferences"
-                          oncommand="openPreferences(undefined);" data-l10n-id="menu-preferences"/>
+                          oncommand="openPreferences(undefined);"
+#ifdef NIGHTLY_BUILD
+                          data-l10n-id="menu-settings"
+#else
+                          data-l10n-id="menu-preferences"
+#endif
+                          />
 #endif
 #endif
               </menupopup>
@@ -143,7 +153,7 @@
                   <menupopup id="view-menu-popup" onpopupshowing="onViewToolbarsPopupShowing(event);">
                     <menuseparator/>
                     <menuitem id="menu_customizeToolbars"
-                              command="cmd_CustomizeToolbars" data-l10n-id="menu-view-customize-toolbar"/>
+                              command="cmd_CustomizeToolbars" data-l10n-id="menu-view-customize-toolbar2"/>
                   </menupopup>
                 </menu>
                 <menu id="viewSidebarMenuMenu" data-l10n-id="menu-view-sidebar">
@@ -321,7 +331,7 @@
       <menuitem id="menu_bookmarkThisPage"
                 command="Browser:AddBookmarkAs"
                 key="addBookmarkAsKb"
-                data-l10n-id="menu-bookmark-this-page"/>
+                data-l10n-id="menu-bookmark-current-tab"/>
       <menuitem id="menu_bookmarkAllTabs"
                 class="show-only-for-keyboard"
                 command="Browser:BookmarkAllTabs"
@@ -380,13 +390,13 @@
                         command="Tools:Downloads" data-l10n-id="menu-tools-downloads"/>
               <menuitem id="menu_openAddons"
                         key="key_openAddons"
-                        command="Tools:Addons" data-l10n-id="menu-tools-addons"/>
+                        command="Tools:Addons" data-l10n-id="menu-tools-addons-and-themes"/>
 
               <!-- only one of sync-setup, sync-enable, sync-unverifieditem, sync-syncnowitem or sync-reauthitem will be showing at once -->
               <menuitem id="sync-setup"
                         class="sync-ui-item"
                         hidden="true"
-                        oncommand="gSync.openPrefs('menubar')" data-l10n-id="menu-tools-fxa-sign-in"/>
+                        oncommand="gSync.openPrefs('menubar')" data-l10n-id="menu-tools-fxa-sign-in2"/>
               <menuitem id="sync-enable"
                         class="sync-ui-item"
                         hidden="true"
@@ -394,7 +404,7 @@
               <menuitem id="sync-unverifieditem"
                         class="sync-ui-item"
                         hidden="true"
-                        oncommand="gSync.openPrefs('menubar')" data-l10n-id="menu-tools-fxa-sign-in"/>
+                        oncommand="gSync.openPrefs('menubar')" data-l10n-id="menu-tools-fxa-sign-in2"/>
               <menuitem id="sync-syncnowitem"
                         class="sync-ui-item"
                         hidden="true"
@@ -404,8 +414,12 @@
                         hidden="true"
                         oncommand="gSync.openSignInAgainPage('menubar');" data-l10n-id="menu-tools-fxa-re-auth"/>
               <menuseparator id="devToolsSeparator"/>
-              <menu id="webDeveloperMenu" data-l10n-id="menu-tools-web-developer">
+              <menu id="webDeveloperMenu" data-l10n-id="menu-tools-browser-tools">
                 <menupopup id="menuWebDeveloperPopup">
+                  <menuitem id="menu_taskManager"
+                            oncommand="switchToTabHavingURI('about:performance', true)"
+                            onclick="checkForMiddleClick(this, event);"
+                            data-l10n-id="menu-tools-task-manager"/>
                   <menuitem id="menu_pageSource"
                             key="key_viewSource"
                             command="View:PageSource" data-l10n-id="menu-tools-page-source"/>
@@ -417,7 +431,12 @@
 #ifndef XP_UNIX
               <menuseparator id="prefSep"/>
               <menuitem id="menu_preferences"
-                        oncommand="openPreferences(undefined);" data-l10n-id="menu-preferences"/>
+#ifdef NIGHTLY_BUILD
+                        data-l10n-id="menu-settings"
+#else
+                        data-l10n-id="menu-preferences"
+#endif
+                        oncommand="openPreferences(undefined);"/>
 #endif
 #ifdef MOZ_DEBUG
               <menuitem id="menu_layout_debugger"
@@ -427,7 +446,9 @@
 #endif
 #ifdef XP_MACOSX
 <!-- nsMenuBarX hides these and uses them to build the Application menu. -->
-              <menuitem id="menu_preferences" data-l10n-id="menu-preferences" key="key_preferencesCmdMac" oncommand="openPreferences(undefined);"/>
+              <menuitem id="menu_preferences"
+                        data-l10n-id="menu-application-preferences"
+                        key="key_preferencesCmdMac" oncommand="openPreferences(undefined);"/>
               <menuitem id="menu_mac_services" data-l10n-id="menu-application-services"/>
               <menuitem id="menu_mac_hide_app" data-l10n-id="menu-application-hide-this" key="key_hideThisAppCmdMac"/>
               <menuitem id="menu_mac_hide_others" data-l10n-id="menu-application-hide-other" key="key_hideOtherAppsCmdMac"/>
@@ -470,16 +491,20 @@
                           onclick="checkForMiddleClick(this, event);"
                           data-l10n-id="menu-help-feedback-page"
                           appmenu-data-l10n-id="appmenu-help-feedback-page"/>
+                <menuitem id="helpSafeMode"
+                          oncommand="safeModeRestart();"
+                          data-l10n-id="menu-help-enter-troubleshoot-mode2"
+                          appmenu-data-l10n-id="appmenu-help-enter-troubleshoot-mode2"/>
                 <menuitem id="troubleShooting"
                           oncommand="openTroubleshootingPage()"
                           onclick="checkForMiddleClick(this, event);"
-                          data-l10n-id="menu-help-troubleshooting-info"
-                          appmenu-data-l10n-id="appmenu-help-troubleshooting-info"/>
-                <menuitem id="help_taskManager"
-                          oncommand="switchToTabHavingURI('about:performance', true)"
-                          onclick="checkForMiddleClick(this, event);"
-                          data-l10n-id="menu-help-taskmanager"
-                          appmenu-data-l10n-id="appmenu-help-taskmanager"/>
+                          data-l10n-id="menu-help-more-troubleshooting-info"
+                          appmenu-data-l10n-id="appmenu-help-more-troubleshooting-info"/>
+                <menuitem id="help_reportSiteIssue"
+                          oncommand="ReportSiteIssue();"
+                          data-l10n-id="menu-help-report-site-issue"
+                          appmenu-data-l10n-id="appmenu-help-report-site-issue"
+                          hidden="true"/>
                 <menuitem id="menu_HelpPopup_reportPhishingtoolmenu"
                           disabled="true"
                           oncommand="openUILink(gSafeBrowsing.getReportURL('Phish'), event, {triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal({})});"

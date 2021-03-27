@@ -354,7 +354,8 @@ static Maybe<nsRect> ComputeTheIntersection(
   // apply clip-path.
   //
   // 3. While container is not the intersection root:
-  nsIFrame* containerFrame = nsLayoutUtils::GetCrossDocParentFrame(target);
+  nsIFrame* containerFrame =
+      nsLayoutUtils::GetCrossDocParentFrameInProcess(target);
   while (containerFrame && containerFrame != aRoot) {
     // FIXME(emilio): What about other scroll frames that inherit from
     // nsHTMLScrollFrame but have a different type, like nsListControlFrame?
@@ -390,7 +391,8 @@ static Maybe<nsRect> ComputeTheIntersection(
       target = containerFrame;
     }
 
-    containerFrame = nsLayoutUtils::GetCrossDocParentFrame(containerFrame);
+    containerFrame =
+        nsLayoutUtils::GetCrossDocParentFrameInProcess(containerFrame);
   }
   MOZ_ASSERT(intersectionRect);
 
@@ -636,10 +638,7 @@ void DOMIntersectionObserver::Update(Document* aDocument,
 
       // 2.3. Let targetRect be a DOMRectReadOnly obtained by running the
       // getBoundingClientRect() algorithm on target.
-      targetRect = nsLayoutUtils::GetAllInFlowRectsUnion(
-          targetFrame,
-          nsLayoutUtils::GetContainingBlockForClientRect(targetFrame),
-          nsLayoutUtils::RECTS_ACCOUNT_FOR_TRANSFORMS);
+      targetRect = targetFrame->GetBoundingClientRect();
 
       // 2.4. Let intersectionRect be the result of running the compute the
       // intersection algorithm on target.

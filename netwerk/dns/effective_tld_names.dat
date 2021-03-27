@@ -4594,15 +4594,17 @@ gob.mx
 edu.mx
 net.mx
 
-// my : http://www.mynic.net.my/
+// my : http://www.mynic.my/
+// Available strings: https://mynic.my/resources/domains/buying-a-domain/
 my
+biz.my
 com.my
-net.my
-org.my
-gov.my
 edu.my
+gov.my
 mil.my
 name.my
+net.my
+org.my
 
 // mz : http://www.uem.mz/
 // Submitted by registry <antonio@uem.mz>
@@ -7123,7 +7125,7 @@ org.zw
 
 // newGTLDs
 
-// List of new gTLDs imported from https://www.icann.org/resources/registries/gtlds/v2/gtlds.json on 2021-02-07T16:47:40Z
+// List of new gTLDs imported from https://www.icann.org/resources/registries/gtlds/v2/gtlds.json on 2021-03-24T15:07:35Z
 // This list is auto-generated, don't edit it manually.
 // aaa : 2015-02-26 American Automobile Association, Inc.
 aaa
@@ -7640,9 +7642,6 @@ casa
 
 // case : 2015-09-03 CNH Industrial N.V.
 case
-
-// caseih : 2015-09-03 CNH Industrial N.V.
-caseih
 
 // cash : 2014-03-06 Binky Moon, LLC
 cash
@@ -9138,9 +9137,6 @@ neustar
 // new : 2014-01-30 Charleston Road Registry Inc.
 new
 
-// newholland : 2015-09-03 CNH Industrial N.V.
-newholland
-
 // news : 2014-12-18 Dog Beach, LLC
 news
 
@@ -9648,7 +9644,7 @@ saxo
 // sbi : 2015-03-12 STATE BANK OF INDIA
 sbi
 
-// sbs : 2014-11-07 SPECIAL BROADCASTING SERVICE CORPORATION
+// sbs : 2014-11-07 ShortDot SA
 sbs
 
 // sca : 2014-03-13 SVENSKA CELLULOSA AKTIEBOLAGET SCA (publ)
@@ -10221,7 +10217,7 @@ wanggou
 // watch : 2013-11-14 Binky Moon, LLC
 watch
 
-// watches : 2014-12-22 Richemont DNS Inc.
+// watches : 2014-12-22 Afilias Limited
 watches
 
 // weather : 2015-01-08 International Business Machines Corporation
@@ -10880,6 +10876,10 @@ of.je
 // Submitted by Tibor Halter <thalter@boomla.com>
 boomla.net
 
+// Boutir : https://www.boutir.com
+// Submitted by Eric Ng Ka Ka <ngkaka@boutir.com>
+boutir.com
+
 // Boxfuse : https://boxfuse.com
 // Submitted by Axel Fontaine <axel@boxfuse.com>
 boxfuse.io
@@ -10902,6 +10902,10 @@ browsersafetymark.io
 uk0.bigv.io
 dh.bytemark.co.uk
 vm.bytemark.co.uk
+
+// Caf.js Labs LLC : https://www.cafjs.com
+// Submitted by Antonio Lain <antlai@cafjs.com>
+cafjs.com
 
 // callidomus : https://www.callidomus.com/
 // Submitted by Marcus Popp <admin@callidomus.com>
@@ -11003,9 +11007,11 @@ virtueeldomein.nl
 cleverapps.io
 
 // Clerk : https://www.clerk.dev
-// Submitted by Colin Sidoti <colin@clerk.dev>
+// Submitted by Colin Sidoti <systems@clerk.dev>
 *.lcl.dev
+*.lclstage.dev
 *.stg.dev
+*.stgstage.dev
 
 // Clic2000 : https://clic2000.fr
 // Submitted by Mathilde Blanchemanche <mathilde@clic2000.fr>
@@ -11130,6 +11136,11 @@ cupcake.is
 // Curv UG : https://curv-labs.de/
 // Submitted by Marvin Wiesner <Marvin@curv-labs.de>
 curv.dev
+
+// Curvegrid Inc. : https://www.curvegrid.com/
+// Submitted by Pierre Rousset <security@curvegrid.com>
+multibaas.app
+multibaas.com
 
 // Customer OCI - Oracle Dyn https://cloud.oracle.com/home https://dyn.com/dns/
 // Submitted by Gregory Drake <support@dyn.com>
@@ -11667,6 +11678,10 @@ tr.eu.org
 uk.eu.org
 us.eu.org
 
+// Eurobyte : https://eurobyte.ru
+// Submitted by Evgeniy Subbotin <e.subbotin@eurobyte.ru>
+eurodir.ru
+
 // Evennode : http://www.evennode.com/
 // Submitted by Michal Kralik <support@evennode.com>
 eu-1.evennode.com
@@ -11777,6 +11792,7 @@ u.channelsdvr.net
 
 // Fastly Inc. : http://www.fastly.com/
 // Submitted by Fastly Security <security@fastly.com>
+edgecompute.app
 fastly-terrarium.com
 fastlylb.net
 map.fastlylb.net
@@ -11850,6 +11866,11 @@ shw.io
 // Flynn : https://flynn.io
 // Submitted by Jonathan Rudenberg <jonathan@flynn.io>
 flynnhosting.net
+
+// Framer : https://www.framer.com
+// Submitted by Koen Rouwhorst <koenrh@framer.com>
+framer.app
+framercanvas.com
 
 // Frederik Braun https://frederik-braun.com
 // Submitted by Frederik Braun <fb@frederik-braun.com>
@@ -11930,7 +11951,7 @@ glitch.me
 lolipop.io
 
 // GOV.UK Platform as a Service : https://www.cloud.service.gov.uk/
-// Submitted by Tom Whitwell <tom.whitwell@digital.cabinet-office.gov.uk>
+// Submitted by Tom Whitwell <gov-uk-paas-support@digital.cabinet-office.gov.uk>
 cloudapps.digital
 london.cloudapps.digital
 
@@ -12295,8 +12316,6 @@ jelastic.saveincloud.net
 nordeste-idc.saveincloud.net
 j.scaleforce.net
 jelastic.tsukaeru.net
-atl.jelastic.vps-host.net
-njs.jelastic.vps-host.net
 unicloud.pl
 mircloud.ru
 jelastic.regruhosting.ru
@@ -12487,6 +12506,10 @@ mcdir.ru
 mcpre.ru
 vps.mcdir.ru
 
+// Medicom Health : https://medicomhealth.com
+// Submitted by Michael Olson <molson@medicomhealth.com>
+hra.health
+
 // Memset hosting : https://www.memset.com
 // Submitted by Tom Whitwell <domains@memset.com>
 miniserver.com
@@ -12610,8 +12633,12 @@ nfshost.com
 
 // Northflank Ltd. : https://northflank.com/
 // Submitted by Marco Suter <marco@northflank.com>
-northflank.app
-code.run
+*.northflank.app
+*.code.run
+
+// Noticeable : https://noticeable.io
+// Submitted by Laurent Pellegrino <security@noticeable.io>
+noticeable.news
 
 // Now-DNS : https://now-dns.com
 // Submitted by Steve Russell <steve@now-dns.com>
@@ -12887,6 +12914,10 @@ pagefrontapp.com
 // Submitted by Yann Guichard <yann@pagexl.com>
 pagexl.com
 
+// Paywhirl, Inc : https://paywhirl.com/
+// Submitted by Daniel Netzer <dan@paywhirl.com>
+*.paywhirl.com
+
 // pcarrier.ca Software Inc: https://pcarrier.ca/
 // Submitted by Pierre Carrier <pc@rrier.ca>
 bar0.net
@@ -12982,6 +13013,11 @@ byen.site
 // Submitted by Kor Nielsen <kor@pubtls.org>
 pubtls.org
 
+// PythonAnywhere LLP: https://www.pythonanywhere.com
+// Submitted by Giles Thomas <giles@pythonanywhere.com>
+*.pythonanywhere.com
+*.eu.pythonanywhere.com
+
 // QOTO, Org.
 // Submitted by Jeffrey Phillips Freeman <jeffrey.freeman@qoto.org>
 qoto.io
@@ -12993,6 +13029,10 @@ qualifioapp.com
 // QuickBackend: https://www.quickbackend.com
 // Submitted by Dani Biro <dani@pymet.com>
 qbuser.com
+
+// Rad Web Hosting: https://radwebhosting.com
+// Submitted by Scott Claeys <s.claeys@radwebhosting.com>
+cloudsite.builders
 
 // Redstar Consultants : https://www.redstarconsultants.com/
 // Submitted by Jons Slemmer <jons@redstarconsultants.com>
@@ -13093,6 +13133,7 @@ schokokeks.net
 // Scottish Government: https://www.gov.scot
 // Submitted by Martin Ellis <martin.ellis@gov.scot>
 gov.scot
+service.gov.scot
 
 // Scry Security : http://www.scrysec.com
 // Submitted by Shante Adam <shante@skyhat.io>
@@ -13119,11 +13160,20 @@ seidat.net
 // Submitted by Felix Mönckemeyer <f.moenckemeyer@senseering.de>
 senseering.net
 
+// Service Magnet : https://myservicemagnet.com
+// Submitted by Dave Sanders <dave@myservicemagnet.com>
+magnet.page
+
 // Service Online LLC : http://drs.ua/
 // Submitted by Serhii Bulakh <support@drs.ua>
 biz.ua
 co.ua
 pp.ua
+
+// Shift Crypto AG : https://shiftcrypto.ch
+// Submitted by alex <alex@shiftcrypto.ch>
+shiftcrypto.dev
+shiftcrypto.io
 
 // ShiftEdit : https://shiftedit.net/
 // Submitted by Adam Jimenez <adam@shiftcreate.com>
@@ -13174,6 +13224,10 @@ small-web.org
 // Snowplow Analytics : https://snowplowanalytics.com/
 // Submitted by Ian Streeter <ian@snowplowanalytics.com>
 try-snowplow.com
+
+// SourceHut : https://sourcehut.org
+// Submitted by Drew DeVault <sir@cmpwn.com>
+srht.site
 
 // Stackhero : https://www.stackhero.io
 // Submitted by Adrien Gillon <adrien+public-suffix-list@stackhero.io>
@@ -13594,4 +13648,12 @@ gsj.bz
 сочи.рус
 спб.рус
 я.рус
+
+// Strategic System Consulting (eApps Hosting): https://www.eapps.com/
+// Submitted by Alex Oancea <aoancea@cloudscale365.com>
+vps-host.net
+atl.jelastic.vps-host.net
+njs.jelastic.vps-host.net
+ric.jelastic.vps-host.net
 // ===END PRIVATE DOMAINS===
+

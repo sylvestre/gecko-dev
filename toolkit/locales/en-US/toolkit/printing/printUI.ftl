@@ -48,10 +48,10 @@ printui-scale-pcent = Scale
 # Section title (noun) for the two-sided print options
 printui-two-sided-printing = Two-sided printing
 printui-two-sided-printing-off = Off
-# Flip the page on the side (like a book).
-printui-two-sided-printing-side-edge = Flip on side edge
-# Flip the page on the top (like a vertical calendar).
-printui-two-sided-printing-top-edge = Flip on top edge
+# Flip the sheet as if it were bound along its long edge.
+printui-two-sided-printing-long-edge = Flip on long edge
+# Flip the sheet as if it were bound along its short edge.
+printui-two-sided-printing-short-edge = Flip on short edge
 
 # Section title for miscellaneous print options
 printui-options = Options
@@ -68,14 +68,19 @@ printui-margins-default = Default
 printui-margins-min = Minimum
 printui-margins-none = None
 printui-margins-custom-inches = Custom (inches)
+printui-margins-custom-mm = Custom (mm)
 printui-margins-custom-top = Top
 printui-margins-custom-top-inches = Top (inches)
+printui-margins-custom-top-mm = Top (mm)
 printui-margins-custom-bottom = Bottom
 printui-margins-custom-bottom-inches = Bottom (inches)
+printui-margins-custom-bottom-mm = Bottom (mm)
 printui-margins-custom-left = Left
 printui-margins-custom-left-inches = Left (inches)
+printui-margins-custom-left-mm = Left (mm)
 printui-margins-custom-right = Right
 printui-margins-custom-right-inches = Right (inches)
+printui-margins-custom-right-mm = Right (mm)
 
 printui-system-dialog-link = Print using the system dialog…
 
@@ -118,6 +123,7 @@ printui-paper-tabloid = Tabloid
 
 printui-error-invalid-scale = Scale must be a number between 10 and 200.
 printui-error-invalid-margin = Please enter a valid margin for the selected paper size.
+printui-error-invalid-copies = Copies must be a number between 1 and 10000.
 
 # Variables
 # $numPages (integer) - Number of pages

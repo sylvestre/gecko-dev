@@ -346,6 +346,7 @@ class OpenOp final : public ConnectionOperationBase,
   const SDBRequestOpenParams mParams;
   RefPtr<DirectoryLock> mDirectoryLock;
   nsCOMPtr<nsIFileStream> mFileStream;
+  // XXX Consider changing this to ClientMetadata.
   quota::OriginMetadata mOriginMetadata;
   State mState;
   bool mFileStreamOpen;
@@ -1108,18 +1109,22 @@ nsresult OpenOp::Open() {
     return NS_ERROR_UNEXPECTED;
   }
 
+  PersistenceType persistenceType = GetConnection()->GetPersistenceType();
+
   const PrincipalInfo& principalInfo = GetConnection()->GetPrincipalInfo();
 
   if (principalInfo.type() == PrincipalInfo::TSystemPrincipalInfo) {
-    mOriginMetadata = QuotaManager::GetInfoForChrome();
+    mOriginMetadata = {QuotaManager::GetInfoForChrome(), persistenceType};
   } else {
     MOZ_ASSERT(principalInfo.type() == PrincipalInfo::TContentPrincipalInfo);
 
     SDB_TRY_INSPECT(const auto& principal,
                     PrincipalInfoToPrincipal(principalInfo));
 
-    SDB_TRY_UNWRAP(mOriginMetadata,
+    SDB_TRY_UNWRAP(auto principalMetadata,
                    QuotaManager::GetInfoFromPrincipal(principal));
+
+    mOriginMetadata = {std::move(principalMetadata), persistenceType};
   }
 
   mState = State::FinishOpen;

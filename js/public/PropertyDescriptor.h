@@ -52,10 +52,7 @@ static constexpr uint8_t JSPROP_GETTER = 0x10;
 /** The property has a setter function. */
 static constexpr uint8_t JSPROP_SETTER = 0x20;
 
-/* (0x40 is unused; add to JSPROP_FLAGS_MASK if ever defined) */
-
-/** A bit for internal JS engine use only. */
-static constexpr uint8_t JSPROP_INTERNAL_USE_BIT = 0x80;
+/* (0x40 and 0x80 are unused; add to JSPROP_FLAGS_MASK if ever defined) */
 
 /* (0x1000 is unused; add to JSPROP_FLAGS_MASK if ever defined) */
 
@@ -101,9 +98,8 @@ static constexpr unsigned JSPROP_IGNORE_VALUE = 0x20000;
 
 static constexpr unsigned JSPROP_FLAGS_MASK =
     JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT | JSPROP_GETTER |
-    JSPROP_SETTER | JSPROP_INTERNAL_USE_BIT | JSPROP_RESOLVING |
-    JSPROP_IGNORE_ENUMERATE | JSPROP_IGNORE_READONLY | JSPROP_IGNORE_PERMANENT |
-    JSPROP_IGNORE_VALUE;
+    JSPROP_SETTER | JSPROP_RESOLVING | JSPROP_IGNORE_ENUMERATE |
+    JSPROP_IGNORE_READONLY | JSPROP_IGNORE_PERMANENT | JSPROP_IGNORE_VALUE;
 
 namespace JS {
 
@@ -116,8 +112,8 @@ namespace JS {
 struct JS_PUBLIC_API PropertyDescriptor {
   JSObject* obj = nullptr;
   unsigned attrs = 0;
-  JSGetterOp getter = nullptr;
-  JSSetterOp setter = nullptr;
+  JSObject* getter = nullptr;
+  JSObject* setter = nullptr;
   Value value;
 
   PropertyDescriptor() = default;
@@ -146,8 +142,6 @@ class WrappedPtrOperations<JS::PropertyDescriptor, Wrapper> {
   bool hasAll(unsigned bits) const { return (desc().attrs & bits) == bits; }
 
  public:
-  // Descriptors with JSGetterOp/JSSetterOp are considered data
-  // descriptors. It's complicated.
   bool isAccessorDescriptor() const {
     return hasAny(JSPROP_GETTER | JSPROP_SETTER);
   }
@@ -206,27 +200,23 @@ class WrappedPtrOperations<JS::PropertyDescriptor, Wrapper> {
     return JS::Handle<JSObject*>::fromMarkedLocation(&desc().obj);
   }
   unsigned attributes() const { return desc().attrs; }
-  JSGetterOp getter() const { return desc().getter; }
-  JSSetterOp setter() const { return desc().setter; }
 
   void assertValid() const {
 #ifdef DEBUG
-    MOZ_ASSERT(
-        (attributes() &
-         ~(JSPROP_ENUMERATE | JSPROP_IGNORE_ENUMERATE | JSPROP_PERMANENT |
-           JSPROP_IGNORE_PERMANENT | JSPROP_READONLY | JSPROP_IGNORE_READONLY |
-           JSPROP_IGNORE_VALUE | JSPROP_GETTER | JSPROP_SETTER |
-           JSPROP_RESOLVING | JSPROP_INTERNAL_USE_BIT)) == 0);
+    MOZ_ASSERT((attributes() &
+                ~(JSPROP_ENUMERATE | JSPROP_IGNORE_ENUMERATE |
+                  JSPROP_PERMANENT | JSPROP_IGNORE_PERMANENT | JSPROP_READONLY |
+                  JSPROP_IGNORE_READONLY | JSPROP_IGNORE_VALUE | JSPROP_GETTER |
+                  JSPROP_SETTER | JSPROP_RESOLVING)) == 0);
     MOZ_ASSERT(!hasAll(JSPROP_IGNORE_ENUMERATE | JSPROP_ENUMERATE));
     MOZ_ASSERT(!hasAll(JSPROP_IGNORE_PERMANENT | JSPROP_PERMANENT));
     if (isAccessorDescriptor()) {
       MOZ_ASSERT(!has(JSPROP_READONLY));
       MOZ_ASSERT(!has(JSPROP_IGNORE_READONLY));
       MOZ_ASSERT(!has(JSPROP_IGNORE_VALUE));
-      MOZ_ASSERT(!has(JSPROP_INTERNAL_USE_BIT));
       MOZ_ASSERT(value().isUndefined());
-      MOZ_ASSERT_IF(!has(JSPROP_GETTER), !getter());
-      MOZ_ASSERT_IF(!has(JSPROP_SETTER), !setter());
+      MOZ_ASSERT_IF(!has(JSPROP_GETTER), !desc().getter);
+      MOZ_ASSERT_IF(!has(JSPROP_SETTER), !desc().setter);
     } else {
       MOZ_ASSERT(!hasAll(JSPROP_IGNORE_READONLY | JSPROP_READONLY));
       MOZ_ASSERT_IF(has(JSPROP_IGNORE_VALUE), value().isUndefined());
@@ -242,10 +232,9 @@ class WrappedPtrOperations<JS::PropertyDescriptor, Wrapper> {
   void assertComplete() const {
 #ifdef DEBUG
     assertValid();
-    MOZ_ASSERT(
-        (attributes() & ~(JSPROP_ENUMERATE | JSPROP_PERMANENT |
-                          JSPROP_READONLY | JSPROP_GETTER | JSPROP_SETTER |
-                          JSPROP_RESOLVING | JSPROP_INTERNAL_USE_BIT)) == 0);
+    MOZ_ASSERT((attributes() &
+                ~(JSPROP_ENUMERATE | JSPROP_PERMANENT | JSPROP_READONLY |
+                  JSPROP_GETTER | JSPROP_SETTER | JSPROP_RESOLVING)) == 0);
     MOZ_ASSERT_IF(isAccessorDescriptor(),
                   has(JSPROP_GETTER) && has(JSPROP_SETTER));
 #endif
@@ -275,12 +264,12 @@ class MutableWrappedPtrOperations<JS::PropertyDescriptor, Wrapper>
   }
 
   void initFields(JS::Handle<JSObject*> obj, JS::Handle<JS::Value> v,
-                  unsigned attrs, JSGetterOp getterOp, JSSetterOp setterOp) {
+                  unsigned attrs, JSObject* getter, JSObject* setter) {
     object().set(obj);
     value().set(v);
     setAttributes(attrs);
-    setGetter(getterOp);
-    setSetter(setterOp);
+    setGetter(getter);
+    setSetter(setter);
   }
 
   void assign(JS::PropertyDescriptor& other) {
@@ -307,8 +296,6 @@ class MutableWrappedPtrOperations<JS::PropertyDescriptor, Wrapper>
     return JS::MutableHandle<JSObject*>::fromMarkedLocation(&desc().obj);
   }
   unsigned& attributesRef() { return desc().attrs; }
-  JSGetterOp& getter() { return desc().getter; }
-  JSSetterOp& setter() { return desc().setter; }
   JS::MutableHandle<JS::Value> value() {
     return JS::MutableHandle<JS::Value>::fromMarkedLocation(&desc().value);
   }
@@ -335,16 +322,16 @@ class MutableWrappedPtrOperations<JS::PropertyDescriptor, Wrapper>
   }
   void setAttributes(unsigned attrs) { desc().attrs = attrs; }
 
-  void setGetter(JSGetterOp op) { desc().getter = op; }
-  void setSetter(JSSetterOp op) { desc().setter = op; }
+  void setGetter(JSObject* obj) { desc().getter = obj; }
+  void setSetter(JSObject* obj) { desc().setter = obj; }
   void setGetterObject(JSObject* obj) {
-    desc().getter = reinterpret_cast<JSGetterOp>(obj);
+    desc().getter = obj;
     desc().attrs &=
         ~(JSPROP_IGNORE_VALUE | JSPROP_IGNORE_READONLY | JSPROP_READONLY);
     desc().attrs |= JSPROP_GETTER;
   }
   void setSetterObject(JSObject* obj) {
-    desc().setter = reinterpret_cast<JSSetterOp>(obj);
+    desc().setter = obj;
     desc().attrs &=
         ~(JSPROP_IGNORE_VALUE | JSPROP_IGNORE_READONLY | JSPROP_READONLY);
     desc().attrs |= JSPROP_SETTER;
@@ -352,13 +339,11 @@ class MutableWrappedPtrOperations<JS::PropertyDescriptor, Wrapper>
 
   JS::MutableHandle<JSObject*> getterObject() {
     MOZ_ASSERT(this->hasGetterObject());
-    return JS::MutableHandle<JSObject*>::fromMarkedLocation(
-        reinterpret_cast<JSObject**>(&desc().getter));
+    return JS::MutableHandleObject::fromMarkedLocation(&desc().getter);
   }
   JS::MutableHandle<JSObject*> setterObject() {
     MOZ_ASSERT(this->hasSetterObject());
-    return JS::MutableHandle<JSObject*>::fromMarkedLocation(
-        reinterpret_cast<JSObject**>(&desc().setter));
+    return JS::MutableHandleObject::fromMarkedLocation(&desc().setter);
   }
 };
 

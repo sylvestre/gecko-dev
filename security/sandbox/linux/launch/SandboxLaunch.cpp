@@ -31,7 +31,7 @@
 #include "mozilla/Preferences.h"
 #include "mozilla/SandboxReporter.h"
 #include "mozilla/SandboxSettings.h"
-#include "mozilla/Services.h"
+#include "mozilla/Components.h"
 #include "mozilla/StaticPrefs_media.h"
 #include "mozilla/StaticPrefs_security.h"
 #include "mozilla/Unused.h"
@@ -47,6 +47,7 @@
 #  ifndef MOZ_WIDGET_GTK
 #    error "Unknown toolkit"
 #  endif
+#  include "mozilla/WidgetUtilsGtk.h"
 #  include <gdk/gdk.h>
 #  include <gdk/gdkx.h>
 #  include "X11UndefineNone.h"
@@ -76,7 +77,7 @@ static bool IsDisplayLocal() {
   if (NS_WARN_IF(display == nullptr)) {
     return false;
   }
-  if (GDK_IS_X11_DISPLAY(display)) {
+  if (mozilla::widget::GdkIsX11Display(display)) {
     const int xSocketFd = ConnectionNumber(GDK_DISPLAY_XDISPLAY(display));
     if (NS_WARN_IF(xSocketFd < 0)) {
       return false;
@@ -137,7 +138,7 @@ static bool IsDisplayLocal() {
 }
 
 bool HasAtiDrivers() {
-  nsCOMPtr<nsIGfxInfo> gfxInfo = services::GetGfxInfo();
+  nsCOMPtr<nsIGfxInfo> gfxInfo = components::GfxInfo::Service();
   nsAutoString vendorID;
   static const Array<nsresult (nsIGfxInfo::*)(nsAString&), 2> kMethods = {
       &nsIGfxInfo::GetAdapterVendorID,

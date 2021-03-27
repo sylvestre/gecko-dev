@@ -14,10 +14,6 @@ const InspectorUtils = require("InspectorUtils");
 const {
   EXCLUDED_LISTENER,
 } = require("devtools/server/actors/inspector/constants");
-const {
-  TYPES,
-  getResourceWatcher,
-} = require("devtools/server/actors/resources/index");
 
 loader.lazyRequireGetter(
   this,
@@ -96,6 +92,12 @@ loader.lazyRequireGetter(
   this,
   "WalkerSearch",
   "devtools/server/actors/utils/walker-search",
+  true
+);
+loader.lazyRequireGetter(
+  this,
+  "hasStyleSheetWatcherSupportForTarget",
+  "devtools/server/actors/utils/stylesheets-manager",
   true
 );
 
@@ -231,8 +233,8 @@ var WalkerActor = protocol.ActorClassWithSpec(walkerSpec, {
     // list contains orphaned nodes that were so retained.
     this._retainedOrphans = new Set();
 
-    this.onNodeInserted = this.onNodeInserted.bind(this);
-    this.onNodeInserted[EXCLUDED_LISTENER] = true;
+    this.onSubtreeModified = this.onSubtreeModified.bind(this);
+    this.onSubtreeModified[EXCLUDED_LISTENER] = true;
     this.onNodeRemoved = this.onNodeRemoved.bind(this);
     this.onNodeRemoved[EXCLUDED_LISTENER] = true;
     this.onAttributeModified = this.onAttributeModified.bind(this);
@@ -2076,65 +2078,58 @@ var WalkerActor = protocol.ActorClassWithSpec(walkerSpec, {
   _updateDocumentMutationListeners(rawDoc) {
     const docMutationBreakpoints = this._mutationBreakpointsForDoc(rawDoc);
     if (!docMutationBreakpoints) {
+      rawDoc.devToolsWatchingDOMMutations = false;
       return;
     }
 
-    const origFlag = rawDoc.dontWarnAboutMutationEventsAndAllowSlowDOMMutations;
-    rawDoc.dontWarnAboutMutationEventsAndAllowSlowDOMMutations = true;
+    const anyBreakpoint =
+      docMutationBreakpoints.counts.subtree > 0 ||
+      docMutationBreakpoints.counts.removal > 0 ||
+      docMutationBreakpoints.counts.attribute > 0;
+
+    rawDoc.devToolsWatchingDOMMutations = anyBreakpoint;
 
     if (docMutationBreakpoints.counts.subtree > 0) {
-      eventListenerService.addSystemEventListener(
-        rawDoc,
-        "DOMNodeInserted",
-        this.onNodeInserted,
+      this.chromeEventHandler.addEventListener(
+        "devtoolschildinserted",
+        this.onSubtreeModified,
         true /* capture */
       );
     } else {
-      eventListenerService.removeSystemEventListener(
-        rawDoc,
-        "DOMNodeInserted",
-        this.onNodeInserted,
+      this.chromeEventHandler.removeEventListener(
+        "devtoolschildinserted",
+        this.onSubtreeModified,
         true /* capture */
       );
     }
 
-    if (
-      docMutationBreakpoints.counts.subtree > 0 ||
-      docMutationBreakpoints.counts.removal > 0 ||
-      docMutationBreakpoints.counts.attribute > 0
-    ) {
-      eventListenerService.addSystemEventListener(
-        rawDoc,
-        "DOMNodeRemoved",
+    if (anyBreakpoint) {
+      this.chromeEventHandler.addEventListener(
+        "devtoolschildremoved",
         this.onNodeRemoved,
         true /* capture */
       );
     } else {
-      eventListenerService.removeSystemEventListener(
-        rawDoc,
-        "DOMNodeRemoved",
+      this.chromeEventHandler.removeEventListener(
+        "devtoolschildremoved",
         this.onNodeRemoved,
         true /* capture */
       );
     }
 
     if (docMutationBreakpoints.counts.attribute > 0) {
-      eventListenerService.addSystemEventListener(
-        rawDoc,
-        "DOMAttrModified",
+      this.chromeEventHandler.addEventListener(
+        "devtoolsattrmodified",
         this.onAttributeModified,
         true /* capture */
       );
     } else {
-      eventListenerService.removeSystemEventListener(
-        rawDoc,
-        "DOMAttrModified",
+      this.chromeEventHandler.removeEventListener(
+        "devtoolsattrmodified",
         this.onAttributeModified,
         true /* capture */
       );
     }
-
-    rawDoc.dontWarnAboutMutationEventsAndAllowSlowDOMMutations = origFlag;
   },
 
   _breakOnMutation: function(mutationType, targetNode, ancestorNode, action) {
@@ -2172,20 +2167,15 @@ var WalkerActor = protocol.ActorClassWithSpec(walkerSpec, {
     );
   },
 
-  onNodeInserted: function(evt) {
-    this.onSubtreeModified(evt, "add");
-  },
-
   onNodeRemoved: function(evt) {
     const mutationBpInfo = this._breakpointInfoForNode(evt.target);
     const hasNodeRemovalEvent = mutationBpInfo?.removal;
 
     this._clearMutationBreakpointsFromSubtree(evt.target);
-
     if (hasNodeRemovalEvent) {
       this._breakOnMutation("nodeRemoved", evt.target);
     } else {
-      this.onSubtreeModified(evt, "remove");
+      this.onSubtreeModified(evt);
     }
   },
 
@@ -2196,7 +2186,8 @@ var WalkerActor = protocol.ActorClassWithSpec(walkerSpec, {
     }
   },
 
-  onSubtreeModified: function(evt, action) {
+  onSubtreeModified: function(evt) {
+    const action = evt.type === "devtoolschildinserted" ? "add" : "remove";
     let node = evt.target;
     while ((node = node.parentNode) !== null) {
       const mutationBpInfo = this._breakpointInfoForNode(node);
@@ -2533,12 +2524,12 @@ var WalkerActor = protocol.ActorClassWithSpec(walkerSpec, {
 
   // Returns true if domNode is in window or a subframe.
   _childOfWindow: function(window, domNode) {
-    let win = nodeDocument(domNode).defaultView;
-    while (win) {
+    while (domNode) {
+      const win = nodeDocument(domNode).defaultView;
       if (win === window) {
         return true;
       }
-      win = getFrameElement(win);
+      domNode = getFrameElement(win);
     }
     return false;
   },
@@ -2687,9 +2678,9 @@ var WalkerActor = protocol.ActorClassWithSpec(walkerSpec, {
    * Note that getNodeFromActor was added later and can now be used instead.
    */
   getStyleSheetOwnerNode: function(resourceId) {
-    const watcher = getResourceWatcher(this.targetActor, TYPES.STYLESHEET);
-    if (watcher) {
-      const ownerNode = watcher.getOwnerNode(resourceId);
+    if (hasStyleSheetWatcherSupportForTarget(this.targetActor)) {
+      const manager = this.targetActor.getStyleSheetManager();
+      const ownerNode = manager.getOwnerNode(resourceId);
       return this.attachElement(ownerNode);
     }
 

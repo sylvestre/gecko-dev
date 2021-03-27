@@ -1182,26 +1182,58 @@ static Result CheckForStartComOrWoSign(const UniqueCERTCertList& certChain) {
     if (!node || !node->cert) {
       return Result::FATAL_ERROR_LIBRARY_FAILURE;
     }
-    if (CertDNIsInList(node->cert, StartComAndWoSignDNs)) {
+    nsTArray<uint8_t> certDER(node->cert->derCert.data,
+                              node->cert->derCert.len);
+    if (CertDNIsInList(certDER, StartComAndWoSignDNs)) {
       return Result::ERROR_REVOKED_CERTIFICATE;
     }
   }
   return Success;
 }
 
+SECStatus GetCertDistrustAfterValue(const SECItem* distrustItem,
+                                    PRTime& distrustTime) {
+  if (!distrustItem || !distrustItem->data || distrustItem->len != 13) {
+    PR_SetError(SEC_ERROR_INVALID_ARGS, 0);
+    return SECFailure;
+  }
+  return DER_DecodeTimeChoice(&distrustTime, distrustItem);
+}
+
+SECStatus GetCertNotBeforeValue(const CERTCertificate* cert,
+                                PRTime& distrustTime) {
+  return DER_DecodeTimeChoice(&distrustTime, &cert->validity.notBefore);
+}
+
 nsresult isDistrustedCertificateChain(const UniqueCERTCertList& certList,
+                                      const SECTrustType certDBTrustType,
                                       bool& isDistrusted) {
   // Set the default result to be distrusted.
   isDistrusted = true;
+
+  // There is no distrust to set if the certDBTrustType is not SSL or Email.
+  if (certDBTrustType != trustSSL && certDBTrustType != trustEmail) {
+    isDistrusted = false;
+    return NS_OK;
+  }
 
   // Allocate objects and retreive the root and end-entity certificates.
   const CERTCertificate* certRoot = CERT_LIST_TAIL(certList)->cert;
   const CERTCertificate* certLeaf = CERT_LIST_HEAD(certList)->cert;
 
-  // Check if the distrust field of the root is filled.
+  // Set isDistrusted to false if there is no distrust for the root.
   if (!certRoot->distrust) {
     isDistrusted = false;
     return NS_OK;
+  }
+
+  // Create a pointer to refer to the selected distrust struct.
+  SECItem* distrustPtr = nullptr;
+  if (certDBTrustType == trustSSL) {
+    distrustPtr = &certRoot->distrust->serverDistrustAfter;
+  }
+  if (certDBTrustType == trustEmail) {
+    distrustPtr = &certRoot->distrust->emailDistrustAfter;
   }
 
   // Get validity for the current end-entity certificate
@@ -1209,12 +1241,13 @@ nsresult isDistrustedCertificateChain(const UniqueCERTCertList& certList,
   PRTime certRootDistrustAfter;
   PRTime certLeafNotBefore;
 
-  SECStatus rv1 = DER_DecodeTimeChoice(
-      &certRootDistrustAfter, &certRoot->distrust->serverDistrustAfter);
-  SECStatus rv2 =
-      DER_DecodeTimeChoice(&certLeafNotBefore, &certLeaf->validity.notBefore);
+  SECStatus rv = GetCertDistrustAfterValue(distrustPtr, certRootDistrustAfter);
+  if (rv != SECSuccess) {
+    return NS_ERROR_FAILURE;
+  }
 
-  if ((rv1 != SECSuccess) || (rv2 != SECSuccess)) {
+  rv = GetCertNotBeforeValue(certLeaf, certLeafNotBefore);
+  if (rv != SECSuccess) {
     return NS_ERROR_FAILURE;
   }
 
@@ -1223,6 +1256,7 @@ nsresult isDistrustedCertificateChain(const UniqueCERTCertList& certList,
   if (certLeafNotBefore <= certRootDistrustAfter) {
     isDistrusted = false;
   }
+
   return NS_OK;
 }
 
@@ -1304,7 +1338,8 @@ Result NSSCertDBTrustDomain::IsChainValid(const DERArray& certArray, Time time,
   // the NotAfter value of the parent when the root is a builtin.
   if (isBuiltInRoot) {
     bool isDistrusted;
-    nsrv = isDistrustedCertificateChain(certList, isDistrusted);
+    nsrv =
+        isDistrustedCertificateChain(certList, mCertDBTrustType, isDistrusted);
     if (NS_FAILED(nsrv)) {
       return Result::FATAL_ERROR_LIBRARY_FAILURE;
     }
@@ -1320,13 +1355,12 @@ Result NSSCertDBTrustDomain::IsChainValid(const DERArray& certArray, Time time,
   // This algorithm only applies if we are verifying in the context of a TLS
   // handshake. To determine this, we check mHostname: If it isn't set, this is
   // not TLS, so don't run the algorithm.
-  if (mHostname && CertDNIsInList(root.get(), RootSymantecDNs)) {
-    rootCert = nullptr;  // Clear the state for Segment...
-    nsTArray<RefPtr<nsIX509Cert>> intCerts;
-    nsCOMPtr<nsIX509Cert> eeCert;
+  nsTArray<uint8_t> rootCertDER(root.get()->derCert.data,
+                                root.get()->derCert.len);
+  if (mHostname && CertDNIsInList(rootCertDER, RootSymantecDNs)) {
+    nsTArray<nsTArray<uint8_t>> intCerts;
 
-    nsrv = nsNSSCertificate::SegmentCertificateChain(nssCertList, rootCert,
-                                                     intCerts, eeCert);
+    nsrv = nsNSSCertificate::GetIntermediatesAsDER(nssCertList, intCerts);
     if (NS_FAILED(nsrv)) {
       // This chain is supposed to be complete, so this is an error.
       return Result::ERROR_ADDITIONAL_POLICY_CONSTRAINT_FAILED;
@@ -1770,48 +1804,50 @@ bool CertIsInCertStorage(CERTCertificate* cert, nsICertStorage* certStorage) {
  *
  * @param certList the verified certificate list
  */
-void SaveIntermediateCerts(const UniqueCERTCertList& certList) {
-  if (!certList) {
-    return;
-  }
-
+void SaveIntermediateCerts(const nsTArray<nsTArray<uint8_t>>& certList) {
   UniqueCERTCertList intermediates(CERT_NewCertList());
   if (!intermediates) {
     return;
   }
 
-  bool isEndEntity = true;
+  size_t index = 0;
   size_t numIntermediates = 0;
-  for (CERTCertListNode* node = CERT_LIST_HEAD(certList);
-       !CERT_LIST_END(node, certList); node = CERT_LIST_NEXT(node)) {
-    if (isEndEntity) {
-      // Skip the end-entity; we only want to store intermediates
-      isEndEntity = false;
+  for (const auto& certDER : certList) {
+    // Skip the end-entity; we only want to store intermediates. Similarly,
+    // there's no need to save the trust anchor - it's either already a
+    // permanent certificate or it's the Microsoft Family Safety root or an
+    // enterprise root temporarily imported via the child mode or enterprise
+    // root features. We don't want to import these because they're intended to
+    // be temporary (and because importing them happens to reset their trust
+    // settings, which breaks these features).
+    index++;
+    if (index == 1 || index == certList.Length()) {
       continue;
     }
 
-    if (node->cert->slot) {
+    SECItem certDERItem = {siBuffer,
+                           const_cast<unsigned char*>(certDER.Elements()),
+                           AssertedCast<unsigned int>(certDER.Length())};
+    UniqueCERTCertificate certHandle(CERT_NewTempCertificate(
+        CERT_GetDefaultCertDB(), &certDERItem, nullptr, false, true));
+    if (!certHandle) {
+      continue;
+    }
+    if (certHandle->slot) {
       // This cert was found on a token; no need to remember it in the permanent
       // database.
       continue;
     }
 
-    if (node->cert->isperm) {
+    PRBool isperm;
+    if (CERT_GetCertIsPerm(certHandle.get(), &isperm) != SECSuccess) {
+      continue;
+    }
+    if (isperm) {
       // We don't need to remember certs already stored in perm db.
       continue;
     }
 
-    // No need to save the trust anchor - it's either already a permanent
-    // certificate or it's the Microsoft Family Safety root or an enterprise
-    // root temporarily imported via the child mode or enterprise root features.
-    // We don't want to import these because they're intended to be temporary
-    // (and because importing them happens to reset their trust settings, which
-    // breaks these features).
-    if (node == CERT_LIST_TAIL(certList)) {
-      continue;
-    }
-
-    UniqueCERTCertificate certHandle(CERT_DupCertificate(node->cert));
     if (CERT_AddCertToListTail(intermediates.get(), certHandle.get()) !=
         SECSuccess) {
       // If this fails, we're probably out of memory. Just return.
@@ -1844,6 +1880,16 @@ void SaveIntermediateCerts(const UniqueCERTCertList& certList) {
             }
 
             if (CertIsInCertStorage(node->cert, certStorage)) {
+              continue;
+            }
+            PRBool isperm;
+            if (CERT_GetCertIsPerm(node->cert, &isperm) != SECSuccess) {
+              continue;
+            }
+            if (isperm) {
+              // This may be a certificate that has already been imported by
+              // another background import task that happened to run before
+              // this one.
               continue;
             }
             // This is a best-effort attempt at avoiding unknown issuer errors

@@ -38,7 +38,8 @@
 #include "nsPoint.h"          // for nsPoint
 #include "nsTArray.h"         // for nsTArray, nsTArray_Impl, etc
 #include "TreeTraversal.h"    // for ForEachNode
-#include "GeckoProfiler.h"
+#include "mozilla/ProfilerLabels.h"
+#include "mozilla/ProfilerMarkers.h"
 #include "mozilla/layers/TextureHost.h"
 #include "mozilla/layers/AsyncCompositionManager.h"
 
@@ -74,8 +75,7 @@ void LayerTransactionParent::SetLayerManager(
     return;
   }
   mLayerManager = aLayerManager;
-  for (auto iter = mLayerMap.Iter(); !iter.Done(); iter.Next()) {
-    auto layer = iter.Data();
+  for (const auto& layer : mLayerMap.Values()) {
     if (mAnimStorage && layer->GetCompositorAnimationsId()) {
       mAnimStorage->ClearById(layer->GetCompositorAnimationsId());
     }
@@ -103,8 +103,7 @@ void LayerTransactionParent::Destroy() {
   }
   mDestroyed = true;
   if (mAnimStorage) {
-    for (auto iter = mLayerMap.Iter(); !iter.Done(); iter.Next()) {
-      auto layer = iter.Data();
+    for (const auto& layer : mLayerMap.Values()) {
       if (layer->GetCompositorAnimationsId()) {
         mAnimStorage->ClearById(layer->GetCompositorAnimationsId());
       }

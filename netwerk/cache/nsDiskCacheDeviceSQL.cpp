@@ -760,6 +760,9 @@ nsApplicationCache::AddNamespaces(nsIArray* namespaces) {
 
   mozStorageTransaction transaction(mDevice->mDB, false);
 
+  // XXX Handle the error, bug 1696129.
+  Unused << NS_WARN_IF(NS_FAILED(transaction.Start()));
+
   uint32_t length;
   nsresult rv = namespaces->GetLength(&length);
   NS_ENSURE_SUCCESS(rv, rv);
@@ -1262,8 +1265,8 @@ nsresult nsOfflineCacheDevice::InitActiveCaches() {
     nsCString clientID;
     statement->GetUTF8String(1, clientID);
 
-    mActiveCaches.PutEntry(clientID);
-    mActiveCachesByGroup.Put(group, new nsCString(clientID));
+    mActiveCaches.Insert(clientID);
+    mActiveCachesByGroup.InsertOrUpdate(group, MakeUnique<nsCString>(clientID));
 
     rv = statement->ExecuteStep(&hasRows);
     NS_ENSURE_SUCCESS(rv, rv);
@@ -1277,8 +1280,8 @@ nsresult nsOfflineCacheDevice::Shutdown() {
 
   {
     MutexAutoLock lock(mLock);
-    for (auto iter = mCaches.Iter(); !iter.Done(); iter.Next()) {
-      nsCOMPtr<nsIApplicationCache> obj = do_QueryReferent(iter.UserData());
+    for (const auto& cache : mCaches.Values()) {
+      nsCOMPtr<nsIApplicationCache> obj = do_QueryReferent(cache);
       if (obj) {
         auto appCache = static_cast<nsApplicationCache*>(obj.get());
         appCache->MarkInvalid();
@@ -2076,17 +2079,17 @@ nsresult nsOfflineCacheDevice::GetGroupsTimeOrdered(nsTArray<nsCString>& keys) {
 
 bool nsOfflineCacheDevice::IsLocked(const nsACString& key) {
   MutexAutoLock lock(mLock);
-  return mLockedEntries.GetEntry(key);
+  return mLockedEntries.Contains(key);
 }
 
 void nsOfflineCacheDevice::Lock(const nsACString& key) {
   MutexAutoLock lock(mLock);
-  mLockedEntries.PutEntry(key);
+  mLockedEntries.Insert(key);
 }
 
 void nsOfflineCacheDevice::Unlock(const nsACString& key) {
   MutexAutoLock lock(mLock);
-  mLockedEntries.RemoveEntry(key);
+  mLockedEntries.Remove(key);
 }
 
 nsresult nsOfflineCacheDevice::RunSimpleQuery(mozIStorageStatement* statement,
@@ -2136,7 +2139,7 @@ nsresult nsOfflineCacheDevice::CreateApplicationCache(
   if (!weak) return NS_ERROR_OUT_OF_MEMORY;
 
   MutexAutoLock lock(mLock);
-  mCaches.Put(clientID, weak);
+  mCaches.InsertOrUpdate(clientID, weak);
 
   cache.swap(*out);
 
@@ -2153,31 +2156,31 @@ nsresult nsOfflineCacheDevice::GetApplicationCache_Unlocked(
     const nsACString& clientID, nsIApplicationCache** out) {
   *out = nullptr;
 
-  nsCOMPtr<nsIApplicationCache> cache;
-
-  nsWeakPtr weak;
-  if (mCaches.Get(clientID, getter_AddRefs(weak)))
-    cache = do_QueryReferent(weak);
-
-  if (!cache) {
-    nsCString group;
-    nsresult rv = GetGroupForCache(clientID, group);
-    NS_ENSURE_SUCCESS(rv, rv);
-
-    if (group.IsEmpty()) {
-      return NS_OK;
+  return mCaches.WithEntryHandle(clientID, [&](auto&& entry) {
+    nsCOMPtr<nsIApplicationCache> cache;
+    if (entry) {
+      cache = do_QueryReferent(*entry);
     }
 
-    cache = new nsApplicationCache(this, group, clientID);
-    weak = do_GetWeakReference(cache);
-    if (!weak) return NS_ERROR_OUT_OF_MEMORY;
+    if (!cache) {
+      nsCString group;
+      nsresult rv = GetGroupForCache(clientID, group);
+      NS_ENSURE_SUCCESS(rv, rv);
 
-    mCaches.Put(clientID, weak);
-  }
+      if (group.IsEmpty()) {
+        return NS_OK;
+      }
 
-  cache.swap(*out);
+      cache = new nsApplicationCache(this, group, clientID);
+      nsWeakPtr weak = do_GetWeakReference(cache);
+      if (!weak) return NS_ERROR_OUT_OF_MEMORY;
 
-  return NS_OK;
+      entry.InsertOrUpdate(weak);
+    }
+
+    cache.swap(*out);
+    return NS_OK;
+  });
 }
 
 nsresult nsOfflineCacheDevice::GetActiveCache(const nsACString& group,
@@ -2208,7 +2211,7 @@ nsresult nsOfflineCacheDevice::DeactivateGroup(const nsACString& group) {
   MutexAutoLock lock(mLock);
 
   if (mActiveCachesByGroup.Get(group, &active)) {
-    mActiveCaches.RemoveEntry(*active);
+    mActiveCaches.Remove(*active);
     mActiveCachesByGroup.Remove(group);
     active = nullptr;
   }
@@ -2527,17 +2530,17 @@ nsresult nsOfflineCacheDevice::ActivateCache(const nsACString& group,
 
   MutexAutoLock lock(mLock);
 
-  nsCString* active;
-  if (mActiveCachesByGroup.Get(group, &active)) {
-    mActiveCaches.RemoveEntry(*active);
-    mActiveCachesByGroup.Remove(group);
-    active = nullptr;
-  }
+  mActiveCachesByGroup.WithEntryHandle(group, [&](auto&& entry) {
+    if (entry) {
+      mActiveCaches.Remove(*entry.Data());
+      entry.Remove();
+    }
 
-  if (!clientID.IsEmpty()) {
-    mActiveCaches.PutEntry(clientID);
-    mActiveCachesByGroup.Put(group, new nsCString(clientID));
-  }
+    if (!clientID.IsEmpty()) {
+      mActiveCaches.Insert(clientID);
+      entry.Insert(MakeUnique<nsCString>(clientID));
+    }
+  });
 
   return NS_OK;
 }

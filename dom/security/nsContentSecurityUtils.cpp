@@ -8,6 +8,7 @@
 
 #include "nsContentSecurityUtils.h"
 
+#include "mozilla/Components.h"
 #include "mozilla/dom/nsMixedContentBlocker.h"
 #include "mozilla/dom/ScriptSettings.h"
 #include "nsComponentManagerUtils.h"
@@ -244,6 +245,8 @@ FilenameTypeAndDetails nsContentSecurityUtils::FilenameToFilenameType(
   static constexpr auto kResourceURI = "resourceuri"_ns;
   static constexpr auto kBlobUri = "bloburi"_ns;
   static constexpr auto kDataUri = "dataurl"_ns;
+  static constexpr auto kDataUriWebExtCStyle =
+      "dataurl-extension-contentstyle"_ns;
   static constexpr auto kSingleString = "singlestring"_ns;
   static constexpr auto kMozillaExtension = "mozillaextension"_ns;
   static constexpr auto kOtherExtension = "otherextension"_ns;
@@ -275,6 +278,9 @@ FilenameTypeAndDetails nsContentSecurityUtils::FilenameToFilenameType(
   // blob: and data:
   if (StringBeginsWith(fileName, u"blob:"_ns)) {
     return FilenameTypeAndDetails(kBlobUri, Nothing());
+  }
+  if (StringBeginsWith(fileName, u"data:text/css;extension=style;"_ns)) {
+    return FilenameTypeAndDetails(kDataUriWebExtCStyle, Nothing());
   }
   if (StringBeginsWith(fileName, u"data:"_ns)) {
     return FilenameTypeAndDetails(kDataUri, Nothing());
@@ -497,7 +503,7 @@ bool nsContentSecurityUtils::IsEvalAllowed(JSContext* cx,
     // DevEdition/Nightly.
     bool xpinstallSignatures;
     Preferences::GetBool("xpinstall.signatures.required", &xpinstallSignatures);
-    if (xpinstallSignatures) {
+    if (!xpinstallSignatures) {
       sJSHacksPresent = true;
     }
 
@@ -636,7 +642,7 @@ void nsContentSecurityUtils::NotifyEvalUsage(bool aIsSystemPrincipal,
   }
   nsCOMPtr<nsIStringBundle> bundle;
   nsCOMPtr<nsIStringBundleService> stringService =
-      mozilla::services::GetStringBundleService();
+      mozilla::components::StringBundle::Service();
   if (!stringService) {
     return;
   }
@@ -1021,7 +1027,7 @@ bool nsContentSecurityUtils::ValidateScriptFilename(const char* aFilename,
     // DevEdition/Nightly.
     bool xpinstallSignatures;
     Preferences::GetBool("xpinstall.signatures.required", &xpinstallSignatures);
-    if (xpinstallSignatures) {
+    if (!xpinstallSignatures) {
       sJSHacksPresent = true;
     }
 

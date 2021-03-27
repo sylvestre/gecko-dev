@@ -12,9 +12,11 @@ const { XPCOMUtils } = ChromeUtils.import(
 
 XPCOMUtils.defineLazyModuleGetters(this, {
   DEFAULT_SITES: "resource://activity-stream/lib/DefaultSites.jsm",
-  ExperimentAPI: "resource://messaging-system/experiments/ExperimentAPI.jsm",
+  ExperimentAPI: "resource://nimbus/ExperimentAPI.jsm",
   shortURL: "resource://activity-stream/lib/ShortURL.jsm",
   TippyTopProvider: "resource://activity-stream/lib/TippyTopProvider.jsm",
+  AboutWelcomeDefaults:
+    "resource://activity-stream/aboutwelcome/lib/AboutWelcomeDefaults.jsm",
 });
 
 XPCOMUtils.defineLazyGetter(this, "log", () => {
@@ -24,31 +26,19 @@ XPCOMUtils.defineLazyGetter(this, "log", () => {
   return new Logger("AboutWelcomeChild");
 });
 
+XPCOMUtils.defineLazyGetter(this, "aboutWelcomeFeature", () => {
+  const { ExperimentFeature } = ChromeUtils.import(
+    "resource://nimbus/ExperimentAPI.jsm"
+  );
+  return new ExperimentFeature("aboutwelcome");
+});
+
 XPCOMUtils.defineLazyGetter(this, "tippyTopProvider", () =>
   (async () => {
     const provider = new TippyTopProvider();
     await provider.init();
     return provider;
   })()
-);
-
-function _parseOverrideContent(value) {
-  let result = {};
-  try {
-    result = value ? JSON.parse(value) : {};
-  } catch (e) {
-    Cu.reportError(e);
-  }
-  return result;
-}
-
-XPCOMUtils.defineLazyPreferenceGetter(
-  this,
-  "multiStageAboutWelcomeContent",
-  "browser.aboutwelcome.overrideContent",
-  "",
-  null,
-  _parseOverrideContent
 );
 
 const SEARCH_REGION_PREF = "browser.search.region";
@@ -164,18 +154,8 @@ class AboutWelcomeChild extends JSWindowActorChild {
   exportFunctions() {
     let window = this.contentWindow;
 
-    Cu.exportFunction(this.AWGetExperimentData.bind(this), window, {
-      defineAs: "AWGetExperimentData",
-    });
-
-    Cu.exportFunction(this.AWGetAttributionData.bind(this), window, {
-      defineAs: "AWGetAttributionData",
-    });
-
-    // For local dev, checks for JSON content inside pref browser.aboutwelcome.overrideContent
-    // that is used to override default welcome UI
-    Cu.exportFunction(this.AWGetWelcomeOverrideContent.bind(this), window, {
-      defineAs: "AWGetWelcomeOverrideContent",
+    Cu.exportFunction(this.AWGetFeatureConfig.bind(this), window, {
+      defineAs: "AWGetFeatureConfig",
     });
 
     Cu.exportFunction(this.AWGetFxAMetricsFlowURI.bind(this), window, {
@@ -196,6 +176,10 @@ class AboutWelcomeChild extends JSWindowActorChild {
 
     Cu.exportFunction(this.AWGetRegion.bind(this), window, {
       defineAs: "AWGetRegion",
+    });
+
+    Cu.exportFunction(this.AWIsDefaultBrowser.bind(this), window, {
+      defineAs: "AWIsDefaultBrowser",
     });
 
     Cu.exportFunction(this.AWSelectTheme.bind(this), window, {
@@ -224,102 +208,55 @@ class AboutWelcomeChild extends JSWindowActorChild {
     );
   }
 
-  /**
-   * Send multistage welcome JSON data read from aboutwelcome.overrideConetent pref to page
-   */
-  AWGetWelcomeOverrideContent() {
-    return Cu.cloneInto(
-      multiStageAboutWelcomeContent || {},
-      this.contentWindow
-    );
-  }
-
   AWSelectTheme(data) {
     return this.wrapPromise(
       this.sendQuery("AWPage:SELECT_THEME", data.toUpperCase())
     );
   }
 
-  async getAddonInfo(attrbObj) {
-    let { content, source } = attrbObj;
-    try {
-      if (!content || source !== "addons.mozilla.org") {
-        return null;
-      }
-      // Attribution data can be double encoded
-      while (content.includes("%")) {
-        try {
-          const result = decodeURIComponent(content);
-          if (result === content) {
-            break;
-          }
-          content = result;
-        } catch (e) {
-          break;
-        }
-      }
-      return await this.sendQuery("AWPage:GET_ADDON_FROM_REPOSITORY", content);
-    } catch (e) {
-      Cu.reportError(
-        "Failed to get the latest add-on version for Return to AMO"
+  /**
+   * Send initial data to page including experiment information
+   */
+  async getAWContent() {
+    let experimentMetadata =
+      ExperimentAPI.getExperimentMetaData({
+        featureId: "aboutwelcome",
+      }) || {};
+    let featureConfig = aboutWelcomeFeature.getValue() || {};
+
+    if (experimentMetadata?.slug) {
+      log.debug(
+        `Loading about:welcome with experiment: ${experimentMetadata.slug}`
       );
-      return null;
-    }
-  }
-
-  hasAMOAttribution(attributionData) {
-    return (
-      attributionData &&
-      attributionData.campaign === "non-fx-button" &&
-      attributionData.source === "addons.mozilla.org"
-    );
-  }
-
-  async formatAttributionData(attribution) {
-    let result = {};
-    if (this.hasAMOAttribution(attribution)) {
-      let extraProps = await this.getAddonInfo(attribution);
-      if (extraProps) {
-        result = {
-          template: "return_to_amo",
-          extraProps,
+    } else {
+      log.debug("Loading about:welcome without experiment");
+      let attributionData = await this.sendQuery("AWPage:GET_ATTRIBUTION_DATA");
+      if (attributionData) {
+        log.debug("Loading about:welcome with attribution data");
+        featureConfig = { ...attributionData, ...featureConfig };
+      } else {
+        log.debug("Loading about:welcome with default data");
+        let defaults = AboutWelcomeDefaults.getDefaults(featureConfig);
+        // FeatureConfig (from prefs or experiments) has higher precendence
+        // to defaults. But the `screens` property isn't defined we shouldn't
+        // override the default with `null`
+        let screens = featureConfig.screens || defaults.screens;
+        featureConfig = {
+          ...defaults,
+          ...featureConfig,
+          screens,
         };
       }
     }
-    return result;
-  }
 
-  async getAttributionData() {
     return Cu.cloneInto(
-      await this.formatAttributionData(
-        await this.sendQuery("AWPage:GET_ATTRIBUTION_DATA")
-      ),
+      { ...experimentMetadata, ...featureConfig },
       this.contentWindow
     );
   }
 
-  AWGetAttributionData() {
-    return this.wrapPromise(this.getAttributionData());
-  }
-
-  /**
-   * Send initial data to page including experiment information
-   */
-  AWGetExperimentData() {
-    // Note that we specifically don't wait for experiments to be loaded from disk so if
-    // about:welcome loads outside of the "FirstStartup" scenario this will likely not be ready
-    let experimentData = ExperimentAPI.getExperiment({
-      featureId: "aboutwelcome",
-    });
-
-    if (experimentData?.slug) {
-      log.debug(
-        `Loading about:welcome with experiment: ${experimentData.slug}`
-      );
-    } else {
-      log.debug("Loading about:welcome without experiment");
-    }
-    return Cu.cloneInto(experimentData || {}, this.contentWindow);
+  AWGetFeatureConfig() {
+    return this.wrapPromise(this.getAWContent());
   }
 
   AWGetFxAMetricsFlowURI() {
@@ -336,6 +273,10 @@ class AboutWelcomeChild extends JSWindowActorChild {
 
   AWGetSelectedTheme() {
     return this.wrapPromise(getSelectedTheme(this));
+  }
+
+  AWIsDefaultBrowser() {
+    return this.wrapPromise(this.sendQuery("AWPage:IS_DEFAULT_BROWSER"));
   }
 
   /**

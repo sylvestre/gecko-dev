@@ -20,6 +20,7 @@
 #include "mozilla/StaticPrefs_gfx.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/gfx/gfxVars.h"
+#include "mozilla/gfx/GPUParent.h"
 #include "mozilla/layers/AnimationHelper.h"
 #include "mozilla/layers/APZSampler.h"
 #include "mozilla/layers/APZUpdater.h"
@@ -38,18 +39,16 @@
 #include "mozilla/layers/UiCompositorControllerParent.h"
 #include "mozilla/layers/WebRenderImageHost.h"
 #include "mozilla/layers/WebRenderTextureHost.h"
+#include "mozilla/ProfilerMarkerTypes.h"
 #include "mozilla/Telemetry.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/Unused.h"
+#include "mozilla/webrender/RenderTextureHostSWGL.h"
 #include "mozilla/webrender/RenderThread.h"
 #include "mozilla/widget/CompositorWidget.h"
 
 #ifdef XP_WIN
 #  include "mozilla/widget/WinCompositorWidget.h"
-#endif
-
-#ifdef MOZ_GECKO_PROFILER
-#  include "mozilla/ProfilerMarkerTypes.h"
 #endif
 
 bool is_in_main_thread() { return NS_IsMainThread(); }
@@ -81,24 +80,19 @@ void gecko_profiler_event_marker(const char* name) {
 
 void gecko_profiler_add_text_marker(const char* name, const char* text_bytes,
                                     size_t text_len, uint64_t microseconds) {
-#ifdef MOZ_GECKO_PROFILER
   if (profiler_thread_is_being_profiled()) {
     auto now = mozilla::TimeStamp::NowUnfuzzed();
-    auto start = now - mozilla::TimeDuration::FromMicroseconds(microseconds);
+    [[maybe_unused]] auto start =
+        now - mozilla::TimeDuration::FromMicroseconds(microseconds);
     PROFILER_MARKER_TEXT(
         mozilla::ProfilerString8View::WrapNullTerminatedString(name), GRAPHICS,
         mozilla::MarkerTiming::Interval(start, now),
         mozilla::ProfilerString8View(text_bytes, text_len));
   }
-#endif
 }
 
 bool gecko_profiler_thread_is_being_profiled() {
-#ifdef MOZ_GECKO_PROFILER
   return profiler_thread_is_being_profiled();
-#else
-  return false;
-#endif
 }
 
 bool is_glcontext_gles(void* const glcontext_ptr) {
@@ -253,14 +247,11 @@ class SceneBuiltNotification : public wr::NotificationHandler {
     CompositorThread()->Dispatch(NS_NewRunnableFunction(
         "SceneBuiltNotificationRunnable", [parent, epoch, startTime]() {
           auto endTime = TimeStamp::Now();
-#ifdef MOZ_GECKO_PROFILER
           if (profiler_can_accept_markers()) {
-            profiler_add_marker("CONTENT_FULL_PAINT_TIME",
-                                geckoprofiler::category::GRAPHICS,
-                                MarkerTiming::Interval(startTime, endTime),
-                                baseprofiler::markers::ContentBuildMarker{});
+            PROFILER_MARKER("CONTENT_FULL_PAINT_TIME", GRAPHICS,
+                            MarkerTiming::Interval(startTime, endTime),
+                            ContentBuildMarker);
           }
-#endif
           Telemetry::Accumulate(
               Telemetry::CONTENT_FULL_PAINT_TIME,
               static_cast<uint32_t>((endTime - startTime).ToMilliseconds()));
@@ -493,6 +484,10 @@ bool WebRenderBridgeParent::UpdateResources(
     wr::TransactionBuilder& aUpdates) {
   wr::ShmSegmentsReader reader(aSmallShmems, aLargeShmems);
   UniquePtr<ScheduleSharedSurfaceRelease> scheduleRelease;
+
+  if (!aResourceUpdates.IsEmpty()) {
+    GPUParent::MaybeFlushMemory();
+  }
 
   for (const auto& cmd : aResourceUpdates) {
     switch (cmd.type()) {
@@ -760,11 +755,16 @@ bool WebRenderBridgeParent::AddSharedExternalImage(
 
   mSharedSurfaceIds.insert(std::make_pair(key, aExtId));
 
+  // Prefer raw buffers, unless our backend requires native textures.
+  IntSize surfaceSize = dSurf->GetSize();
+  TextureHost::NativeTexturePolicy policy =
+      TextureHost::BackendNativeTexturePolicy(mApi->GetBackendType(),
+                                              surfaceSize);
   auto imageType =
-      mApi->GetBackendType() == WebRenderBackend::SOFTWARE
+      policy == TextureHost::NativeTexturePolicy::REQUIRE
           ? wr::ExternalImageType::TextureHandle(wr::ImageBufferKind::Texture2D)
           : wr::ExternalImageType::Buffer();
-  wr::ImageDescriptor descriptor(dSurf->GetSize(), dSurf->Stride(),
+  wr::ImageDescriptor descriptor(surfaceSize, dSurf->Stride(),
                                  dSurf->GetFormat());
   aResources.AddExternalImage(aKey, descriptor, aExtId, imageType, 0);
   return true;
@@ -873,11 +873,16 @@ bool WebRenderBridgeParent::UpdateSharedExternalImage(
     it->second = aExtId;
   }
 
+  // Prefer raw buffers, unless our backend requires native textures.
+  IntSize surfaceSize = dSurf->GetSize();
+  TextureHost::NativeTexturePolicy policy =
+      TextureHost::BackendNativeTexturePolicy(mApi->GetBackendType(),
+                                              surfaceSize);
   auto imageType =
-      mApi->GetBackendType() == WebRenderBackend::SOFTWARE
+      policy == TextureHost::NativeTexturePolicy::REQUIRE
           ? wr::ExternalImageType::TextureHandle(wr::ImageBufferKind::Texture2D)
           : wr::ExternalImageType::Buffer();
-  wr::ImageDescriptor descriptor(dSurf->GetSize(), dSurf->Stride(),
+  wr::ImageDescriptor descriptor(surfaceSize, dSurf->Stride(),
                                  dSurf->GetFormat());
   aResources.UpdateExternalImageWithDirtyRect(
       aKey, descriptor, aExtId, imageType, wr::ToDeviceIntRect(aDirtyRect), 0);
@@ -906,7 +911,7 @@ mozilla::ipc::IPCResult WebRenderBridgeParent::RecvUpdateResources(
     return IPC_OK();
   }
 
-  wr::TransactionBuilder txn;
+  wr::TransactionBuilder txn(mApi);
   txn.SetLowPriority(!IsRootWebRenderBridgeParent());
 
   Unused << GetNextWrEpoch();
@@ -983,7 +988,7 @@ void WebRenderBridgeParent::AddPendingScrollPayload(
     CompositionPayload& aPayload, const VsyncId& aCompositeStartId) {
   auto pendingScrollPayloads = mPendingScrollPayloads.Lock();
   nsTArray<CompositionPayload>* payloads =
-      pendingScrollPayloads->LookupOrAdd(aCompositeStartId.mId);
+      pendingScrollPayloads->GetOrInsertNew(aCompositeStartId.mId);
 
   payloads->AppendElement(aPayload);
 }
@@ -1141,7 +1146,7 @@ bool WebRenderBridgeParent::ProcessDisplayListData(
     DisplayListData& aDisplayList, wr::Epoch aWrEpoch,
     const TimeStamp& aTxnStartTime, bool aValidTransaction,
     bool aObserveLayersUpdate) {
-  wr::TransactionBuilder txn;
+  wr::TransactionBuilder txn(mApi);
   Maybe<wr::AutoTransactionSender> sender;
 
   // Note that this needs to happen before the display list transaction is
@@ -1183,6 +1188,8 @@ mozilla::ipc::IPCResult WebRenderBridgeParent::RecvSetDisplayList(
     for (const auto& op : aToDestroy) {
       DestroyActor(op);
     }
+    wr::IpcResourceUpdateQueue::ReleaseShmems(this, aDisplayList.mSmallShmems);
+    wr::IpcResourceUpdateQueue::ReleaseShmems(this, aDisplayList.mLargeShmems);
     return IPC_OK();
   }
 
@@ -1251,7 +1258,7 @@ mozilla::ipc::IPCResult WebRenderBridgeParent::RecvSetDisplayList(
 bool WebRenderBridgeParent::ProcessEmptyTransactionUpdates(
     TransactionData& aData, bool* aScheduleComposite) {
   *aScheduleComposite = false;
-  wr::TransactionBuilder txn;
+  wr::TransactionBuilder txn(mApi);
   txn.SetLowPriority(!IsRootWebRenderBridgeParent());
 
   if (!aData.mScrollUpdates.IsEmpty()) {
@@ -1319,6 +1326,12 @@ mozilla::ipc::IPCResult WebRenderBridgeParent::RecvEmptyTransaction(
   if (mDestroyed) {
     for (const auto& op : aToDestroy) {
       DestroyActor(op);
+    }
+    if (aTransactionData) {
+      wr::IpcResourceUpdateQueue::ReleaseShmems(this,
+                                                aTransactionData->mSmallShmems);
+      wr::IpcResourceUpdateQueue::ReleaseShmems(this,
+                                                aTransactionData->mLargeShmems);
     }
     return IPC_OK();
   }
@@ -1404,7 +1417,7 @@ mozilla::ipc::IPCResult WebRenderBridgeParent::RecvParentCommands(
     return IPC_OK();
   }
 
-  wr::TransactionBuilder txn;
+  wr::TransactionBuilder txn(mApi);
   txn.SetLowPriority(!IsRootWebRenderBridgeParent());
   if (!ProcessWebRenderParentCommands(aCommands, txn)) {
     return IPC_FAIL(this, "Invalid parent command found");
@@ -1419,7 +1432,7 @@ bool WebRenderBridgeParent::ProcessWebRenderParentCommands(
     wr::TransactionBuilder& aTxn) {
   // Transaction for async image pipeline that uses ImageBridge always need to
   // be non low priority.
-  wr::TransactionBuilder txnForImageBridge;
+  wr::TransactionBuilder txnForImageBridge(mApi);
   wr::AutoTransactionSender sender(mApi, &txnForImageBridge);
 
   for (nsTArray<WebRenderParentCommand>::index_type i = 0;
@@ -1563,7 +1576,7 @@ void WebRenderBridgeParent::DisableNativeCompositor() {
 }
 
 void WebRenderBridgeParent::UpdateQualitySettings() {
-  wr::TransactionBuilder txn;
+  wr::TransactionBuilder txn(mApi);
   txn.UpdateQualitySettings(gfxVars::ForceSubpixelAAWherePossible());
   mApi->SendTransaction(txn);
 }
@@ -1807,7 +1820,7 @@ mozilla::ipc::IPCResult WebRenderBridgeParent::RecvClearCachedResources() {
   }
 
   // Clear resources
-  wr::TransactionBuilder txn;
+  wr::TransactionBuilder txn(mApi);
   txn.SetLowPriority(true);
   txn.ClearDisplayList(GetNextWrEpoch(), mPipelineId);
   txn.Notify(
@@ -1886,7 +1899,7 @@ void WebRenderBridgeParent::InvalidateRenderedFrame() {
     return;
   }
 
-  wr::TransactionBuilder fastTxn(/* aUseSceneBuilderThread */ false);
+  wr::TransactionBuilder fastTxn(mApi, /* aUseSceneBuilderThread */ false);
   fastTxn.InvalidateRenderedFrame();
   mApi->SendTransaction(fastTxn);
 }
@@ -1907,9 +1920,17 @@ mozilla::ipc::IPCResult WebRenderBridgeParent::RecvCapture() {
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult WebRenderBridgeParent::RecvToggleCaptureSequence() {
+mozilla::ipc::IPCResult WebRenderBridgeParent::RecvStartCaptureSequence(
+    const nsCString& aPath, const uint32_t& aFlags) {
   if (!mDestroyed) {
-    mApi->ToggleCaptureSequence();
+    mApi->StartCaptureSequence(aPath, aFlags);
+  }
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult WebRenderBridgeParent::RecvStopCaptureSequence() {
+  if (!mDestroyed) {
+    mApi->StopCaptureSequence();
   }
   return IPC_OK();
 }
@@ -2133,9 +2154,9 @@ void WebRenderBridgeParent::MaybeGenerateFrame(VsyncId aId,
   // Ensure GenerateFrame is handled on the render backend thread rather
   // than going through the scene builder thread. That way we continue
   // generating frames with the old scene even during slow scene builds.
-  wr::TransactionBuilder fastTxn(false /* useSceneBuilderThread */);
+  wr::TransactionBuilder fastTxn(mApi, false /* useSceneBuilderThread */);
   // Handle transaction that is related to DisplayList.
-  wr::TransactionBuilder sceneBuilderTxn;
+  wr::TransactionBuilder sceneBuilderTxn(mApi);
   wr::AutoTransactionSender sender(mApi, &sceneBuilderTxn);
 
   mAsyncImageManager->SetCompositionInfo(start, mCompositionOpportunityId);
@@ -2277,12 +2298,12 @@ void WebRenderBridgeParent::NotifyDidSceneBuild(
   CompositeToTarget(mCompositorScheduler->GetLastVsyncId(), nullptr, nullptr);
 }
 
-TransactionId WebRenderBridgeParent::FlushTransactionIdsForEpoch(
+Maybe<TransactionId> WebRenderBridgeParent::FlushTransactionIdsForEpoch(
     const wr::Epoch& aEpoch, const VsyncId& aCompositeStartId,
     const TimeStamp& aCompositeStartTime, const TimeStamp& aRenderStartTime,
     const TimeStamp& aEndTime, UiCompositorControllerParent* aUiController,
     wr::RendererStats* aStats, nsTArray<FrameStats>* aOutputStats) {
-  TransactionId id{0};
+  Maybe<TransactionId> id = Nothing();
   while (!mPendingTransactionIds.empty()) {
     const auto& transactionId = mPendingTransactionIds.front();
 
@@ -2339,7 +2360,7 @@ TransactionId WebRenderBridgeParent::FlushTransactionIdsForEpoch(
 
     RecordCompositionPayloadsPresented(aEndTime, transactionId.mPayloads);
 
-    id = transactionId.mId;
+    id = Some(transactionId.mId);
     mPendingTransactionIds.pop_front();
   }
   return id;
@@ -2436,7 +2457,7 @@ void WebRenderBridgeParent::ClearResources() {
 
   mAsyncImageManager->RemovePipeline(mPipelineId, wrEpoch);
 
-  wr::TransactionBuilder txn;
+  wr::TransactionBuilder txn(mApi);
   txn.SetLowPriority(true);
   txn.ClearDisplayList(wrEpoch, mPipelineId);
 
@@ -2455,6 +2476,7 @@ void WebRenderBridgeParent::ClearResources() {
 
   if (IsRootWebRenderBridgeParent()) {
     mCompositorScheduler->Destroy();
+    mApi->DestroyRenderer();
   }
 
   mCompositorScheduler = nullptr;

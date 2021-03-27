@@ -20,7 +20,7 @@
 #include "mozilla/ipc/BackgroundChild.h"
 #include "mozilla/ipc/BackgroundParent.h"
 #include "mozilla/ipc/PBackgroundChild.h"
-#include "nsDataHashtable.h"
+#include "nsTHashMap.h"
 #include "nsThreadUtils.h"
 
 namespace mozilla {
@@ -48,10 +48,11 @@ void RecvPropagateBackgroundSessionStorageManager(
   if (sManagers) {
     if (RefPtr<BackgroundSessionStorageManager> mgr =
             sManagers->Get(aCurrentTopContextId)) {
-      // Assuming the target top browsing context should haven't been
-      // registered yet.
-      MOZ_DIAGNOSTIC_ASSERT(!sManagers->GetWeak(aTargetTopContextId));
-      sManagers->Put(aTargetTopContextId, std::move(mgr));
+      // Because of bfcache, we may re-register aTargetTopContextId in
+      // CanonicalBrowsingContext::ReplacedBy.
+      // XXXBFCache do we want to tweak this behavior and ensure this is
+      // called only once?
+      sManagers->InsertOrUpdate(aTargetTopContextId, std::move(mgr));
     }
   }
 }
@@ -70,32 +71,29 @@ SessionStorageManagerBase::OriginRecord*
 SessionStorageManagerBase::GetOriginRecord(
     const nsACString& aOriginAttrs, const nsACString& aOriginKey,
     const bool aMakeIfNeeded, SessionStorageCache* const aCloneFrom) {
-  OriginKeyHashTable* table;
-  if (!mOATable.Get(aOriginAttrs, &table)) {
-    if (aMakeIfNeeded) {
-      table = new OriginKeyHashTable();
-      mOATable.Put(aOriginAttrs, table);
-    } else {
-      return nullptr;
-    }
+  // XXX It seems aMakeIfNeeded is always known at compile-time, so this could
+  // be split into two functions.
+
+  if (aMakeIfNeeded) {
+    return mOATable.GetOrInsertNew(aOriginAttrs)
+        ->LookupOrInsertWith(
+            aOriginKey,
+            [&] {
+              auto newOriginRecord = MakeUnique<OriginRecord>();
+              if (aCloneFrom) {
+                newOriginRecord->mCache = aCloneFrom->Clone();
+              } else {
+                newOriginRecord->mCache = new SessionStorageCache();
+              }
+              return newOriginRecord;
+            })
+        .get();
   }
 
-  OriginRecord* originRecord;
-  if (!table->Get(aOriginKey, &originRecord)) {
-    if (aMakeIfNeeded) {
-      originRecord = new OriginRecord();
-      if (aCloneFrom) {
-        originRecord->mCache = aCloneFrom->Clone();
-      } else {
-        originRecord->mCache = new SessionStorageCache();
-      }
-      table->Put(aOriginKey, originRecord);
-    } else {
-      return nullptr;
-    }
-  }
+  auto* const table = mOATable.Get(aOriginAttrs);
+  if (!table) return nullptr;
 
-  return originRecord;
+  return table->Get(aOriginKey);
 }
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(SessionStorageManager)
@@ -494,20 +492,20 @@ void SessionStorageManager::ClearStorages(
     }
   }
 
-  for (auto iter1 = mOATable.Iter(); !iter1.Done(); iter1.Next()) {
+  for (const auto& oaEntry : mOATable) {
     OriginAttributes oa;
-    DebugOnly<bool> ok = oa.PopulateFromSuffix(iter1.Key());
+    DebugOnly<bool> ok = oa.PopulateFromSuffix(oaEntry.GetKey());
     MOZ_ASSERT(ok);
     if (!aPattern.Matches(oa)) {
       // This table doesn't match the given origin attributes pattern
       continue;
     }
 
-    OriginKeyHashTable* table = iter1.UserData();
-    for (auto iter2 = table->Iter(); !iter2.Done(); iter2.Next()) {
+    OriginKeyHashTable* table = oaEntry.GetWeak();
+    for (const auto& originKeyEntry : *table) {
       if (aOriginScope.IsEmpty() ||
-          StringBeginsWith(iter2.Key(), aOriginScope)) {
-        const auto cache = iter2.Data()->mCache;
+          StringBeginsWith(originKeyEntry.GetKey(), aOriginScope)) {
+        const auto cache = originKeyEntry.GetData()->mCache;
         if (aType == eAll) {
           cache->Clear(SessionStorageCache::eDefaultSetType, false);
           cache->Clear(SessionStorageCache::eSessionSetType, false);
@@ -518,8 +516,8 @@ void SessionStorageManager::ClearStorages(
 
         if (CanLoadData()) {
           MOZ_ASSERT(ActorExists());
-          CheckpointDataInternal(nsCString{iter1.Key()}, nsCString{iter2.Key()},
-                                 *cache);
+          CheckpointDataInternal(nsCString{oaEntry.GetKey()},
+                                 nsCString{originKeyEntry.GetKey()}, *cache);
         }
       }
     }
@@ -628,15 +626,14 @@ BackgroundSessionStorageManager* BackgroundSessionStorageManager::GetOrCreate(
                   return;
                 }
               },
-              ShutdownPhase::Shutdown);
+              ShutdownPhase::XPCOMShutdown);
         }));
   }
 
-  return sManagers->WithEntryHandle(aTopContextId, [](auto&& entry) {
-    return entry
-        .OrInsertWith([] { return new BackgroundSessionStorageManager(); })
-        .get();
-  });
+  return sManagers
+      ->LookupOrInsertWith(aTopContextId,
+                           [] { return new BackgroundSessionStorageManager(); })
+      .get();
 }
 
 BackgroundSessionStorageManager::BackgroundSessionStorageManager() {

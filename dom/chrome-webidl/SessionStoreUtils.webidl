@@ -4,6 +4,7 @@
 
 interface nsIDocShell;
 interface nsISupports;
+interface nsISessionStoreRestoreData;
 
 /**
  * A callback passed to SessionStoreUtils.forEachNonDynamicChildFrame().
@@ -122,12 +123,17 @@ namespace SessionStoreUtils {
    *        {"https://example.com^userContextId=1": {"key": "value", "my_number": "123"}}
    */
    void restoreSessionStorage(nsIDocShell docShell, record<DOMString, record<DOMString, DOMString>> data);
+
+   nsISessionStoreRestoreData constructSessionStoreRestoreData();
+
+   boolean setRestoreData(CanonicalBrowsingContext browsingContext,
+                          nsISessionStoreRestoreData? data);
 };
 
 [GenerateConversionToJS, GenerateInit]
 dictionary CollectedFileListValue
 {
-  required DOMString type;
+  DOMString type = "file";
   required sequence<DOMString> fileList;
 };
 
@@ -166,19 +172,28 @@ dictionary InputElementData {
 dictionary UpdateSessionStoreData {
   ByteString docShellCaps;
   boolean isPrivate;
-  sequence<ByteString> positions;
-  sequence<long> positionDescendants;
-  // The following are for input data
-  InputElementData id;
-  InputElementData xpath;
-  sequence<long> inputDescendants;
-  sequence<long> numId;
-  sequence<long> numXPath;
-  sequence<DOMString> innerHTML;
-  sequence<ByteString> url;
   // for sessionStorage
   sequence<ByteString> storageOrigins;
   sequence<DOMString> storageKeys;
   sequence<DOMString> storageValues;
   boolean isFullStorage;
+};
+
+[GenerateConversionToJS]
+dictionary SessionStoreWindowStateChange {
+  SessionStoreFormData formdata;
+  SessionStoreScroll scroll;
+  boolean hasChildren;
+  required sequence<unsigned long> path;
+};
+
+dictionary SessionStoreFormData {
+  ByteString url;
+  record<DOMString, CollectedFormDataValue> id;
+  record<DOMString, CollectedFormDataValue> xpath;
+  DOMString innerHTML;
+};
+
+dictionary SessionStoreScroll {
+  ByteString scroll;
 };

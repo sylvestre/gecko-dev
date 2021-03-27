@@ -158,7 +158,7 @@ class AccessibilityTest : BaseSessionTest() {
             override fun onLoadRequest(session: GeckoSession,
                                        request: GeckoSession.NavigationDelegate.LoadRequest)
                     : GeckoResult<AllowOrDeny>? {
-                return GeckoResult.ALLOW
+                return GeckoResult.allow()
             }
         })
         // XXX: Sometimes we get the window state change of the initial
@@ -1106,9 +1106,9 @@ class AccessibilityTest : BaseSessionTest() {
                     $doc.querySelector('${entry.key}').addEventListener(
                         'input', event => {
                           let eventInterface =
-                            event instanceof InputEvent ? "InputEvent" :
-                            event instanceof UIEvent ? "UIEvent" :
-                            event instanceof Event ? "Event" : "Unknown";
+                            event instanceof $doc.defaultView.InputEvent ? "InputEvent" :
+                            event instanceof $doc.defaultView.UIEvent ? "UIEvent" :
+                            event instanceof $doc.defaultView.Event ? "Event" : "Unknown";
                           resolve([event.target.value, '${entry.value}', eventInterface]);
                         }, { once: true }))""")
             }

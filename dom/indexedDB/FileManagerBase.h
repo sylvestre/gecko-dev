@@ -10,7 +10,7 @@
 #include "mozilla/Attributes.h"
 #include "mozilla/Mutex.h"
 #include "mozilla/StaticMutex.h"
-#include "nsDataHashtable.h"
+#include "nsTHashMap.h"
 #include "nsHashKeys.h"
 #include "nsISupportsImpl.h"
 #include "FileInfoT.h"
@@ -41,7 +41,7 @@ class FileManagerBase {
                                             AcquireStrongRefFromRawPtr{}},
                                  id);
 
-      mFileInfos.Put(id, fileInfo);
+      mFileInfos.InsertOrUpdate(id, fileInfo);
       return Some(fileInfo);
     });
   }
@@ -123,7 +123,7 @@ class FileManagerBase {
   // Access to the following fields must be protected by
   // FileManager::Mutex()
   int64_t mLastFileId = 0;
-  nsDataHashtable<nsUint64HashKey, NotNull<FileInfo*>> mFileInfos;
+  nsTHashMap<nsUint64HashKey, NotNull<FileInfo*>> mFileInfos;
 
   FlippedOnce<false> mInvalidated;
 };

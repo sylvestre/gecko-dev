@@ -23,6 +23,7 @@
 #include "gfxCrashReporterUtils.h"
 #include "gfxPlatform.h"
 #include "mozilla/Assertions.h"
+#include "mozilla/Components.h"
 #include "mozilla/HangDetails.h"
 #include "mozilla/PerfStats.h"
 #include "mozilla/Preferences.h"
@@ -59,6 +60,7 @@
 #if defined(XP_WIN)
 #  include <dwrite.h>
 #  include <process.h>
+#  include <windows.h>
 
 #  include "gfxWindowsPlatform.h"
 #  include "mozilla/WindowsVersion.h"
@@ -96,6 +98,40 @@ GPUParent::~GPUParent() { sGPUParent = nullptr; }
 GPUParent* GPUParent::GetSingleton() {
   MOZ_DIAGNOSTIC_ASSERT(sGPUParent);
   return sGPUParent;
+}
+
+/* static */ void GPUParent::MaybeFlushMemory() {
+#if defined(XP_WIN) && !defined(HAVE_64BIT_BUILD)
+  MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
+  if (!XRE_IsGPUProcess()) {
+    return;
+  }
+
+  MEMORYSTATUSEX stat;
+  stat.dwLength = sizeof(stat);
+  if (!GlobalMemoryStatusEx(&stat)) {
+    return;
+  }
+
+  // We only care about virtual process memory space in the GPU process because
+  // the UI process is already watching total memory usage.
+  static const size_t kLowVirtualMemoryThreshold = 384 * 1024 * 1024;
+  bool lowMemory = stat.ullAvailVirtual < kLowVirtualMemoryThreshold;
+
+  // We suppress more than one low memory notification until we exit the
+  // condition. The UI process goes through more effort, reporting on-going
+  // memory pressure, but rather than try to manage a shared state, we just
+  // send one notification here to try to resolve it.
+  static bool sLowMemory = false;
+  if (lowMemory && !sLowMemory) {
+    NS_DispatchToMainThread(
+        NS_NewRunnableFunction("gfx::GPUParent::FlushMemory", []() -> void {
+          Unused << GPUParent::GetSingleton()->SendFlushMemory(
+              u"low-memory"_ns);
+        }));
+  }
+  sLowMemory = lowMemory;
+#endif
 }
 
 bool GPUParent::Init(base::ProcessId aParentPid, const char* aParentBuildID,
@@ -229,7 +265,7 @@ mozilla::ipc::IPCResult GPUParent::RecvInit(
   if (gfxVars::UseWebRender()) {
     DeviceManagerDx::Get()->CreateDirectCompositionDevice();
     // Ensure to initialize GfxInfo
-    nsCOMPtr<nsIGfxInfo> gfxInfo = services::GetGfxInfo();
+    nsCOMPtr<nsIGfxInfo> gfxInfo = components::GfxInfo::Service();
     Unused << gfxInfo;
 
     Factory::EnsureDWriteFactory();
@@ -239,11 +275,11 @@ mozilla::ipc::IPCResult GPUParent::RecvInit(
 #if defined(MOZ_WIDGET_GTK)
   char* display_name = PR_GetEnv("MOZ_GDK_DISPLAY");
   if (!display_name) {
-    bool waylandDisabled = true;
+    bool waylandEnabled = false;
 #  ifdef MOZ_WAYLAND
-    waylandDisabled = IsWaylandDisabled();
+    waylandEnabled = IsWaylandEnabled();
 #  endif
-    if (waylandDisabled) {
+    if (!waylandEnabled) {
       display_name = PR_GetEnv("DISPLAY");
     }
   }
@@ -271,7 +307,7 @@ mozilla::ipc::IPCResult GPUParent::RecvInit(
   }
 
   // Ensure that GfxInfo::Init is called on the main thread.
-  nsCOMPtr<nsIGfxInfo> gfxInfo = services::GetGfxInfo();
+  nsCOMPtr<nsIGfxInfo> gfxInfo = components::GfxInfo::Service();
   Unused << gfxInfo;
 #endif
 

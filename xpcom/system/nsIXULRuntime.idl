@@ -23,8 +23,15 @@ uint32_t GetMaxWebProcessCount();
 // enable fission regardless of pref settings.
 bool FissionAutostart();
 
+// Returns whether or not we are currently enrolled in the fission experiment.
+bool FissionExperimentEnrolled();
+
 // Returns true if fission.sessionHistoryInParent or FissionAutostart() is true.
 bool SessionHistoryInParent();
+
+// Returns true if SessionHistoryInParent() returns true and
+// fission.bfcacheInParent is true.
+bool BFCacheInParent();
 }
 
 %}
@@ -305,6 +312,19 @@ interface nsIXULRuntime : nsISupports
    * restart mechanism (such as RegisterApplicationRestart on Windows).
    */
   readonly attribute boolean restartedByOS;
+
+  /**
+   * The path of the shortcut used to start the current process, or "" if none.
+   *
+   * Windows Main process only, otherwise throws NS_ERROR_NOT_AVAILABLE
+   *
+   * May be mising in some cases where the user did launch from a shortcut:
+   * - If the updater ran on startup
+   * - If the AUMID was set before the shortcut could be saved
+   *
+   * @throw NS_ERROR_NOT_AVAILABLE if not available.
+   */
+  readonly attribute AString processStartupShortcut;
 
   /**
    * Returns a value corresponding to one of the

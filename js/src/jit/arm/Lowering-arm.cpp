@@ -216,6 +216,17 @@ void LIRGeneratorARM::lowerForMulInt64(LMulI64* ins, MMul* mir,
   defineInt64ReuseInput(ins, mir, 0);
 }
 
+void LIRGeneratorARM::lowerForCompareI64AndBranch(MTest* mir, MCompare* comp,
+                                                  JSOp op, MDefinition* left,
+                                                  MDefinition* right,
+                                                  MBasicBlock* ifTrue,
+                                                  MBasicBlock* ifFalse) {
+  LCompareI64AndBranch* lir = new (alloc())
+      LCompareI64AndBranch(comp, op, useInt64Register(left),
+                           useInt64OrConstant(right), ifTrue, ifFalse);
+  add(lir, mir);
+}
+
 void LIRGeneratorARM::lowerForFPU(LInstructionHelper<1, 1, 0>* ins,
                                   MDefinition* mir, MDefinition* input) {
   ins->setOperand(0, useRegisterAtStart(input));
@@ -751,8 +762,6 @@ void LIRGenerator::visitWasmStore(MWasmStore* ins) {
 }
 
 void LIRGenerator::visitAsmJSLoadHeap(MAsmJSLoadHeap* ins) {
-  MOZ_ASSERT(ins->offset() == 0);
-
   MDefinition* base = ins->base();
   MOZ_ASSERT(base->type() == MIRType::Int32);
 
@@ -778,8 +787,6 @@ void LIRGenerator::visitAsmJSLoadHeap(MAsmJSLoadHeap* ins) {
 }
 
 void LIRGenerator::visitAsmJSStoreHeap(MAsmJSStoreHeap* ins) {
-  MOZ_ASSERT(ins->offset() == 0);
-
   MDefinition* base = ins->base();
   MOZ_ASSERT(base->type() == MIRType::Int32);
 
@@ -1193,4 +1200,12 @@ void LIRGenerator::visitWasmUnarySimd128(MWasmUnarySimd128* ins) {
 
 void LIRGenerator::visitWasmReduceSimd128(MWasmReduceSimd128* ins) {
   MOZ_CRASH("reduce-SIMD NYI");
+}
+
+void LIRGenerator::visitWasmLoadLaneSimd128(MWasmLoadLaneSimd128* ins) {
+  MOZ_CRASH("load-lane SIMD NYI");
+}
+
+void LIRGenerator::visitWasmStoreLaneSimd128(MWasmStoreLaneSimd128* ins) {
+  MOZ_CRASH("store-lane SIMD NYI");
 }

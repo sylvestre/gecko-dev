@@ -13,7 +13,7 @@
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/StaticPtr.h"
 #include "mozilla/Unused.h"
-#include "nsDataHashtable.h"
+#include "nsTHashMap.h"
 #include "sdnAccessible.h"
 
 // These constants may be adjusted to modify the proportion of the Child ID
@@ -35,7 +35,7 @@ namespace mozilla {
 namespace a11y {
 namespace detail {
 
-typedef nsDataHashtable<nsUint64HashKey, uint32_t> ContentParentIdMap;
+typedef nsTHashMap<nsUint64HashKey, uint32_t> ContentParentIdMap;
 
 #pragma pack(push, 1)
 union MsaaID {
@@ -174,29 +174,27 @@ uint32_t MsaaIdGenerator::GetContentProcessIDFor(
     ClearOnShutdown(&sContentParentIdMap);
   }
 
-  uint32_t value = 0;
-  if (sContentParentIdMap->Get(aIPCContentProcessID, &value)) {
-    return value;
-  }
-
-  uint32_t index = 0;
-  for (; index < ArrayLength(sContentProcessIdBitmap); ++index) {
-    if (sContentProcessIdBitmap[index] == UINT64_MAX) {
-      continue;
+  return sContentParentIdMap->LookupOrInsertWith(aIPCContentProcessID, [] {
+    uint32_t value = 0;
+    uint32_t index = 0;
+    for (; index < ArrayLength(sContentProcessIdBitmap); ++index) {
+      if (sContentProcessIdBitmap[index] == UINT64_MAX) {
+        continue;
+      }
+      uint32_t bitIndex =
+          CountTrailingZeroes64(~sContentProcessIdBitmap[index]);
+      MOZ_ASSERT(!(sContentProcessIdBitmap[index] & (1ULL << bitIndex)));
+      MOZ_ASSERT(bitIndex != 0 || index != 0);
+      sContentProcessIdBitmap[index] |= (1ULL << bitIndex);
+      value = index * kBitsPerElement + bitIndex;
+      break;
     }
-    uint32_t bitIndex = CountTrailingZeroes64(~sContentProcessIdBitmap[index]);
-    MOZ_ASSERT(!(sContentProcessIdBitmap[index] & (1ULL << bitIndex)));
-    MOZ_ASSERT(bitIndex != 0 || index != 0);
-    sContentProcessIdBitmap[index] |= (1ULL << bitIndex);
-    value = index * kBitsPerElement + bitIndex;
-    break;
-  }
 
-  // If we run out of content process IDs, we're in trouble
-  MOZ_RELEASE_ASSERT(index < ArrayLength(sContentProcessIdBitmap));
+    // If we run out of content process IDs, we're in trouble
+    MOZ_RELEASE_ASSERT(index < ArrayLength(sContentProcessIdBitmap));
 
-  sContentParentIdMap->Put(aIPCContentProcessID, value);
-  return value;
+    return value;
+  });
 }
 
 void MsaaIdGenerator::ReleaseContentProcessIDFor(
@@ -208,8 +206,7 @@ void MsaaIdGenerator::ReleaseContentProcessIDFor(
     return;
   }
 
-  Maybe<uint32_t> mapping =
-      sContentParentIdMap->GetAndRemove(aIPCContentProcessID);
+  Maybe<uint32_t> mapping = sContentParentIdMap->Extract(aIPCContentProcessID);
   if (!mapping) {
     // Since Content IDs are generated lazily, ContentParent might attempt
     // to release an ID that was never allocated to begin with.

@@ -11,10 +11,15 @@
 #include "mozilla/net/HttpBaseChannel.h"
 #include "mozilla/net/NeckoChild.h"
 #include "mozilla/ScopeExit.h"
+#include "mozilla/StaticPrefs_fission.h"
 #include "nsHashPropertyBag.h"
 #include "nsIHttpChannelInternal.h"
 #include "nsIObjectLoadingContent.h"
+#include "nsIXULRuntime.h"
 #include "nsIWritablePropertyBag.h"
+#include "nsFrameLoader.h"
+#include "nsFrameLoaderOwner.h"
+#include "nsQueryObject.h"
 
 using namespace mozilla::dom;
 using namespace mozilla::ipc;
@@ -42,6 +47,7 @@ DocumentChannelChild::DocumentChannelChild(nsDocShellLoadState* aLoadState,
                                            bool aUriModified, bool aIsXFOError)
     : DocumentChannel(aLoadState, aLoadInfo, aLoadFlags, aCacheKey,
                       aUriModified, aIsXFOError) {
+  mLoadingContext = nullptr;
   LOG(("DocumentChannelChild ctor [this=%p, uri=%s]", this,
        aLoadState->URI()->GetSpecOrDefault().get()));
 }
@@ -96,6 +102,7 @@ DocumentChannelChild::AsyncOpen(nsIStreamListener* aListener) {
   if (!loadingContext || loadingContext->IsDiscarded()) {
     return NS_ERROR_FAILURE;
   }
+  mLoadingContext = loadingContext;
 
   DocumentChannelCreationArgs args;
 
@@ -163,6 +170,21 @@ DocumentChannelChild::AsyncOpen(nsIStreamListener* aListener) {
 
 IPCResult DocumentChannelChild::RecvFailedAsyncOpen(
     const nsresult& aStatusCode) {
+  if (aStatusCode == NS_ERROR_RECURSIVE_DOCUMENT_LOAD) {
+    // This exists so that we are able to fire an error event
+    // for when there are too many recursive iframe or object loads.
+    // This is an incomplete solution, because right now we don't have a unified
+    // way of firing error events due to errors in document channel.
+    // This should be fixed in bug 1629201.
+    MOZ_DIAGNOSTIC_ASSERT(mLoadingContext);
+    if (RefPtr<Element> embedder = mLoadingContext->GetEmbedderElement()) {
+      if (RefPtr<nsFrameLoaderOwner> flo = do_QueryObject(embedder)) {
+        if (RefPtr<nsFrameLoader> fl = flo->GetFrameLoader()) {
+          fl->FireErrorEvent();
+        }
+      }
+    }
+  }
   ShutdownListeners(aStatusCode);
   return IPC_OK();
 }
@@ -174,7 +196,14 @@ IPCResult DocumentChannelChild::RecvDisconnectChildListeners(
   // notify them of the failure. If this is a process switch, then we can just
   // ignore it silently, and trust that the switch will shut down our docshell
   // and cancel us when it's ready.
-  if (!aSwitchedProcess) {
+  // XXXBFCache This should be fixed in some better way.
+  bool disconnectChildListeners = !aSwitchedProcess;
+  if (!disconnectChildListeners && mozilla::BFCacheInParent()) {
+    nsDocShell* shell = GetDocShell();
+    disconnectChildListeners = shell && shell->GetBrowsingContext() &&
+                               shell->GetBrowsingContext()->IsTop();
+  }
+  if (disconnectChildListeners) {
     DisconnectChildListeners(aStatus, aLoadGroupStatus);
   }
   return IPC_OK();

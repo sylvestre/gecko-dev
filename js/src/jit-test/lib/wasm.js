@@ -3,6 +3,27 @@ if (!wasmIsSupported())
 
 load(libdir + "asserts.js");
 
+// On 64-bit systems with explicit bounds checking, ion and baseline can handle
+// 65536 pages but cranelift can handle only 65534 pages; thus the presence of
+// cranelift forces the max for the system as a whole to 65534.  We will
+// probably fix this eventually.
+
+var PageSizeInBytes = 65536;
+var MaxBytesIn32BitMemory = 0;
+if (largeArrayBufferEnabled()) {
+    if (wasmCompilersPresent().indexOf("cranelift") != -1) {
+        MaxBytesIn32BitMemory = 65534*PageSizeInBytes;
+    } else {
+        MaxBytesIn32BitMemory = 65536*PageSizeInBytes;
+    }
+} else {
+    // This is an overestimate twice: first, the max byte value is divisible by
+    // the page size; second, it must be a valid bounds checking immediate.  But
+    // INT32_MAX is fine for testing.
+    MaxBytesIn32BitMemory = 0x7FFF_FFFF;
+}
+var MaxPagesIn32BitMemory = Math.floor(MaxBytesIn32BitMemory / PageSizeInBytes);
+
 // "options" is an extension to facilitate the SIMD wormhole
 
 function wasmEvalText(str, imports, options) {
@@ -388,7 +409,9 @@ if (wasmGcEnabled()) {
     let { newStruct } = wasmEvalText(`
       (module
         (type $s (struct))
-        (func (export "newStruct") (result eqref) struct.new $s)
+        (func (export "newStruct") (result eqref)
+            rtt.canon $s
+            struct.new_with_rtt $s)
       )`).exports;
     WasmNonNullEqrefValues.push(newStruct());
     WasmEqrefValues.push(null, ...WasmNonNullEqrefValues);

@@ -9,6 +9,8 @@ include protocol PBrowser;
 include protocol PCompositorManager;
 include protocol PContentPermissionRequest;
 include protocol PCycleCollectWithLogs;
+include protocol PDocumentChannel;
+include protocol PExtensions;
 include protocol PExternalHelperApp;
 include protocol PHandlerService;
 include protocol PFileDescriptorSet;
@@ -37,7 +39,6 @@ include protocol PRemoteSpellcheckEngine;
 include protocol PWebBrowserPersistDocument;
 include protocol PWebrtcGlobal;
 include protocol PWindowGlobal;
-include protocol PPresentation;
 include protocol PURLClassifier;
 include protocol PURLClassifierLocal;
 include protocol PVRManager;
@@ -406,6 +407,7 @@ nested(upto inside_cpow) sync protocol PContent
     manages PBrowser;
     manages PContentPermissionRequest;
     manages PCycleCollectWithLogs;
+    manages PExtensions;
     manages PExternalHelperApp;
     manages PFileDescriptorSet;
     manages PHal;
@@ -425,7 +427,6 @@ nested(upto inside_cpow) sync protocol PContent
     manages PRemoteSpellcheckEngine;
     manages PWebBrowserPersistDocument;
     manages PWebrtcGlobal;
-    manages PPresentation;
     manages PURLClassifier;
     manages PURLClassifierLocal;
     manages PScriptCache;
@@ -470,6 +471,8 @@ parent:
     // this should be enough...
     async CloneDocumentTreeInto(MaybeDiscardedBrowsingContext aSourceBc,
                                 MaybeDiscardedBrowsingContext aTargetBc);
+
+    async PExtensions();
 
 child:
     async ConstructBrowser(ManagedEndpoint<PBrowserChild> browserEp,
@@ -737,18 +740,6 @@ child:
     async UpdateWindow(uintptr_t aChildId);
 
     /**
-     * Notify the child that presentation receiver has been launched with the
-     * correspondent iframe.
-     */
-    async NotifyPresentationReceiverLaunched(PBrowser aIframe, nsString aSessionId);
-
-    /**
-     * Notify the child that the info about a presentation receiver needs to be
-     * cleaned up.
-     */
-    async NotifyPresentationReceiverCleanUp(nsString aSessionId);
-
-    /**
      * Notify the child that cache is emptied.
      */
     async NotifyEmptyHTTPCache();
@@ -945,16 +936,17 @@ child:
   async DispatchBeforeUnloadToSubtree(MaybeDiscardedBrowsingContext aStartingAt)
       returns (PermitUnloadResult result);
 
+  async CanSavePresentation(MaybeDiscardedBrowsingContext aTopLevelContext,
+      uint64_t? aDocumentChannelId) returns (bool success);
+
   // Update the cached list of codec supported in the given process.
   async UpdateMediaCodecsSupported(RemoteDecodeIn aLocation, MediaCodecsSupported aSupported);
 
+  async FlushTabState(MaybeDiscardedBrowsingContext aBrowsingContext)
+      returns(bool aHadContext);
+
 parent:
-    /**
-     * This is a temporary way to pass index and length through parent process.
-     * Used for testing.
-     */
-    async SessionHistoryUpdate(MaybeDiscardedBrowsingContext aTopContext,
-                               int32_t aIndex, int32_t aLength, nsID aChangeID);
+
 
     async SynchronizeLayoutHistoryState(MaybeDiscardedBrowsingContext aContext,
                                         nsILayoutHistoryState aState);
@@ -973,6 +965,8 @@ parent:
 
     async GetLoadingSessionHistoryInfoFromParent(MaybeDiscardedBrowsingContext aContext)
         returns (LoadingSessionHistoryInfo? aLoadingInfo, int32_t aRequestedIndex, int32_t aLength);
+
+    async RemoveFromBFCache(MaybeDiscardedBrowsingContext aContext);
 
     async InitBackground(Endpoint<PBackgroundParent> aEndpoint);
 
@@ -1027,8 +1021,6 @@ parent:
 
     async PWebrtcGlobal();
 
-    async PPresentation();
-
     async CreateAudioIPCConnection() returns (FileDescOrError fd);
 
     sync PURLClassifier(Principal principal)
@@ -1047,7 +1039,10 @@ parent:
     async StartVisitedQueries(nsIURI[] uri);
     async SetURITitle(nsIURI uri, nsString title);
 
-    async LoadURIExternal(nsIURI uri, nsIPrincipal triggeringPrincipal, MaybeDiscardedBrowsingContext browsingContext);
+    async LoadURIExternal(nsIURI uri,
+                          nsIPrincipal triggeringPrincipal,
+                          MaybeDiscardedBrowsingContext browsingContext,
+                          bool wasExternallyTriggered);
     async ExtProtocolChannelConnectParent(uint64_t registrarId);
 
     // PrefService message
@@ -1794,8 +1789,7 @@ both:
             returns (bool unused);
 
     async AdjustWindowFocus(MaybeDiscardedBrowsingContext aContext,
-                            bool aCheckPermission,
-                            bool aIsVisible);
+                            bool aIsVisible, uint64_t aActionId);
     async WindowClose(MaybeDiscardedBrowsingContext aContext,
                       bool aTrustedCaller);
     async WindowFocus(MaybeDiscardedBrowsingContext aContext,
@@ -1824,9 +1818,10 @@ child:
                       MaybeDiscardedBrowsingContext aAncestorBrowsingContextToFocus,
                       bool aIsLeavingDocument, bool aAdjustWidget, uint64_t aActionId);
     async SetupFocusedAndActive(MaybeDiscardedBrowsingContext aFocusedBrowsingContext,
-                                MaybeDiscardedBrowsingContext aActiveBrowsingContext);
-    async ReviseActiveBrowsingContext(MaybeDiscardedBrowsingContext aActiveBrowsingContext,
-                                      uint64_t aActionId);
+                                MaybeDiscardedBrowsingContext aActiveBrowsingContext,
+                                uint64_t aActionId);
+    async ReviseActiveBrowsingContext(uint64_t aOldActionId, MaybeDiscardedBrowsingContext aActiveBrowsingContext,
+                                      uint64_t aNewActionId);
 both:
     async MaybeExitFullscreen(MaybeDiscardedBrowsingContext aContext);
     async WindowPostMessage(MaybeDiscardedBrowsingContext aContext,

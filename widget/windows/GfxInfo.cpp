@@ -17,6 +17,7 @@
 #include "prenv.h"
 #include "prprf.h"
 #include "GfxDriverInfo.h"
+#include "mozilla/Components.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/gfx/DeviceManagerDx.h"
 #include "mozilla/gfx/Logging.h"
@@ -1649,14 +1650,6 @@ const nsTArray<GfxDriverInfo>& GfxInfo::GetGfxDriverInfo() {
         DRIVER_BETWEEN_INCLUSIVE, V(8, 17, 12, 5730), V(8, 17, 12, 6901),
         "FEATURE_FAILURE_BUG_1137716", "Nvidia driver > 8.17.12.6901");
 
-    /* Bug 1153381: WebGL issues with D3D11 ANGLE on Intel. These may be fixed
-     * by an ANGLE update. */
-    APPEND_TO_DRIVER_BLOCKLIST2(
-        OperatingSystem::Windows, DeviceFamily::IntelGMAX4500HD,
-        nsIGfxInfo::FEATURE_DIRECT3D_11_ANGLE,
-        nsIGfxInfo::FEATURE_BLOCKED_DEVICE, DRIVER_LESS_THAN,
-        GfxDriverInfo::allDriverVersions, "FEATURE_FAILURE_BUG_1153381");
-
     /* Bug 1336710: Crash in rx::Blit9::initialize. */
     APPEND_TO_DRIVER_BLOCKLIST2(
         OperatingSystem::WindowsXP, DeviceFamily::IntelGMAX4500HD,
@@ -1816,7 +1809,7 @@ const nsTArray<GfxDriverInfo>& GfxInfo::GetGfxDriverInfo() {
     // FEATURE_WEBRENDER_COMPOSITOR
 
 #ifndef EARLY_BETA_OR_EARLIER
-    // See also bug 161687
+    // See also bug 1616874
     APPEND_TO_DRIVER_BLOCKLIST2(
         OperatingSystem::Windows, DeviceFamily::IntelAll,
         nsIGfxInfo::FEATURE_WEBRENDER_COMPOSITOR,
@@ -1851,14 +1844,22 @@ const nsTArray<GfxDriverInfo>& GfxInfo::GetGfxDriverInfo() {
     ////////////////////////////////////
     // FEATURE_WEBRENDER_SOFTWARE - ALLOWLIST
 #ifdef EARLY_BETA_OR_EARLIER
-#  if defined(_M_IX86) || defined(_M_X64) || defined(__i386__) || \
-      defined(__i386) || defined(__amd64__)
     APPEND_TO_DRIVER_BLOCKLIST2(OperatingSystem::Windows, DeviceFamily::All,
                                 nsIGfxInfo::FEATURE_WEBRENDER_SOFTWARE,
                                 nsIGfxInfo::FEATURE_ALLOW_ALWAYS,
                                 DRIVER_COMPARISON_IGNORED, V(0, 0, 0, 0),
-                                "FEATURE_ROLLOUT_NIGHTLY_SOFTWARE_WR_S_M_SCRN");
-#  endif
+                                "FEATURE_ROLLOUT_EARLY_BETA_SOFTWARE_WR");
+#endif
+
+#if defined(_M_X64) || defined(__amd64__)
+    if (mozilla::supports_avx2()) {
+      APPEND_TO_DRIVER_BLOCKLIST2_EXT(
+          OperatingSystem::Windows, ScreenSizeStatus::Small, BatteryStatus::All,
+          DesktopEnvironment::All, WindowProtocol::All, DriverVendor::All,
+          DeviceFamily::All, nsIGfxInfo::FEATURE_WEBRENDER_SOFTWARE,
+          nsIGfxInfo::FEATURE_ALLOW_ALWAYS, DRIVER_COMPARISON_IGNORED,
+          V(0, 0, 0, 0), "FEATURE_ROLLOUT_RELEASE_SMALL_SCRN_SOFTWARE_WR");
+    }
 #endif
   }
   return *sDriverInfo;
@@ -2007,7 +2008,7 @@ void GfxInfo::DescribeFeatures(JSContext* aCx, JS::Handle<JSObject*> aObj) {
     JS_SetProperty(aCx, obj, "textureSharing", val);
 
     bool blocklisted = false;
-    if (nsCOMPtr<nsIGfxInfo> gfxInfo = services::GetGfxInfo()) {
+    if (nsCOMPtr<nsIGfxInfo> gfxInfo = components::GfxInfo::Service()) {
       int32_t status;
       nsCString discardFailureId;
       if (SUCCEEDED(

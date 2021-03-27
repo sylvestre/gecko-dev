@@ -17,6 +17,7 @@
 
 #include "mozilla/AddonManagerWebAPI.h"
 #include "mozilla/ClearOnShutdown.h"
+#include "mozilla/Components.h"
 #include "mozilla/ErrorNames.h"
 #include "mozilla/ResultExtensions.h"
 #include "mozilla/Unused.h"
@@ -99,7 +100,7 @@ static LinkedList<ChannelWrapper>& ChannelList() {
   static UniquePtr<ChannelListHolder> sChannelList;
   if (!sChannelList) {
     sChannelList.reset(new ChannelListHolder());
-    ClearOnShutdown(&sChannelList, ShutdownPhase::Shutdown);
+    ClearOnShutdown(&sChannelList, ShutdownPhase::XPCOMShutdown);
   }
   return *sChannelList;
 }
@@ -144,10 +145,7 @@ already_AddRefed<ChannelWrapper> ChannelWrapper::Get(const GlobalObject& global,
 
   nsCOMPtr<nsIWritablePropertyBag2> props = do_QueryInterface(channel);
   if (props) {
-    Unused << props->GetPropertyAsInterface(CHANNELWRAPPER_PROP_KEY,
-                                            NS_GET_IID(ChannelWrapper),
-                                            getter_AddRefs(wrapper));
-
+    wrapper = do_GetProperty(props, CHANNELWRAPPER_PROP_KEY);
     if (wrapper) {
       // Assume cached attributes may have changed at this point.
       wrapper->ClearCachedAttributes();
@@ -743,7 +741,7 @@ void ChannelWrapper::RegisterTraceableChannel(const WebExtensionPolicy& aAddon,
     return;
   }
 
-  mAddonEntries.Put(aAddon.Id(), aBrowserParent);
+  mAddonEntries.InsertOrUpdate(aAddon.Id(), aBrowserParent);
   if (!mChannelEntry) {
     mChannelEntry = WebRequestService::GetSingleton().RegisterChannel(this);
     CheckEventListeners();
@@ -987,7 +985,8 @@ void ChannelWrapper::GetUrlClassification(
 }
 
 bool ChannelWrapper::ThirdParty() const {
-  nsCOMPtr<mozIThirdPartyUtil> thirdPartyUtil = services::GetThirdPartyUtil();
+  nsCOMPtr<mozIThirdPartyUtil> thirdPartyUtil =
+      components::ThirdPartyUtil::Service();
   if (NS_WARN_IF(!thirdPartyUtil)) {
     return true;
   }

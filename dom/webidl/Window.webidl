@@ -492,8 +492,6 @@ partial interface Window {
            attribute EventHandler ondevicemotion;
            attribute EventHandler ondeviceorientation;
            attribute EventHandler onabsolutedeviceorientation;
-           attribute EventHandler ondeviceproximity;
-           attribute EventHandler onuserproximity;
            attribute EventHandler ondevicelight;
 
   void                      dump(DOMString str);
@@ -704,12 +702,10 @@ partial interface Window {
   [ChromeOnly]
   readonly attribute boolean isChromeWindow;
 
-#ifdef MOZ_GLEAN
   [ChromeOnly]
   readonly attribute GleanImpl Glean;
   [ChromeOnly]
   readonly attribute GleanPingsImpl GleanPings;
-#endif
 };
 
 partial interface Window {

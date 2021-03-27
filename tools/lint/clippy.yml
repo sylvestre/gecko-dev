@@ -12,11 +12,9 @@ clippy:
         - gfx/wr/peek-poke/peek-poke-derive/
         - gfx/wr/webrender_build/
         - gfx/wr/wr_malloc_size_of/
-        - js/src/
         - js/src/frontend/smoosh/
         - js/src/rust/shared/
         - js/src/wasm/cranelift/
-        - media/audioipc/
         - modules/libpref/init/static_prefs/
         - mozglue/static/rust/
         - netwerk/base/mozurl/
@@ -70,7 +68,6 @@ clippy:
         - dom/media/webrtc/sdp/rsdparsa_capi/
         - intl/encoding_glue/
         # not_unsafe_ptr_arg_deref
-        - js/rust/
         - storage/rust/
         - storage/variant/
         # nsstring
@@ -89,9 +86,6 @@ clippy:
         - xpcom/rust/gkrust_utils/
         - netwerk/socket/neqo_glue/
         - dom/media/webrtc/transport/mdns_service/
-        - media/audioipc/client/
-        - media/audioipc/audioipc/
-        - media/audioipc/server/
         - tools/lint/test/files/clippy/
         - servo/components/hashglobe/
         - servo/ports/geckolib/

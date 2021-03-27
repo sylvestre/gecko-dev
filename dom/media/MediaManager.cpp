@@ -309,6 +309,7 @@ class SourceListener : public SupportsWeakPtr {
 
   /**
    * Registers this source listener as belonging to the given window listener.
+   * Stop() must be called on registered SourceListeners before destruction.
    */
   void Register(GetUserMediaWindowListener* aListener);
 
@@ -434,8 +435,15 @@ class SourceListener : public SupportsWeakPtr {
 
   PrincipalHandle GetPrincipalHandle() const;
 
+  size_t SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const {
+    size_t amount = aMallocSizeOf(this);
+    // Assume mPrincipalHandle refers to a principal owned elsewhere.
+    // DeviceState does not have support for memory accounting.
+    return amount;
+  }
+
  private:
-  virtual ~SourceListener() = default;
+  virtual ~SourceListener() { MOZ_ASSERT(!mWindowListener); }
 
   using DeviceOperationPromise =
       MozPromise<nsresult, bool, /* IsExclusive = */ true>;
@@ -472,6 +480,8 @@ class SourceListener : public SupportsWeakPtr {
 
   // Accessed from MediaTrackGraph thread, MediaManager thread, and MainThread
   // No locking needed as they're set on Activate() and never assigned to again.
+  //
+  // A SourceListener may have *both* audio and video for historical reasons.
   UniquePtr<DeviceState> mAudioDeviceState;
   UniquePtr<DeviceState> mVideoDeviceState;
 };
@@ -582,6 +592,8 @@ class GetUserMediaWindowListener {
    * reference. That said, you'll still want to iterate on a copy of said lists,
    * if you end up calling this method (or methods that may call this method) in
    * the loop, to avoid inadvertently skipping members.
+   *
+   * For use only from GetUserMediaWindowListener and SourceListener.
    */
   bool Remove(RefPtr<SourceListener> aListener) {
     // We refcount aListener on entry since we're going to proxy-release it
@@ -723,7 +735,8 @@ class GetUserMediaWindowListener {
     for (auto& l : mActiveListeners) {
       if (RefPtr<MediaDevice> device = l->GetAudioDevice()) {
         aOutDevices->AppendElement(device);
-      } else if (RefPtr<MediaDevice> device = l->GetVideoDevice()) {
+      }
+      if (RefPtr<MediaDevice> device = l->GetVideoDevice()) {
         aOutDevices->AppendElement(device);
       }
     }
@@ -732,6 +745,20 @@ class GetUserMediaWindowListener {
   uint64_t WindowID() const { return mWindowID; }
 
   PrincipalHandle GetPrincipalHandle() const { return mPrincipalHandle; }
+
+  size_t SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const {
+    size_t amount = aMallocSizeOf(this);
+    // Assume mPrincipalHandle refers to a principal owned elsewhere.
+    amount += mInactiveListeners.ShallowSizeOfExcludingThis(aMallocSizeOf);
+    for (const RefPtr<SourceListener>& listener : mInactiveListeners) {
+      amount += listener->SizeOfIncludingThis(aMallocSizeOf);
+    }
+    amount += mActiveListeners.ShallowSizeOfExcludingThis(aMallocSizeOf);
+    for (const RefPtr<SourceListener>& listener : mActiveListeners) {
+      amount += listener->SizeOfIncludingThis(aMallocSizeOf);
+    }
+    return amount;
+  }
 
  private:
   ~GetUserMediaWindowListener() {
@@ -1335,16 +1362,12 @@ class GetUserMediaTask final {
 
   void Fail(MediaMgrError::Name aName, const nsCString& aMessage = ""_ns,
             const nsString& aConstraint = u""_ns) {
-    NS_DispatchToMainThread(NS_NewRunnableFunction(
-        "GetUserMediaTask::Fail",
-        [aName, aMessage, aConstraint, holder = std::move(mHolder)]() mutable {
-          holder.Reject(MakeRefPtr<MediaMgrError>(aName, aMessage, aConstraint),
-                        __func__);
-        }));
-    // Do after the above runs, as it checks active window list
-    NS_DispatchToMainThread(NewRunnableMethod<RefPtr<SourceListener>>(
-        "GetUserMediaWindowListener::Remove", mWindowListener,
-        &GetUserMediaWindowListener::Remove, mSourceListener));
+    mHolder.Reject(MakeRefPtr<MediaMgrError>(aName, aMessage, aConstraint),
+                   __func__);
+    // We add a disabled listener to the StreamListeners array until accepted
+    // If this was the only active MediaStream, remove the window from the list.
+    NS_DispatchToMainThread(NewRunnableMethod(
+        "SourceListener::Stop", mSourceListener, &SourceListener::Stop));
   }
 
   /**
@@ -1429,24 +1452,9 @@ class GetUserMediaTask final {
   }
 
  public:
-  nsresult Denied(MediaMgrError::Name aName,
-                  const nsCString& aMessage = ""_ns) {
-    // We add a disabled listener to the StreamListeners array until accepted
-    // If this was the only active MediaStream, remove the window from the list.
-    if (NS_IsMainThread()) {
-      mHolder.Reject(MakeRefPtr<MediaMgrError>(aName, aMessage), __func__);
-      // Should happen *after* error runs for consistency, but may not matter
-      mWindowListener->Remove(mSourceListener);
-    } else {
-      // This will re-check the window being alive on main-thread
-      Fail(aName, aMessage);
-    }
-    return NS_OK;
-  }
-
-  nsresult SetContraints(const MediaStreamConstraints& aConstraints) {
-    mConstraints = aConstraints;
-    return NS_OK;
+  void Denied(MediaMgrError::Name aName, const nsCString& aMessage = ""_ns) {
+    MOZ_ASSERT(NS_IsMainThread());
+    Fail(aName, aMessage);
   }
 
   const MediaStreamConstraints& GetConstraints() { return mConstraints; }
@@ -1465,10 +1473,22 @@ class GetUserMediaTask final {
 
   uint64_t GetWindowID() { return mWindowID; }
 
+  size_t SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const {
+    size_t amount = aMallocSizeOf(this);
+    // Assume mWindowListener is owned by MediaManager.
+    // Assume mSourceListener is owned by mWindowListener.
+    // Assume PrincipalInfo string buffers are shared.
+    // Member types without support for accounting of pointees:
+    //   MozPromiseHolder, RefPtr<MediaDevice>.
+    // We don't have a good way to account for lambda captures for MozPromise
+    // callbacks.
+    return amount;
+  }
+
  private:
   void PrepareDOMStream();
 
-  MediaStreamConstraints mConstraints;
+  const MediaStreamConstraints mConstraints;
 
   MozPromiseHolder<MediaManager::StreamPromise> mHolder;
   uint64_t mWindowID;
@@ -1776,8 +1796,8 @@ RefPtr<MediaManager::MgrPromise> MediaManager::EnumerateRawDevices(
       static_cast<uint8_t>(aVideoInputEnumType),
       static_cast<uint8_t>(aAudioInputEnumType));
 
-  auto holder = MakeUnique<MozPromiseHolder<MgrPromise>>();
-  RefPtr<MgrPromise> promise = holder->Ensure(__func__);
+  MozPromiseHolder<MgrPromise> holder;
+  RefPtr<MgrPromise> promise = holder.Ensure(__func__);
 
   bool hasVideo = aVideoInputType != MediaSourceEnum::Other;
   bool hasAudio = aAudioInputType != MediaSourceEnum::Other;
@@ -1808,7 +1828,7 @@ RefPtr<MediaManager::MgrPromise> MediaManager::EnumerateRawDevices(
                                        videoLoopDev, audioLoopDev, hasVideo,
                                        hasAudio, hasAudioOutput,
                                        fakeDeviceRequested, realDeviceRequested,
-                                       aOutDevices]() {
+                                       aOutDevices]() mutable {
     // Only enumerate what's asked for, and only fake cams and mics.
     RefPtr<MediaEngine> fakeBackend, realBackend;
     if (fakeDeviceRequested) {
@@ -1894,7 +1914,7 @@ RefPtr<MediaManager::MgrPromise> MediaManager::EnumerateRawDevices(
       GuessVideoDeviceGroupIDs(*aOutDevices, audios);
     }
 
-    holder->Resolve(false, __func__);
+    holder.Resolve(false, __func__);
   });
 
   if (realDeviceRequested && aForceNoPermRequest &&
@@ -1966,7 +1986,8 @@ MediaManager::MediaManager(already_AddRefed<TaskQueue> aMediaThread)
       mPrefs.mDelayAgnostic ? "on" : "off", mPrefs.mChannels);
 }
 
-NS_IMPL_ISUPPORTS(MediaManager, nsIMediaManagerService, nsIObserver)
+NS_IMPL_ISUPPORTS(MediaManager, nsIMediaManagerService, nsIMemoryReporter,
+                  nsIObserver)
 
 /* static */
 StaticRefPtr<MediaManager> MediaManager::sSingleton;
@@ -2043,6 +2064,7 @@ MediaManager* MediaManager::Get() {
       prefs->AddObserver("media.getusermedia.channels", sSingleton, false);
 #endif
     }
+    RegisterStrongMemoryReporter(sSingleton);
 
     // Prepare async shutdown
 
@@ -2239,18 +2261,41 @@ void MediaManager::DeviceListChanged() {
               // the loop. The StopRawID method modify indirectly the
               // mActiveWindows and will assert-crash since the iterator is
               // active and the table is being enumerated.
-              nsTArray<RefPtr<GetUserMediaWindowListener>> stopListeners;
-              for (auto iter = mActiveWindows.Iter(); !iter.Done();
-                   iter.Next()) {
-                stopListeners.AppendElement(iter.UserData());
-              }
-              for (auto& l : stopListeners) {
+              const auto listeners = ToArray(mActiveWindows.Values());
+              for (const auto& l : listeners) {
                 l->StopRawID(id);
               }
             }
             mDeviceIDs = std::move(deviceIDs);
           },
           [](RefPtr<MediaMgrError>&& reason) {});
+}
+
+size_t MediaManager::AddTaskAndGetCount(uint64_t aWindowID,
+                                        const nsAString& aCallID,
+                                        RefPtr<GetUserMediaTask> aTask) {
+  // Store the task w/callbacks.
+  mActiveCallbacks.InsertOrUpdate(aCallID, std::move(aTask));
+
+  // Add a WindowID cross-reference so OnNavigation can tear things down
+  nsTArray<nsString>* const array = mCallIds.GetOrInsertNew(aWindowID);
+  array->AppendElement(aCallID);
+
+  return array->Length();
+}
+
+RefPtr<GetUserMediaTask> MediaManager::TakeGetUserMediaTask(
+    const nsAString& aCallID) {
+  RefPtr<GetUserMediaTask> task;
+  mActiveCallbacks.Remove(aCallID, getter_AddRefs(task));
+  if (!task) {
+    return nullptr;
+  }
+  nsTArray<nsString>* array;
+  mCallIds.Get(task->GetWindowID(), &array);
+  MOZ_ASSERT(array);
+  array->RemoveElement(aCallID);
+  return task;
 }
 
 nsresult MediaManager::GenerateUUID(nsAString& aResult) {
@@ -2530,17 +2575,8 @@ RefPtr<MediaManager::StreamPromise> MediaManager::GetUserMedia(
 
   // Create a window listener if it doesn't already exist.
   RefPtr<GetUserMediaWindowListener> windowListener =
-      GetWindowListener(windowID);
-  if (windowListener) {
-    PrincipalHandle existingPrincipalHandle =
-        windowListener->GetPrincipalHandle();
-    MOZ_ASSERT(PrincipalHandleMatches(existingPrincipalHandle, principal));
-  } else {
-    windowListener = new GetUserMediaWindowListener(
-        windowID, MakePrincipalHandle(principal));
-    AddWindowID(windowID, windowListener);
-  }
-
+      GetOrMakeWindowListener(aWindow);
+  MOZ_ASSERT(windowListener);
   auto sourceListener = MakeRefPtr<SourceListener>();
   windowListener->Register(sourceListener);
 
@@ -2583,7 +2619,7 @@ RefPtr<MediaManager::StreamPromise> MediaManager::GetUserMedia(
     if ((!IsOn(c.mAudio) && !IsOn(c.mVideo)) ||
         (IsOn(c.mAudio) && audioPerm == nsIPermissionManager::DENY_ACTION) ||
         (IsOn(c.mVideo) && videoPerm == nsIPermissionManager::DENY_ACTION)) {
-      windowListener->Remove(sourceListener);
+      sourceListener->Stop();
       return StreamPromise::CreateAndReject(
           MakeRefPtr<MediaMgrError>(MediaMgrError::Name::NotAllowedError),
           __func__);
@@ -2651,7 +2687,7 @@ RefPtr<MediaManager::StreamPromise> MediaManager::GetUserMedia(
 
   RefPtr<MediaManager> self = this;
   auto devices = MakeRefPtr<MediaDeviceSetRefCnt>();
-  return EnumerateDevicesImpl(windowID, videoType, audioType,
+  return EnumerateDevicesImpl(aWindow, videoType, audioType,
                               MediaSinkEnum::Other, videoEnumerationType,
                               audioEnumerationType, true, devices)
       ->Then(
@@ -2695,7 +2731,7 @@ RefPtr<MediaManager::StreamPromise> MediaManager::GetUserMedia(
               LOG("GetUserMedia: bad window (%" PRIu64
                   ") in post enumeration success callback 2!",
                   windowID);
-              windowListener->Remove(sourceListener);
+              sourceListener->Stop();
               return StreamPromise::CreateAndReject(
                   MakeRefPtr<MediaMgrError>(MediaMgrError::Name::AbortError),
                   __func__);
@@ -2706,7 +2742,7 @@ RefPtr<MediaManager::StreamPromise> MediaManager::GetUserMedia(
                   "promise2 success callback! Calling error handler!");
               nsString constraint;
               constraint.AssignASCII(badConstraint);
-              windowListener->Remove(sourceListener);
+              sourceListener->Stop();
               return StreamPromise::CreateAndReject(
                   MakeRefPtr<MediaMgrError>(
                       MediaMgrError::Name::OverconstrainedError, "",
@@ -2716,7 +2752,7 @@ RefPtr<MediaManager::StreamPromise> MediaManager::GetUserMedia(
             if (!devices->Length()) {
               LOG("GetUserMedia: no devices found in post enumeration promise2 "
                   "success callback! Calling error handler!");
-              windowListener->Remove(sourceListener);
+              sourceListener->Stop();
               // When privacy.resistFingerprinting = true, no
               // available device implies content script is requesting
               // a fake device, so report NotAllowedError.
@@ -2733,7 +2769,7 @@ RefPtr<MediaManager::StreamPromise> MediaManager::GetUserMedia(
               for (auto& device : *devices) {
                 nsresult rv = devicesCopy->AppendElement(device);
                 if (NS_WARN_IF(NS_FAILED(rv))) {
-                  windowListener->Remove(sourceListener);
+                  sourceListener->Stop();
                   return StreamPromise::CreateAndReject(
                       MakeRefPtr<MediaMgrError>(
                           MediaMgrError::Name::AbortError),
@@ -2749,7 +2785,7 @@ RefPtr<MediaManager::StreamPromise> MediaManager::GetUserMedia(
             // refactoring. MediaManager allows
             // "neither-resolve-nor-reject" semantics, so we cannot
             // use MozPromiseHolder here.
-            auto holder = MozPromiseHolder<StreamPromise>();
+            MozPromiseHolder<StreamPromise> holder;
             RefPtr<StreamPromise> p = holder.Ensure(__func__);
 
             // Pass callbacks and listeners along to GetUserMediaTask.
@@ -2758,17 +2794,8 @@ RefPtr<MediaManager::StreamPromise> MediaManager::GetUserMedia(
                 prefs, principalInfo, isChrome, std::move(devices),
                 focusSource);
 
-            // Store the task w/callbacks.
-            self->mActiveCallbacks.Put(callID, std::move(task));
-
-            // Add a WindowID cross-reference so OnNavigation can tear
-            // things down
-            nsTArray<nsString>* array;
-            if (!self->mCallIds.Get(windowID, &array)) {
-              array = new nsTArray<nsString>();
-              self->mCallIds.Put(windowID, array);
-            }
-            array->AppendElement(callID);
+            size_t taskCount =
+                self->AddTaskAndGetCount(windowID, callID, std::move(task));
 
             nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
             if (!askPermission) {
@@ -2778,7 +2805,7 @@ RefPtr<MediaManager::StreamPromise> MediaManager::GetUserMedia(
               auto req = MakeRefPtr<GetUserMediaRequest>(
                   window, callID, c, isSecure, isHandlingUserInput);
               if (!Preferences::GetBool("media.navigator.permission.force") &&
-                  array->Length() > 1) {
+                  taskCount > 1) {
                 // there is at least 1 pending gUM request
                 // For the scarySources test case, always send the
                 // request
@@ -2792,10 +2819,10 @@ RefPtr<MediaManager::StreamPromise> MediaManager::GetUserMedia(
 #endif
             return p;
           },
-          [windowListener, sourceListener](RefPtr<MediaMgrError>&& aError) {
+          [sourceListener](RefPtr<MediaMgrError>&& aError) {
             LOG("GetUserMedia: post enumeration SelectSettings failure "
                 "callback called!");
-            windowListener->Remove(sourceListener);
+            sourceListener->Stop();
             return StreamPromise::CreateAndReject(std::move(aError), __func__);
           });
 };
@@ -2904,21 +2931,21 @@ already_AddRefed<nsIWritableVariant> MediaManager::ToJSArray(
 }
 
 RefPtr<MediaManager::MgrPromise> MediaManager::EnumerateDevicesImpl(
-    uint64_t aWindowId, MediaSourceEnum aVideoInputType,
+    nsPIDOMWindowInner* aWindow, MediaSourceEnum aVideoInputType,
     MediaSourceEnum aAudioInputType, MediaSinkEnum aAudioOutputType,
     DeviceEnumerationType aVideoInputEnumType,
     DeviceEnumerationType aAudioInputEnumType, bool aForceNoPermRequest,
     const RefPtr<MediaDeviceSetRefCnt>& aOutDevices) {
   MOZ_ASSERT(NS_IsMainThread());
 
-  LOG("%s: aWindowId=%" PRIu64 ", aVideoInputType=%" PRIu8
+  uint64_t windowId = aWindow->WindowID();
+  LOG("%s: windowId=%" PRIu64 ", aVideoInputType=%" PRIu8
       ", aAudioInputType=%" PRIu8 ", aVideoInputEnumType=%" PRIu8
       ", aAudioInputEnumType=%" PRIu8,
-      __func__, aWindowId, static_cast<uint8_t>(aVideoInputType),
+      __func__, windowId, static_cast<uint8_t>(aVideoInputType),
       static_cast<uint8_t>(aAudioInputType),
       static_cast<uint8_t>(aVideoInputEnumType),
       static_cast<uint8_t>(aAudioInputEnumType));
-  auto* window = nsGlobalWindowInner::GetInnerWindowWithId(aWindowId);
 
   // To get a device list anonymized for a particular origin, we must:
   // 1. Get an origin-key (for either regular or private browsing)
@@ -2926,7 +2953,7 @@ RefPtr<MediaManager::MgrPromise> MediaManager::EnumerateDevicesImpl(
   // 3. Anonymize the raw list with the origin-key.
 
   nsCOMPtr<nsIPrincipal> principal =
-      nsGlobalWindowInner::Cast(window)->GetPrincipal();
+      nsGlobalWindowInner::Cast(aWindow)->GetPrincipal();
   MOZ_ASSERT(principal);
 
   ipc::PrincipalInfo principalInfo;
@@ -2937,7 +2964,17 @@ RefPtr<MediaManager::MgrPromise> MediaManager::EnumerateDevicesImpl(
         __func__);
   }
 
-  bool persist = IsActivelyCapturingOrHasAPermission(aWindowId);
+  // Add the window id here to check for that and abort silently if no longer
+  // exists.
+  RefPtr<GetUserMediaWindowListener> windowListener =
+      GetOrMakeWindowListener(aWindow);
+  MOZ_ASSERT(windowListener);
+  // Create an inactive SourceListener to act as a placeholder, so the
+  // window listener doesn't clean itself up until we're done.
+  auto sourceListener = MakeRefPtr<SourceListener>();
+  windowListener->Register(sourceListener);
+
+  bool persist = IsActivelyCapturingOrHasAPermission(windowId);
 
   // GetPrincipalKey is an async API that returns a promise. We use .Then() to
   // pass in a lambda to run back on this same thread later once
@@ -2947,20 +2984,20 @@ RefPtr<MediaManager::MgrPromise> MediaManager::EnumerateDevicesImpl(
   return media::GetPrincipalKey(principalInfo, persist)
       ->Then(
           GetMainThreadSerialEventTarget(), __func__,
-          [aWindowId, aVideoInputType, aAudioInputType, aAudioOutputType,
+          [windowId, aVideoInputType, aAudioInputType, aAudioOutputType,
            aVideoInputEnumType, aAudioInputEnumType, aForceNoPermRequest,
            aOutDevices, originKey](const nsCString& aOriginKey) {
             MOZ_ASSERT(NS_IsMainThread());
             originKey->Assign(aOriginKey);
             MediaManager* mgr = MediaManager::GetIfExists();
             MOZ_ASSERT(mgr);
-            if (!mgr->IsWindowStillActive(aWindowId)) {
+            if (!mgr->IsWindowStillActive(windowId)) {
               return MgrPromise::CreateAndReject(
                   MakeRefPtr<MediaMgrError>(MediaMgrError::Name::AbortError),
                   __func__);
             }
             return mgr->EnumerateRawDevices(
-                aWindowId, aVideoInputType, aAudioInputType, aAudioOutputType,
+                windowId, aVideoInputType, aAudioInputType, aAudioOutputType,
                 aVideoInputEnumType, aAudioInputEnumType, aForceNoPermRequest,
                 aOutDevices);
           },
@@ -2974,15 +3011,20 @@ RefPtr<MediaManager::MgrPromise> MediaManager::EnumerateDevicesImpl(
           })
       ->Then(
           GetMainThreadSerialEventTarget(), __func__,
-          [aWindowId, originKey, aVideoInputEnumType, aAudioInputEnumType,
-           aOutDevices](bool) {
+          [windowId, sourceListener, originKey, aVideoInputEnumType,
+           aAudioInputEnumType, aOutDevices](bool) {
             // Only run if window is still on our active list.
             MediaManager* mgr = MediaManager::GetIfExists();
-            if (!mgr || !mgr->IsWindowStillActive(aWindowId)) {
+            if (!mgr || !mgr->IsWindowStillActive(windowId)) {
+              // The listener has already been removed if the window is no
+              // longer active.
+              MOZ_ASSERT(sourceListener->Stopped());
               return MgrPromise::CreateAndReject(
                   MakeRefPtr<MediaMgrError>(MediaMgrError::Name::AbortError),
                   __func__);
             }
+            MOZ_ASSERT(!sourceListener->Stopped());
+            sourceListener->Stop();
 
             for (auto& device : *aOutDevices) {
               if (device->mKind == MediaDeviceKind::Audiooutput ||
@@ -2997,16 +3039,14 @@ RefPtr<MediaManager::MgrPromise> MediaManager::EnumerateDevicesImpl(
                 MOZ_ALWAYS_TRUE(mgr->mDeviceIDs.put(std::move(id)));
               }
             }
-
-            if (!mgr->IsWindowStillActive(aWindowId)) {
-              return MgrPromise::CreateAndReject(
-                  MakeRefPtr<MediaMgrError>(MediaMgrError::Name::AbortError),
-                  __func__);
-            }
-            MediaManager::AnonymizeDevices(*aOutDevices, *originKey, aWindowId);
+            MediaManager::AnonymizeDevices(*aOutDevices, *originKey, windowId);
             return MgrPromise::CreateAndResolve(false, __func__);
           },
-          [](RefPtr<MediaMgrError>&& aError) {
+          [sourceListener](RefPtr<MediaMgrError>&& aError) {
+            // EnumerateDevicesImpl may fail if a new doc has been set, in which
+            // case the OnNavigation() method should have removed all previous
+            // active listeners.
+            MOZ_ASSERT(sourceListener->Stopped());
             return MgrPromise::CreateAndReject(std::move(aError), __func__);
           });
 }
@@ -3020,28 +3060,8 @@ RefPtr<MediaManager::DevicesPromise> MediaManager::EnumerateDevices(
                                   "In shutdown"),
         __func__);
   }
-  uint64_t windowId = aWindow->WindowID();
   Document* doc = aWindow->GetExtantDoc();
   MOZ_ASSERT(doc);
-
-  nsIPrincipal* principal = doc->NodePrincipal();
-
-  RefPtr<GetUserMediaWindowListener> windowListener =
-      GetWindowListener(windowId);
-  if (windowListener) {
-    PrincipalHandle existingPrincipalHandle =
-        windowListener->GetPrincipalHandle();
-    MOZ_ASSERT(PrincipalHandleMatches(existingPrincipalHandle, principal));
-  } else {
-    windowListener = new GetUserMediaWindowListener(
-        windowId, MakePrincipalHandle(principal));
-    AddWindowID(windowId, windowListener);
-  }
-
-  // Create an inactive SourceListener to act as a placeholder, so the
-  // window listener doesn't clean itself up until we're done.
-  auto sourceListener = MakeRefPtr<SourceListener>();
-  windowListener->Register(sourceListener);
 
   DeviceEnumerationType videoEnumerationType = DeviceEnumerationType::Normal;
   DeviceEnumerationType audioEnumerationType = DeviceEnumerationType::Normal;
@@ -3100,27 +3120,15 @@ RefPtr<MediaManager::DevicesPromise> MediaManager::EnumerateDevices(
     }
   }
 
-  return EnumerateDevicesImpl(windowId, videoType, audioType, audioOutputType,
+  return EnumerateDevicesImpl(aWindow, videoType, audioType, audioOutputType,
                               videoEnumerationType, audioEnumerationType, false,
                               devices)
       ->Then(
           GetCurrentSerialEventTarget(), __func__,
-          [self = RefPtr<MediaManager>(this), this, windowListener,
-           sourceListener, devices](bool) {
-            if (!IsWindowListenerStillActive(windowListener)) {
-              MOZ_ASSERT(!windowListener->Remove(sourceListener));
-              return DevicesPromise::CreateAndReject(
-                  MakeRefPtr<MediaMgrError>(MediaMgrError::Name::AbortError),
-                  __func__);
-            }
-            DebugOnly<bool> rv = windowListener->Remove(sourceListener);
-            MOZ_ASSERT(rv);
+          [devices](bool) {
             return DevicesPromise::CreateAndResolve(devices, __func__);
           },
-          [windowListener, sourceListener](RefPtr<MediaMgrError>&& aError) {
-            // This may fail, if a new doc has been set the OnNavigation
-            // method should have removed all previous active listeners.
-            MOZ_ASSERT(!windowListener->Remove(sourceListener));
+          [](RefPtr<MediaMgrError>&& aError) {
             return DevicesPromise::CreateAndReject(std::move(aError), __func__);
           });
 }
@@ -3164,29 +3172,9 @@ RefPtr<SinkInfoPromise> MediaManager::GetSinkDevice(nsPIDOMWindowInner* aWindow,
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aWindow);
 
-  // We have to add the window id here because enumerate methods
-  // check for that and abort silently if it does not exist.
-  uint64_t windowId = aWindow->WindowID();
-  nsIPrincipal* principal = aWindow->GetExtantDoc()->NodePrincipal();
-  RefPtr<GetUserMediaWindowListener> windowListener =
-      GetWindowListener(windowId);
-  if (windowListener) {
-    PrincipalHandle existingPrincipalHandle =
-        windowListener->GetPrincipalHandle();
-    MOZ_ASSERT(PrincipalHandleMatches(existingPrincipalHandle, principal));
-  } else {
-    windowListener = new GetUserMediaWindowListener(
-        windowId, MakePrincipalHandle(principal));
-    AddWindowID(windowId, windowListener);
-  }
-  // Create an inactive SourceListener to act as a placeholder, so the
-  // window listener doesn't clean itself up until we're done.
-  auto sourceListener = MakeRefPtr<SourceListener>();
-  windowListener->Register(sourceListener);
-
   bool isSecure = aWindow->IsSecureContext();
   auto devices = MakeRefPtr<MediaDeviceSetRefCnt>();
-  return EnumerateDevicesImpl(aWindow->WindowID(), MediaSourceEnum::Other,
+  return EnumerateDevicesImpl(aWindow, MediaSourceEnum::Other,
                               MediaSourceEnum::Other, MediaSinkEnum::Speaker,
                               DeviceEnumerationType::Normal,
                               DeviceEnumerationType::Normal, true, devices)
@@ -3294,16 +3282,9 @@ void MediaManager::OnNavigation(uint64_t aWindowID) {
     mCallIds.Remove(aWindowID);
   }
 
-  // This is safe since we're on main-thread, and the windowlist can only
-  // be added to from the main-thread
-  auto* window = nsGlobalWindowInner::GetInnerWindowWithId(aWindowID);
-  if (window) {
-    if (RefPtr<GetUserMediaWindowListener> listener =
-            GetWindowListener(aWindowID)) {
-      listener->RemoveAll();
-    }
-  } else {
-    RemoveWindowID(aWindowID);
+  if (RefPtr<GetUserMediaWindowListener> listener =
+          GetWindowListener(aWindowID)) {
+    listener->RemoveAll();
   }
   MOZ_ASSERT(!GetWindowListener(aWindowID));
 }
@@ -3314,8 +3295,8 @@ void MediaManager::OnCameraMute(bool aMute) {
   mCamerasMuted = aMute;
   // This is safe since we're on main-thread, and the windowlist can only
   // be added to from the main-thread
-  for (auto iter = mActiveWindows.Iter(); !iter.Done(); iter.Next()) {
-    iter.UserData()->MuteOrUnmuteCameras(aMute);
+  for (const auto& window : mActiveWindows.Values()) {
+    window->MuteOrUnmuteCameras(aMute);
   }
 }
 
@@ -3325,9 +3306,31 @@ void MediaManager::OnMicrophoneMute(bool aMute) {
   mMicrophonesMuted = aMute;
   // This is safe since we're on main-thread, and the windowlist can only
   // be added to from the main-thread
-  for (auto iter = mActiveWindows.Iter(); !iter.Done(); iter.Next()) {
-    iter.UserData()->MuteOrUnmuteMicrophones(aMute);
+  for (const auto& window : mActiveWindows.Values()) {
+    window->MuteOrUnmuteMicrophones(aMute);
   }
+}
+
+RefPtr<GetUserMediaWindowListener> MediaManager::GetOrMakeWindowListener(
+    nsPIDOMWindowInner* aWindow) {
+  Document* doc = aWindow->GetExtantDoc();
+  if (!doc) {
+    // The window has been destroyed. Destroyed windows don't have listeners.
+    return nullptr;
+  }
+  nsIPrincipal* principal = doc->NodePrincipal();
+  uint64_t windowId = aWindow->WindowID();
+  RefPtr<GetUserMediaWindowListener> windowListener =
+      GetWindowListener(windowId);
+  if (windowListener) {
+    MOZ_ASSERT(PrincipalHandleMatches(windowListener->GetPrincipalHandle(),
+                                      principal));
+  } else {
+    windowListener = new GetUserMediaWindowListener(
+        windowId, MakePrincipalHandle(principal));
+    AddWindowID(windowId, windowListener);
+  }
+  return windowListener;
 }
 
 void MediaManager::AddWindowID(uint64_t aWindowId,
@@ -3344,7 +3347,7 @@ void MediaManager::AddWindowID(uint64_t aWindowId,
 
   aListener->MuteOrUnmuteCameras(mCamerasMuted);
   aListener->MuteOrUnmuteMicrophones(mMicrophonesMuted);
-  GetActiveWindows()->Put(aWindowId, std::move(aListener));
+  GetActiveWindows()->InsertOrUpdate(aWindowId, std::move(aListener));
 }
 
 void MediaManager::RemoveWindowID(uint64_t aWindowId) {
@@ -3499,12 +3502,8 @@ void MediaManager::Shutdown() {
     // the window listeners attempt to remove themselves from the active windows
     // table. We cannot touch the table at point so we grab a copy of the window
     // listeners first.
-    nsTArray<RefPtr<GetUserMediaWindowListener>> listeners(
-        GetActiveWindows()->Count());
-    for (auto iter = GetActiveWindows()->Iter(); !iter.Done(); iter.Next()) {
-      listeners.AppendElement(iter.UserData());
-    }
-    for (auto& listener : listeners) {
+    const auto listeners = ToArray(GetActiveWindows()->Values());
+    for (const auto& listener : listeners) {
       listener->RemoveAll();
     }
   }
@@ -3664,17 +3663,10 @@ nsresult MediaManager::Observe(nsISupports* aSubject, const char* aTopic,
   } else if (!strcmp(aTopic, "getUserMedia:privileged:allow") ||
              !strcmp(aTopic, "getUserMedia:response:allow")) {
     nsString key(aData);
-    RefPtr<GetUserMediaTask> task;
-    mActiveCallbacks.Remove(key, getter_AddRefs(task));
+    RefPtr<GetUserMediaTask> task = TakeGetUserMediaTask(key);
     if (!task) {
       return NS_OK;
     }
-
-    nsTArray<nsString>* array;
-    if (!mCallIds.Get(task->GetWindowID(), &array)) {
-      return NS_OK;
-    }
-    array->RemoveElement(key);
 
     if (aSubject) {
       // A particular device or devices were chosen by the user.
@@ -3721,22 +3713,17 @@ nsresult MediaManager::Observe(nsISupports* aSubject, const char* aTopic,
     }
 
     if (sHasShutdown) {
-      return task->Denied(MediaMgrError::Name::AbortError, "In shutdown"_ns);
+      task->Denied(MediaMgrError::Name::AbortError, "In shutdown"_ns);
+      return NS_OK;
     }
     task->Allowed();
     return NS_OK;
 
   } else if (IsGUMResponseNoAccess(aTopic, gumNoAccessError)) {
     nsString key(aData);
-    RefPtr<GetUserMediaTask> task;
-    mActiveCallbacks.Remove(key, getter_AddRefs(task));
+    RefPtr<GetUserMediaTask> task = TakeGetUserMediaTask(key);
     if (task) {
       task->Denied(gumNoAccessError);
-      nsTArray<nsString>* array;
-      if (!mCallIds.Get(task->GetWindowID(), &array)) {
-        return NS_OK;
-      }
-      array->RemoveElement(key);
       SendPendingGUMRequest();
     }
     return NS_OK;
@@ -3773,14 +3760,49 @@ nsresult MediaManager::Observe(nsISupports* aSubject, const char* aTopic,
   return NS_OK;
 }
 
+NS_IMETHODIMP
+MediaManager::CollectReports(nsIHandleReportCallback* aHandleReport,
+                             nsISupports* aData, bool aAnonymize) {
+  size_t amount = 0;
+  amount += mActiveWindows.ShallowSizeOfExcludingThis(MallocSizeOf);
+  for (const GetUserMediaWindowListener* listener : mActiveWindows.Values()) {
+    amount += listener->SizeOfIncludingThis(MallocSizeOf);
+  }
+  amount += mActiveCallbacks.ShallowSizeOfExcludingThis(MallocSizeOf);
+  for (const GetUserMediaTask* task : mActiveCallbacks.Values()) {
+    // Assume nsString buffers for keys are accounted in mCallIds.
+    amount += task->SizeOfIncludingThis(MallocSizeOf);
+  }
+  amount += mCallIds.ShallowSizeOfExcludingThis(MallocSizeOf);
+  for (const auto& array : mCallIds.Values()) {
+    amount += array->ShallowSizeOfExcludingThis(MallocSizeOf);
+    for (const nsString& callID : *array) {
+      amount += callID.SizeOfExcludingThisEvenIfShared(MallocSizeOf);
+    }
+  }
+  amount += mPendingGUMRequest.ShallowSizeOfExcludingThis(MallocSizeOf);
+  // GetUserMediaRequest pointees of mPendingGUMRequest do not have support
+  // for memory accounting.  mPendingGUMRequest logic should probably be moved
+  // to the front end (bug 1691625).
+  amount += mDeviceIDs.shallowSizeOfExcludingThis(MallocSizeOf);
+  for (auto iter = mDeviceIDs.iter(); !iter.done(); iter.next()) {
+    const nsString deviceID = iter.get();
+    amount += deviceID.SizeOfExcludingThisEvenIfShared(MallocSizeOf);
+  }
+  MOZ_COLLECT_REPORT("explicit/media/media-manager-aggregates", KIND_HEAP,
+                     UNITS_BYTES, amount,
+                     "Memory used by MediaManager variable length members.");
+  return NS_OK;
+}
+
 nsresult MediaManager::GetActiveMediaCaptureWindows(nsIArray** aArray) {
   MOZ_ASSERT(aArray);
 
   nsCOMPtr<nsIMutableArray> array = nsArray::Create();
 
-  for (auto iter = mActiveWindows.Iter(); !iter.Done(); iter.Next()) {
-    const uint64_t& id = iter.Key();
-    RefPtr<GetUserMediaWindowListener> winListener = iter.UserData();
+  for (const auto& entry : mActiveWindows) {
+    const uint64_t& id = entry.GetKey();
+    RefPtr<GetUserMediaWindowListener> winListener = entry.GetData();
     if (!winListener) {
       continue;
     }

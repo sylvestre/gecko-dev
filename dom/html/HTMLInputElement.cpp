@@ -10,6 +10,7 @@
 #include "mozilla/AsyncEventDispatcher.h"
 #include "mozilla/BasePrincipal.h"
 #include "mozilla/DebugOnly.h"
+#include "mozilla/Components.h"
 #include "mozilla/dom/AutocompleteInfoBinding.h"
 #include "mozilla/dom/BlobImpl.h"
 #include "mozilla/dom/Directory.h"
@@ -1092,11 +1093,9 @@ nsresult HTMLInputElement::Clone(dom::NodeInfo* aNodeInfo,
         nsAutoString value;
         GetNonFileValueInternal(value);
         // SetValueInternal handles setting the VALUE_CHANGED bit for us
-        if (NS_WARN_IF(NS_FAILED(
-                rv = it->SetValueInternal(
-                    value,
-                    {ValueSetterOption::
-                         UpdateOverlayTextVisibilityAndInvalidateFrame})))) {
+        if (NS_WARN_IF(
+                NS_FAILED(rv = it->SetValueInternal(
+                              value, {ValueSetterOption::SetValueChanged})))) {
           return rv;
         }
       }
@@ -1114,16 +1113,16 @@ nsresult HTMLInputElement::Clone(dom::NodeInfo* aNodeInfo,
       }
       break;
     case VALUE_MODE_DEFAULT_ON:
-      if (mCheckedChanged) {
-        // We no longer have our original checked state.  Set our
-        // checked state on the clone.
-        it->DoSetChecked(mChecked, false, true);
-        // Then tell DoneCreatingElement() not to overwrite:
-        it->mShouldInitChecked = false;
-      }
-      break;
     case VALUE_MODE_DEFAULT:
       break;
+  }
+
+  if (mCheckedChanged) {
+    // We no longer have our original checked state.  Set our
+    // checked state on the clone.
+    it->DoSetChecked(mChecked, false, true);
+    // Then tell DoneCreatingElement() not to overwrite:
+    it->mShouldInitChecked = false;
   }
 
   it->DoneCreatingElement();
@@ -1615,8 +1614,7 @@ void HTMLInputElement::SetValue(const nsAString& aValue, CallerType aCallerType,
       // get the unsanitized value?
       nsresult rv = SetValueInternal(
           aValue, SanitizesOnValueGetter() ? nullptr : &currentValue,
-          {ValueSetterOption::ByContentAPI,
-           ValueSetterOption::UpdateOverlayTextVisibilityAndInvalidateFrame,
+          {ValueSetterOption::ByContentAPI, ValueSetterOption::SetValueChanged,
            ValueSetterOption::MoveCursorToEndIfValueChanged});
       if (NS_FAILED(rv)) {
         aRv.Throw(rv);
@@ -1629,8 +1627,7 @@ void HTMLInputElement::SetValue(const nsAString& aValue, CallerType aCallerType,
     } else {
       nsresult rv = SetValueInternal(
           aValue,
-          {ValueSetterOption::ByContentAPI,
-           ValueSetterOption::UpdateOverlayTextVisibilityAndInvalidateFrame,
+          {ValueSetterOption::ByContentAPI, ValueSetterOption::SetValueChanged,
            ValueSetterOption::MoveCursorToEndIfValueChanged});
       if (NS_FAILED(rv)) {
         aRv.Throw(rv);
@@ -2245,9 +2242,9 @@ void HTMLInputElement::SetUserInput(const nsAString& aValue,
       GetValueMode() == VALUE_MODE_VALUE && IsSingleLineTextControl(false);
 
   nsresult rv = SetValueInternal(
-      aValue, {ValueSetterOption::BySetUserInputAPI,
-               ValueSetterOption::UpdateOverlayTextVisibilityAndInvalidateFrame,
-               ValueSetterOption::MoveCursorToEndIfValueChanged});
+      aValue,
+      {ValueSetterOption::BySetUserInputAPI, ValueSetterOption::SetValueChanged,
+       ValueSetterOption::MoveCursorToEndIfValueChanged});
   NS_ENSURE_SUCCESS_VOID(rv);
 
   if (!isInputEventDispatchedByTextControlState) {
@@ -2334,22 +2331,6 @@ nsresult HTMLInputElement::CreateEditor() {
   return NS_ERROR_FAILURE;
 }
 
-void HTMLInputElement::UpdateOverlayTextVisibility(bool aNotify) {
-  TextControlState* state = GetEditorState();
-  if (state) {
-    state->UpdateOverlayTextVisibility(aNotify);
-  }
-}
-
-bool HTMLInputElement::GetPlaceholderVisibility() {
-  TextControlState* state = GetEditorState();
-  if (!state) {
-    return false;
-  }
-
-  return state->GetPlaceholderVisibility();
-}
-
 void HTMLInputElement::SetPreviewValue(const nsAString& aValue) {
   TextControlState* state = GetEditorState();
   if (state) {
@@ -2376,15 +2357,6 @@ void HTMLInputElement::EnablePreview() {
 }
 
 bool HTMLInputElement::IsPreviewEnabled() { return mIsPreviewEnabled; }
-
-bool HTMLInputElement::GetPreviewVisibility() {
-  TextControlState* state = GetEditorState();
-  if (!state) {
-    return false;
-  }
-
-  return state->GetPreviewVisibility();
-}
 
 void HTMLInputElement::GetDisplayFileName(nsAString& aValue) const {
   MOZ_ASSERT(mFileData);
@@ -2666,8 +2638,8 @@ nsresult HTMLInputElement::SetValueInternal(
       }
       // else DoneCreatingElement calls us again once mDoneCreating is true
 
-      const bool setValueChanged = aOptions.contains(
-          ValueSetterOption::UpdateOverlayTextVisibilityAndInvalidateFrame);
+      const bool setValueChanged =
+          aOptions.contains(ValueSetterOption::SetValueChanged);
       if (setValueChanged) {
         SetValueChanged(true);
       }
@@ -3380,10 +3352,8 @@ void HTMLInputElement::CancelRangeThumbDrag(bool aIsForUserEvent) {
     mInputType->ConvertNumberToString(mRangeThumbDragStartValue, val);
     // TODO: What should we do if SetValueInternal fails?  (The allocation
     // is small, so we should be fine here.)
-    SetValueInternal(
-        val,
-        {ValueSetterOption::BySetUserInputAPI,
-         ValueSetterOption::UpdateOverlayTextVisibilityAndInvalidateFrame});
+    SetValueInternal(val, {ValueSetterOption::BySetUserInputAPI,
+                           ValueSetterOption::SetValueChanged});
     nsRangeFrame* frame = do_QueryFrame(GetPrimaryFrame());
     if (frame) {
       frame->UpdateForValueChange();
@@ -3403,9 +3373,8 @@ void HTMLInputElement::SetValueOfRangeForUserEvent(Decimal aValue) {
   mInputType->ConvertNumberToString(aValue, val);
   // TODO: What should we do if SetValueInternal fails?  (The allocation
   // is small, so we should be fine here.)
-  SetValueInternal(
-      val, {ValueSetterOption::BySetUserInputAPI,
-            ValueSetterOption::UpdateOverlayTextVisibilityAndInvalidateFrame});
+  SetValueInternal(val, {ValueSetterOption::BySetUserInputAPI,
+                         ValueSetterOption::SetValueChanged});
   nsRangeFrame* frame = do_QueryFrame(GetPrimaryFrame());
   if (frame) {
     frame->UpdateForValueChange();
@@ -3495,10 +3464,8 @@ void HTMLInputElement::StepNumberControlForUserEvent(int32_t aDirection) {
   mInputType->ConvertNumberToString(newValue, newVal);
   // TODO: What should we do if SetValueInternal fails?  (The allocation
   // is small, so we should be fine here.)
-  SetValueInternal(
-      newVal,
-      {ValueSetterOption::BySetUserInputAPI,
-       ValueSetterOption::UpdateOverlayTextVisibilityAndInvalidateFrame});
+  SetValueInternal(newVal, {ValueSetterOption::BySetUserInputAPI,
+                            ValueSetterOption::SetValueChanged});
 }
 
 static bool SelectTextFieldOnFocus() {
@@ -3795,7 +3762,7 @@ nsresult HTMLInputElement::PostHandleEvent(EventChainPostVisitor& aVisitor) {
                 // Checkbox and Radio try to submit on Enter press
                 if (keyEvent->mKeyCode != NS_VK_SPACE &&
                     aVisitor.mPresContext) {
-                  MaybeSubmitForm(MOZ_KnownLive(aVisitor.mPresContext));
+                  MaybeSubmitForm(aVisitor.mPresContext);
 
                   break;  // If we are submitting, do not send click event
                 }
@@ -3873,7 +3840,7 @@ nsresult HTMLInputElement::PostHandleEvent(EventChainPostVisitor& aVisitor) {
                mType == NS_FORM_INPUT_NUMBER || IsDateTimeInputType(mType))) {
             FireChangeEventIfNeeded();
             if (aVisitor.mPresContext) {
-              rv = MaybeSubmitForm(MOZ_KnownLive(aVisitor.mPresContext));
+              rv = MaybeSubmitForm(aVisitor.mPresContext);
               NS_ENSURE_SUCCESS(rv, rv);
             }
           }
@@ -4273,6 +4240,10 @@ nsresult HTMLInputElement::BindToTree(BindContext& aContext, nsINode& aParent) {
 }
 
 void HTMLInputElement::UnbindFromTree(bool aNullParent) {
+  if (mType == NS_FORM_INPUT_PASSWORD) {
+    MaybeFireInputPasswordRemoved();
+  }
+
   // If we have a form and are unbound from it,
   // nsGenericHTMLFormElementWithState::UnbindFromTree() will unset the form and
   // that takes care of form's WillRemove so we just have to take care
@@ -5162,8 +5133,8 @@ void HTMLInputElement::ImageInputMapAttributesIntoRule(
                                                                  aDecls);
   nsGenericHTMLFormElementWithState::MapImageMarginAttributeInto(aAttributes,
                                                                  aDecls);
-  nsGenericHTMLFormElementWithState::MapImageSizeAttributesInto(aAttributes,
-                                                                aDecls);
+  nsGenericHTMLFormElementWithState::MapImageSizeAttributesInto(
+      aAttributes, aDecls, MapAspectRatio::Yes);
   // Images treat align as "float"
   nsGenericHTMLFormElementWithState::MapImageAlignAttributeInto(aAttributes,
                                                                 aDecls);
@@ -5451,10 +5422,8 @@ void HTMLInputElement::GetValueFromSetRangeText(nsAString& aValue) {
 }
 
 nsresult HTMLInputElement::SetValueFromSetRangeText(const nsAString& aValue) {
-  return SetValueInternal(
-      aValue,
-      {ValueSetterOption::ByContentAPI,
-       ValueSetterOption::UpdateOverlayTextVisibilityAndInvalidateFrame});
+  return SetValueInternal(aValue, {ValueSetterOption::ByContentAPI,
+                                   ValueSetterOption::SetValueChanged});
 }
 
 Nullable<uint32_t> HTMLInputElement::GetSelectionStart(ErrorResult& aRv) {
@@ -5699,13 +5668,21 @@ HTMLInputElement::SubmitNamesValues(HTMLFormSubmission* aFormSubmission) {
         GetFilesOrDirectoriesInternal();
 
     if (files.IsEmpty()) {
-      aFormSubmission->AddNameBlobOrNullPair(name, nullptr);
-      return NS_OK;
+      ErrorResult rv;
+      RefPtr<Blob> blob = Blob::CreateStringBlob(
+          GetOwnerGlobal(), ""_ns, u"application/octet-stream"_ns);
+      RefPtr<File> file = blob->ToFile(u""_ns, rv);
+
+      if (!rv.Failed()) {
+        aFormSubmission->AddNameBlobPair(name, file);
+      }
+
+      return rv.StealNSResult();
     }
 
     for (uint32_t i = 0; i < files.Length(); ++i) {
       if (files[i].IsFile()) {
-        aFormSubmission->AddNameBlobOrNullPair(name, files[i].GetAsFile());
+        aFormSubmission->AddNameBlobPair(name, files[i].GetAsFile());
       } else {
         MOZ_ASSERT(files[i].IsDirectory());
         aFormSubmission->AddNameDirectoryPair(name, files[i].GetAsDirectory());
@@ -5922,10 +5899,8 @@ EventStates HTMLInputElement::IntrinsicState() const {
     } else {
       state |= NS_EVENT_STATE_INVALID;
 
-      if ((!mForm ||
-           !mForm->HasAttr(kNameSpaceID_None, nsGkAtoms::novalidate)) &&
-          (GetValidityState(VALIDITY_STATE_CUSTOM_ERROR) ||
-           (mCanShowInvalidUI && ShouldShowValidityUI()))) {
+      if (GetValidityState(VALIDITY_STATE_CUSTOM_ERROR) ||
+          (mCanShowInvalidUI && ShouldShowValidityUI())) {
         state |= NS_EVENT_STATE_MOZ_UI_INVALID;
       }
     }
@@ -5935,14 +5910,11 @@ EventStates HTMLInputElement::IntrinsicState() const {
     //    :-moz-ui-invalid applying before it was focused ;
     // 2. The element is either valid or isn't allowed to have
     //    :-moz-ui-invalid applying ;
-    // 3. The element has no form owner or its form owner doesn't have the
-    //    novalidate attribute set ;
-    // 4. The element has already been modified or the user tried to submit the
+    // 3. The element has already been modified or the user tried to submit the
     //    form owner while invalid.
-    if ((!mForm || !mForm->HasAttr(kNameSpaceID_None, nsGkAtoms::novalidate)) &&
-        (mCanShowValidUI && ShouldShowValidityUI() &&
-         (IsValid() || (!state.HasState(NS_EVENT_STATE_MOZ_UI_INVALID) &&
-                        !mCanShowInvalidUI)))) {
+    if (mCanShowValidUI && ShouldShowValidityUI() &&
+        (IsValid() || (!state.HasState(NS_EVENT_STATE_MOZ_UI_INVALID) &&
+                       !mCanShowInvalidUI))) {
       state |= NS_EVENT_STATE_MOZ_UI_VALID;
     }
 
@@ -6044,9 +6016,8 @@ bool HTMLInputElement::RestoreState(PresState* aState) {
         // TODO: What should we do if SetValueInternal fails?  (The allocation
         // may potentially be big, but most likely we've failed to allocate
         // before the type change.)
-        SetValueInternal(
-            inputState.get_TextContentData().value(),
-            ValueSetterOption::UpdateOverlayTextVisibilityAndInvalidateFrame);
+        SetValueInternal(inputState.get_TextContentData().value(),
+                         ValueSetterOption::SetValueChanged);
         if (inputState.get_TextContentData().lastValueChangeWasInteractive()) {
           mLastValueChangeWasInteractive = true;
           UpdateState(true);
@@ -6168,13 +6139,7 @@ bool HTMLInputElement::IsHTMLFocusable(bool aWithMouse, bool* aIsFocusable,
     return false;
   }
 
-#ifdef XP_MACOSX
-  const bool defaultFocusable =
-      !aWithMouse || nsFocusManager::sMouseFocusesFormControl;
-#else
-  const bool defaultFocusable = true;
-#endif
-
+  const bool defaultFocusable = IsFormControlDefaultFocusable(aWithMouse);
   if (CreatesDateTimeWidget()) {
     if (aTabIndex) {
       // We only want our native anonymous child to be tabable to, not ourself.
@@ -6734,7 +6699,7 @@ void HTMLInputElement::SetFilePickerFiltersFromAccept(
 
   // Services to retrieve image/*, audio/*, video/* filters
   nsCOMPtr<nsIStringBundleService> stringService =
-      mozilla::services::GetStringBundleService();
+      mozilla::components::StringBundle::Service();
   if (!stringService) {
     return;
   }
@@ -7073,6 +7038,29 @@ already_AddRefed<nsINodeList> HTMLInputElement::GetLabels() {
   }
 
   return nsGenericHTMLElement::Labels();
+}
+
+void HTMLInputElement::MaybeFireInputPasswordRemoved() {
+  // We want this event to be fired only when the password field is removed
+  // from the DOM tree, not when it is released (ex, tab is closed). So don't
+  // fire an event when the password input field doesn't have a docshell.
+  Document* doc = GetComposedDoc();
+  nsIDocShell* container = doc ? doc->GetDocShell() : nullptr;
+  if (!container) {
+    return;
+  }
+
+  // Right now, only the password manager listens to the event and only listen
+  // to it under certain circumstances. So don't fire this event unless
+  // necessary.
+  if (!doc->ShouldNotifyFormOrPasswordRemoved()) {
+    return;
+  }
+
+  RefPtr<AsyncEventDispatcher> asyncDispatcher =
+      new AsyncEventDispatcher(this, u"DOMInputPasswordRemoved"_ns,
+                               CanBubble::eNo, ChromeOnlyDispatch::eYes);
+  asyncDispatcher->RunDOMEventWhenSafe();
 }
 
 }  // namespace mozilla::dom

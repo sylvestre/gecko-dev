@@ -48,7 +48,9 @@ class RenderCompositorANGLE : public RenderCompositor {
   bool Resume() override;
   void Update() override;
 
-  gl::GLContext* gl() const override { return RenderThread::Get()->SharedGL(); }
+  gl::GLContext* gl() const override {
+    return RenderThread::Get()->SingletonGL();
+  }
 
   bool MakeCurrent() override;
 
@@ -96,7 +98,7 @@ class RenderCompositorANGLE : public RenderCompositor {
                   wr::DeviceIntRect aClipRect,
                   wr::ImageRendering aImageRendering) override;
   void EnableNativeCompositor(bool aEnable) override;
-  CompositorCapabilities GetCompositorCapabilities() override;
+  void GetCompositorCapabilities(CompositorCapabilities* aCaps) override;
 
   // Interface for partial present
   bool UsePartialPresent() override;

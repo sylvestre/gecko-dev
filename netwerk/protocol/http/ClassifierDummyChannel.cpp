@@ -518,6 +518,16 @@ ClassifierDummyChannel::GetIsResolvedByTRR(bool* aResolvedByTRR) {
 }
 
 NS_IMETHODIMP
+ClassifierDummyChannel::GetIsOCSP(bool* value) {
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+
+NS_IMETHODIMP
+ClassifierDummyChannel::SetIsOCSP(bool value) {
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+
+NS_IMETHODIMP
 ClassifierDummyChannel::GetTlsFlags(uint32_t* aTlsFlags) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
@@ -768,6 +778,11 @@ NS_IMETHODIMP ClassifierDummyChannel::SetWaitForHTTPSSVCRecord() {
 NS_IMETHODIMP
 ClassifierDummyChannel::GetSupportsHTTP3(bool* aSupportsHTTP3) {
   *aSupportsHTTP3 = false;
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+
+NS_IMETHODIMP
+ClassifierDummyChannel::GetHasHTTPSRR(bool*) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 

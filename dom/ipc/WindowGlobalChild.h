@@ -8,6 +8,7 @@
 #define mozilla_dom_WindowGlobalChild_h
 
 #include "mozilla/RefPtr.h"
+#include "mozilla/WeakPtr.h"
 #include "mozilla/dom/PWindowGlobalChild.h"
 #include "nsRefPtrHashtable.h"
 #include "nsWrapperCache.h"
@@ -26,6 +27,7 @@ class WindowGlobalParent;
 class JSWindowActorChild;
 class JSActorMessageMeta;
 class BrowserChild;
+class SessionStoreDataCollector;
 
 /**
  * Actor for a single nsGlobalWindowInner. This actor is used to communicate
@@ -33,7 +35,8 @@ class BrowserChild;
  */
 class WindowGlobalChild final : public WindowGlobalActor,
                                 public nsWrapperCache,
-                                public PWindowGlobalChild {
+                                public PWindowGlobalChild,
+                                public SupportsWeakPtr {
   friend class PWindowGlobalChild;
 
  public:
@@ -126,6 +129,9 @@ class WindowGlobalChild final : public WindowGlobalActor,
     return mContainerFeaturePolicy;
   }
 
+  void SetSessionStoreDataCollector(SessionStoreDataCollector* aCollector);
+  SessionStoreDataCollector* GetSessionStoreDataCollector() const;
+
  protected:
   const nsACString& GetRemoteType() override;
 
@@ -170,6 +176,10 @@ class WindowGlobalChild final : public WindowGlobalActor,
   mozilla::ipc::IPCResult RecvSetContainerFeaturePolicy(
       dom::FeaturePolicy* aContainerFeaturePolicy);
 
+  mozilla::ipc::IPCResult RecvRestoreTabContent(
+      dom::SessionStoreRestoreData* aData,
+      RestoreTabContentResolver&& aResolve);
+
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
  private:
@@ -183,6 +193,7 @@ class WindowGlobalChild final : public WindowGlobalActor,
   nsCOMPtr<nsIPrincipal> mDocumentPrincipal;
   RefPtr<dom::FeaturePolicy> mContainerFeaturePolicy;
   nsCOMPtr<nsIURI> mDocumentURI;
+  RefPtr<SessionStoreDataCollector> mSessionStoreDataCollector;
   int64_t mBeforeUnloadListeners = 0;
 };
 

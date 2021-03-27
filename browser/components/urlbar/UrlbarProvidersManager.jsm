@@ -43,6 +43,8 @@ var localProviderModules = {
   UrlbarProviderOmnibox: "resource:///modules/UrlbarProviderOmnibox.jsm",
   UrlbarProviderPrivateSearch:
     "resource:///modules/UrlbarProviderPrivateSearch.jsm",
+  UrlbarProviderQuickSuggest:
+    "resource:///modules/UrlbarProviderQuickSuggest.jsm",
   UrlbarProviderSearchTips: "resource:///modules/UrlbarProviderSearchTips.jsm",
   UrlbarProviderSearchSuggestions:
     "resource:///modules/UrlbarProviderSearchSuggestions.jsm",
@@ -281,15 +283,27 @@ class ProvidersManager {
 
   /**
    * Notifies all providers when the user starts and ends an engagement with the
-   * urlbar.
+   * urlbar.  For details on parameters, see UrlbarProvider.onEngagement().
    *
-   * @param {boolean} isPrivate True if the engagement is in a private context.
-   * @param {string} state The state of the engagement, one of: start,
-   *        engagement, abandonment, discard.
+   * @param {boolean} isPrivate
+   *   True if the engagement is in a private context.
+   * @param {string} state
+   *   The state of the engagement, one of: start, engagement, abandonment,
+   *   discard
+   * @param {UrlbarQueryContext} queryContext
+   *   The engagement's query context, if available.
+   * @param {object} details
+   *   An object that describes the search string and the picked result, if any.
    */
-  notifyEngagementChange(isPrivate, state) {
+  notifyEngagementChange(isPrivate, state, queryContext, details) {
     for (let provider of this.providers) {
-      provider.tryMethod("onEngagement", isPrivate, state);
+      provider.tryMethod(
+        "onEngagement",
+        isPrivate,
+        state,
+        queryContext,
+        details
+      );
     }
   }
 }
@@ -601,20 +615,6 @@ class Query {
     // so that it will be restarted the next time results are added.
     if (!this.context.results.length) {
       return;
-    }
-
-    // Crop results to the requested number, taking their result spans into
-    // account.
-    let resultCount = this.context.maxResults;
-    for (let i = 0; i < this.context.results.length; i++) {
-      resultCount -= UrlbarUtils.getSpanForResult(this.context.results[i]);
-      if (resultCount < 0) {
-        logger.debug(
-          `Splicing results from ${i} to crop results to ${this.context.maxResults}`
-        );
-        this.context.results.splice(i, this.context.results.length - i);
-        break;
-      }
     }
 
     this.context.firstResultChanged = !ObjectUtils.deepEqual(

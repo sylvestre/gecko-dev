@@ -107,6 +107,7 @@ urlbar-tip-icon-description =
 ## homepage of their default search engine.
 ## Variables:
 ##  $engineName (String): The name of the user's default search engine. e.g. "Google" or "DuckDuckGo".
+
 urlbar-search-tips-onboard = Type less, find more: Search { $engineName } right from your address bar.
 urlbar-search-tips-redirect-2 = Start your search in the address bar to see suggestions from { $engineName } and your browsing history.
 
@@ -182,8 +183,6 @@ page-action-send-tabs-urlbar =
       [1] Send Tab to Device
      *[other] Send { $tabCount } Tabs to Device
   }
-page-action-pocket-panel =
-  .label = Save Page to { -pocket-brand-name }
 page-action-copy-url-panel =
   .label = Copy Link
 page-action-copy-url-urlbar =
@@ -363,6 +362,28 @@ browser-tab-audio-blocked = AUTOPLAY BLOCKED
 # This label should be written in all capital letters if your locale supports them.
 browser-tab-audio-pip = PICTURE-IN-PICTURE
 
+## These labels should be written in all capital letters if your locale supports them.
+## Variables:
+##  $count (number): number of affected tabs
+
+browser-tab-mute =
+    { $count ->
+        [1] MUTE TAB
+       *[other] MUTE { $count } TABS
+    }
+
+browser-tab-unmute =
+    { $count ->
+        [1] UNMUTE TAB
+       *[other] UNMUTE { $count } TABS
+    }
+
+browser-tab-unblock =
+    { $count ->
+        [1] PLAY TAB
+       *[other] PLAY { $count } TABS
+    }
+
 ## Bookmarks toolbar items
 
 browser-import-button2 =
@@ -373,24 +394,27 @@ bookmarks-toolbar-empty-message = For quick access, place your bookmarks here on
 
 ## WebRTC Pop-up notifications
 
-popup-select-camera =
-    .value = Camera to share:
+popup-select-camera-device =
+    .value = Camera:
     .accesskey = C
-popup-select-microphone =
-    .value = Microphone to share:
+popup-select-camera-icon =
+    .tooltiptext = Camera
+popup-select-microphone-device =
+    .value = Microphone:
     .accesskey = M
+popup-select-microphone-icon =
+    .tooltiptext = Microphone
 popup-all-windows-shared = All visible windows on your screen will be shared.
 
-popup-screen-sharing-not-now =
-  .label = Not Now
+popup-screen-sharing-block =
+  .label = Block
+  .accesskey = B
+
+popup-screen-sharing-always-block =
+  .label = Always block
   .accesskey = w
 
-popup-screen-sharing-never =
-  .label = Never Allow
-  .accesskey = N
-
-popup-silence-notifications-checkbox = Disable notifications from { -brand-short-name } while sharing
-popup-silence-notifications-checkbox-warning = { -brand-short-name } will not display notifications while you are sharing.
+popup-mute-notifications-checkbox = Mute website notifications while sharing
 
 ## WebRTC window or screen share tab switch warning
 
@@ -404,7 +428,6 @@ sharing-warning-disable-for-session =
 ## DevTools F12 popup
 
 enable-devtools-popup-description = To use the F12 shortcut, first open DevTools via the Web Developer menu.
-
 
 ## URL Bar
 
@@ -465,8 +488,6 @@ urlbar-go-button =
   .tooltiptext = Go to the address in the Location Bar
 urlbar-page-action-button =
   .tooltiptext = Page actions
-urlbar-pocket-button =
-  .tooltiptext = Save to { -pocket-brand-name }
 
 ## Action text shown in urlbar results, usually appended after the search
 ## string or the url, like "result value - action text".
@@ -538,21 +559,17 @@ pointerlock-warning-no-domain = This document has control of your pointer. Press
 ## Subframe crash notification
 
 crashed-subframe-message = <strong>Part of this page crashed.</strong> To let { -brand-product-name } know about this issue and get it fixed faster, please submit a report.
-crashed-subframe-learnmore =
-  .label = Learn More
-  .accesskey = L
+crashed-subframe-learnmore-link =
+  .value = Learn More
 crashed-subframe-submit =
-  .label = Submit Report
+  .label = Submit report
   .accesskey = S
 
 ## Bookmarks panels, menus and toolbar
 
-bookmarks-show-all-bookmarks =
-  .label = Show All Bookmarks
 bookmarks-manage-bookmarks =
   .label = Manage Bookmarks
-bookmarks-recent-bookmarks-panel =
-  .value = Recent Bookmarks
+bookmarks-recent-bookmarks-panel-subheader = Recent Bookmarks
 bookmarks-toolbar-chevron =
   .tooltiptext = Show more bookmarks
 bookmarks-sidebar-content =
@@ -615,8 +632,40 @@ library-bookmarks-menu =
 library-recent-activity-title =
   .value = Recent Activity
 
+## Pocket toolbar button
+
+save-to-pocket-button =
+  .label = Save to { -pocket-brand-name }
+  .tooltiptext = Save to { -pocket-brand-name }
+
 ## More items
 
 more-menu-go-offline =
   .label = Work Offline
   .accesskey = k
+
+## EME notification panel
+
+eme-notifications-drm-content-playing = Some audio or video on this site uses DRM software, which may limit what { -brand-short-name } can let you do with it.
+eme-notifications-drm-content-playing-manage = Manage settings
+eme-notifications-drm-content-playing-manage-accesskey = M
+eme-notifications-drm-content-playing-dismiss = Dismiss
+eme-notifications-drm-content-playing-dismiss-accesskey = D
+
+## Password save/update panel
+
+panel-save-update-username = Username
+panel-save-update-password = Password
+
+## Add-on removal warning
+
+# Variables:
+#  $name (String): The name of the addon that will be removed.
+addon-removal-title = Remove { $name }?
+addon-removal-abuse-report-checkbox = Report this extension to { -vendor-short-name }
+
+## Remote / Synced tabs
+
+remote-tabs-manage-account =
+  .label = Manage Account
+remote-tabs-sync-now = Sync Now

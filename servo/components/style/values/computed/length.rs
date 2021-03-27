@@ -185,7 +185,10 @@ impl Size {
             GenericSize::Auto => false,
             GenericSize::LengthPercentage(ref lp) => lp.is_definitely_zero(),
             #[cfg(feature = "gecko")]
-            GenericSize::ExtremumLength(..) => false,
+            GenericSize::MinContent |
+            GenericSize::MaxContent |
+            GenericSize::MozFitContent |
+            GenericSize::MozAvailable => false
         }
     }
 }
@@ -319,6 +322,12 @@ impl ToCss for CSSPixelLength {
     }
 }
 
+impl std::iter::Sum for CSSPixelLength {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.fold(Length::zero(), Add::add)
+    }
+}
+
 impl Add for CSSPixelLength {
     type Output = Self;
 
@@ -332,6 +341,15 @@ impl AddAssign for CSSPixelLength {
     #[inline]
     fn add_assign(&mut self, other: Self) {
         self.0 += other.0;
+    }
+}
+
+impl Div for CSSPixelLength {
+    type Output = CSSFloat;
+
+    #[inline]
+    fn div(self, other: Self) -> CSSFloat {
+        self.px() / other.px()
     }
 }
 
@@ -479,37 +497,6 @@ pub type NonNegativeLengthPercentageOrNormal =
 
 /// Either a non-negative `<length>` or a `<number>`.
 pub type NonNegativeLengthOrNumber = GenericLengthOrNumber<NonNegativeLength, NonNegativeNumber>;
-
-/// A type for possible values for min- and max- flavors of width, height,
-/// block-size, and inline-size.
-#[allow(missing_docs)]
-#[cfg_attr(feature = "servo", derive(Deserialize, Serialize))]
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    FromPrimitive,
-    MallocSizeOf,
-    Parse,
-    PartialEq,
-    SpecifiedValueInfo,
-    ToAnimatedValue,
-    ToAnimatedZero,
-    ToComputedValue,
-    ToCss,
-    ToResolvedValue,
-    ToShmem,
-)]
-#[repr(u8)]
-pub enum ExtremumLength {
-    #[parse(aliases = "-moz-max-content")]
-    MaxContent,
-    #[parse(aliases = "-moz-min-content")]
-    MinContent,
-    MozFitContent,
-    MozAvailable,
-}
 
 /// A computed value for `min-width`, `min-height`, `width` or `height` property.
 pub type Size = GenericSize<NonNegativeLengthPercentage>;

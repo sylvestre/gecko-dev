@@ -780,7 +780,11 @@ var interfaceNamesInGlobalScope = [
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "OfflineAudioContext", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
-  { name: "OfflineResourceList", insecureContext: false },
+  {
+    name: "OfflineResourceList",
+    insecureContext: false,
+    disabled: isEarlyBetaOrEarlier,
+  },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "Option", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
@@ -882,62 +886,6 @@ var interfaceNamesInGlobalScope = [
   { name: "PopStateEvent", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "PopupBlockedEvent", insecureContext: true },
-  // IMPORTANT: Do not change this list without review from a DOM peer!
-  {
-    name: "Presentation",
-    insecureContext: true,
-    desktop: false,
-    release: false,
-  },
-  // IMPORTANT: Do not change this list without review from a DOM peer!
-  {
-    name: "PresentationAvailability",
-    insecureContext: true,
-    desktop: false,
-    release: false,
-  },
-  // IMPORTANT: Do not change this list without review from a DOM peer!
-  {
-    name: "PresentationConnection",
-    insecureContext: true,
-    desktop: false,
-    release: false,
-  },
-  // IMPORTANT: Do not change this list without review from a DOM peer!
-  {
-    name: "PresentationConnectionAvailableEvent",
-    insecureContext: true,
-    desktop: false,
-    release: false,
-  },
-  // IMPORTANT: Do not change this list without review from a DOM peer!
-  {
-    name: "PresentationConnectionCloseEvent",
-    insecureContext: true,
-    desktop: false,
-    release: false,
-  },
-  // IMPORTANT: Do not change this list without review from a DOM peer!
-  {
-    name: "PresentationConnectionList",
-    insecureContext: true,
-    desktop: false,
-    release: false,
-  },
-  // IMPORTANT: Do not change this list without review from a DOM peer!
-  {
-    name: "PresentationReceiver",
-    insecureContext: true,
-    desktop: false,
-    release: false,
-  },
-  // IMPORTANT: Do not change this list without review from a DOM peer!
-  {
-    name: "PresentationRequest",
-    insecureContext: true,
-    desktop: false,
-    release: false,
-  },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "ProcessingInstruction", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
@@ -1312,7 +1260,7 @@ var interfaceNamesInGlobalScope = [
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "VideoPlaybackQuality", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
-  { name: "VisualViewport", insecureContext: true },
+  { name: "VisualViewport", insecureContext: true, android: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "VRDisplay", releaseNonWindowsAndMac: false },
   // IMPORTANT: Do not change this list without review from a DOM peer!

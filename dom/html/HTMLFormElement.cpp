@@ -11,6 +11,7 @@
 #include "jsapi.h"
 #include "mozilla/BasePrincipal.h"
 #include "mozilla/BinarySearch.h"
+#include "mozilla/Components.h"
 #include "mozilla/ContentEvents.h"
 #include "mozilla/EventDispatcher.h"
 #include "mozilla/EventStates.h"
@@ -182,29 +183,6 @@ nsresult HTMLFormElement::BeforeSetAttr(int32_t aNamespaceID, nsAtom* aName,
 
   return nsGenericHTMLElement::BeforeSetAttr(aNamespaceID, aName, aValue,
                                              aNotify);
-}
-
-nsresult HTMLFormElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
-                                       const nsAttrValue* aValue,
-                                       const nsAttrValue* aOldValue,
-                                       nsIPrincipal* aSubjectPrincipal,
-                                       bool aNotify) {
-  if (aName == nsGkAtoms::novalidate && aNameSpaceID == kNameSpaceID_None) {
-    // Update all form elements states because they might be [no longer]
-    // affected by :-moz-ui-valid or :-moz-ui-invalid.
-    for (uint32_t i = 0, length = mControls->mElements.Length(); i < length;
-         ++i) {
-      mControls->mElements[i]->UpdateState(true);
-    }
-
-    for (uint32_t i = 0, length = mControls->mNotInElements.Length();
-         i < length; ++i) {
-      mControls->mNotInElements[i]->UpdateState(true);
-    }
-  }
-
-  return nsGenericHTMLElement::AfterSetAttr(
-      aNameSpaceID, aName, aValue, aOldValue, aSubjectPrincipal, aNotify);
 }
 
 void HTMLFormElement::GetAutocomplete(nsAString& aValue) {
@@ -460,6 +438,8 @@ static void CollectOrphans(nsINode* aRemovalRoot,
 }
 
 void HTMLFormElement::UnbindFromTree(bool aNullParent) {
+  MaybeFireFormRemoved();
+
   // Note, this is explicitly using uncomposed doc, since we count
   // only forms in document.
   RefPtr<Document> oldDocument = GetUncomposedDoc();
@@ -938,7 +918,7 @@ nsresult HTMLFormElement::DoSecureToInsecureSubmitCheck(nsIURI* aActionURL,
 
   nsCOMPtr<nsIStringBundle> stringBundle;
   nsCOMPtr<nsIStringBundleService> stringBundleService =
-      mozilla::services::GetStringBundleService();
+      mozilla::components::StringBundle::Service();
   if (!stringBundleService) {
     return NS_ERROR_FAILURE;
   }
@@ -1475,7 +1455,7 @@ nsresult HTMLFormElement::RemoveElementFromTableInternal(
 
   // If it's not a content node then it must be a RadioNodeList.
   MOZ_ASSERT(nsCOMPtr<RadioNodeList>(do_QueryInterface(entry.Data())));
-  auto* list = static_cast<RadioNodeList*>(entry.Data().get());
+  auto* list = static_cast<RadioNodeList*>(entry->get());
 
   list->RemoveElement(aChild);
 
@@ -2047,7 +2027,7 @@ HTMLFormElement::IndexOfControl(nsIFormControl* aControl) {
 
 void HTMLFormElement::SetCurrentRadioButton(const nsAString& aName,
                                             HTMLInputElement* aRadio) {
-  mSelectedRadioButtons.Put(aName, RefPtr{aRadio});
+  mSelectedRadioButtons.InsertOrUpdate(aName, RefPtr{aRadio});
 }
 
 HTMLInputElement* HTMLFormElement::GetCurrentRadioButton(
@@ -2169,10 +2149,8 @@ HTMLFormElement::WalkRadioGroup(const nsAString& aName,
 void HTMLFormElement::AddToRadioGroup(const nsAString& aName,
                                       HTMLInputElement* aRadio) {
   if (aRadio->IsRequired()) {
-    mRequiredRadioButtonCounts.WithEntryHandle(aName, [](auto&& entry) {
-      uint32_t& value = entry.OrInsert(0);
-      ++value;
-    });
+    uint32_t& value = mRequiredRadioButtonCounts.LookupOrInsert(aName, 0);
+    ++value;
   }
 }
 
@@ -2201,16 +2179,15 @@ uint32_t HTMLFormElement::GetRequiredRadioCount(const nsAString& aName) const {
 void HTMLFormElement::RadioRequiredWillChange(const nsAString& aName,
                                               bool aRequiredAdded) {
   if (aRequiredAdded) {
-    mRequiredRadioButtonCounts.Put(aName,
-                                   mRequiredRadioButtonCounts.Get(aName) + 1);
+    mRequiredRadioButtonCounts.LookupOrInsert(aName, 0) += 1;
   } else {
-    uint32_t requiredNb = mRequiredRadioButtonCounts.Get(aName);
-    NS_ASSERTION(requiredNb >= 1,
+    auto requiredNb = mRequiredRadioButtonCounts.Lookup(aName);
+    NS_ASSERTION(requiredNb && *requiredNb >= 1,
                  "At least one radio button has to be required!");
-    if (requiredNb == 1) {
-      mRequiredRadioButtonCounts.Remove(aName);
+    if (*requiredNb == 1) {
+      requiredNb.Remove();
     } else {
-      mRequiredRadioButtonCounts.Put(aName, requiredNb - 1);
+      *requiredNb -= 1;
     }
   }
 }
@@ -2221,7 +2198,7 @@ bool HTMLFormElement::GetValueMissingState(const nsAString& aName) const {
 
 void HTMLFormElement::SetValueMissingState(const nsAString& aName,
                                            bool aValue) {
-  mValueMissingRadioGroups.Put(aName, aValue);
+  mValueMissingRadioGroups.InsertOrUpdate(aName, aValue);
 }
 
 EventStates HTMLFormElement::IntrinsicState() const {
@@ -2317,7 +2294,7 @@ nsresult HTMLFormElement::AddElementToTableInternal(
       } else {
         // There's already a list in the hash, add the child to the list.
         MOZ_ASSERT(nsCOMPtr<RadioNodeList>(do_QueryInterface(entry.Data())));
-        auto* list = static_cast<RadioNodeList*>(entry.Data().get());
+        auto* list = static_cast<RadioNodeList*>(entry->get());
 
         NS_ASSERTION(
             list->Length() > 1,
@@ -2385,7 +2362,7 @@ void HTMLFormElement::AddToPastNamesMap(const nsAString& aName,
   // previous entry with the same name, if any.
   nsCOMPtr<nsIContent> node = do_QueryInterface(aChild);
   if (node) {
-    mPastNameLookupTable.Put(aName, node);
+    mPastNameLookupTable.InsertOrUpdate(aName, ToSupports(node));
     node->SetFlags(MAY_BE_IN_PAST_NAMES_MAP);
   }
 }
@@ -2439,6 +2416,28 @@ bool HTMLFormElement::IsSubmitting() const {
                  mCurrentLoadId &&
                  mTargetContext->IsLoadingIdentifier(*mCurrentLoadId);
   return loading;
+}
+
+void HTMLFormElement::MaybeFireFormRemoved() {
+  // We want this event to be fired only when the form is removed from the DOM
+  // tree, not when it is released (ex, tab is closed). So don't fire an event
+  // when the form doesn't have a docshell.
+  Document* doc = GetComposedDoc();
+  nsIDocShell* container = doc ? doc->GetDocShell() : nullptr;
+  if (!container) {
+    return;
+  }
+
+  // Right now, only the password manager listens to the event and only listen
+  // to it under certain circumstances. So don't fire this event unless
+  // necessary.
+  if (!doc->ShouldNotifyFormOrPasswordRemoved()) {
+    return;
+  }
+
+  RefPtr<AsyncEventDispatcher> asyncDispatcher = new AsyncEventDispatcher(
+      this, u"DOMFormRemoved"_ns, CanBubble::eNo, ChromeOnlyDispatch::eYes);
+  asyncDispatcher->RunDOMEventWhenSafe();
 }
 
 }  // namespace mozilla::dom

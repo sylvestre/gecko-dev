@@ -118,11 +118,7 @@ bool HTMLButtonElement::IsHTMLFocusable(bool aWithMouse, bool* aIsFocusable,
     return true;
   }
 
-  *aIsFocusable =
-#ifdef XP_MACOSX
-      (!aWithMouse || nsFocusManager::sMouseFocusesFormControl) &&
-#endif
-      !IsDisabled();
+  *aIsFocusable = IsFormControlDefaultFocusable(aWithMouse) && !IsDisabled();
 
   return false;
 }
@@ -413,15 +409,9 @@ EventStates HTMLButtonElement::IntrinsicState() const {
 
   if (IsCandidateForConstraintValidation()) {
     if (IsValid()) {
-      state |= NS_EVENT_STATE_VALID;
-      if (!mForm || !mForm->HasAttr(kNameSpaceID_None, nsGkAtoms::novalidate)) {
-        state |= NS_EVENT_STATE_MOZ_UI_VALID;
-      }
+      state |= NS_EVENT_STATE_VALID | NS_EVENT_STATE_MOZ_UI_VALID;
     } else {
-      state |= NS_EVENT_STATE_INVALID;
-      if (!mForm || !mForm->HasAttr(kNameSpaceID_None, nsGkAtoms::novalidate)) {
-        state |= NS_EVENT_STATE_MOZ_UI_INVALID;
-      }
+      state |= NS_EVENT_STATE_INVALID | NS_EVENT_STATE_MOZ_UI_INVALID;
     }
   }
 

@@ -26,6 +26,7 @@
 #include "gfxTextRun.h"
 #include "GLContextProvider.h"
 #include "mozilla/Atomics.h"
+#include "mozilla/Components.h"
 #include "mozilla/FontPropertyTypes.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/gfx/Logging.h"
@@ -59,7 +60,7 @@
 #  include <gdk/gdkwayland.h>
 #  include "mozilla/widget/nsWaylandDisplay.h"
 #  include "mozilla/widget/DMABufLibWrapper.h"
-#  include "mozilla/StaticPrefs_media.h"
+#  include "mozilla/StaticPrefs_widget.h"
 #endif
 
 #define GDK_PIXMAP_SIZE_MAX 32767
@@ -96,9 +97,7 @@ gfxPlatformGtk::gfxPlatformGtk() {
   }
 
   mMaxGenericSubstitutions = UNINITIALIZED_VALUE;
-  mIsX11Display = gfxPlatform::IsHeadless()
-                      ? false
-                      : GDK_IS_X11_DISPLAY(gdk_display_get_default());
+  mIsX11Display = gfxPlatform::IsHeadless() ? false : GdkIsX11Display();
   if (XRE_IsParentProcess()) {
 #ifdef MOZ_X11
     if (mIsX11Display && mozilla::Preferences::GetBool("gfx.xrender.enabled")) {
@@ -106,27 +105,14 @@ gfxPlatformGtk::gfxPlatformGtk() {
     }
 #endif
 
-    bool useEGLOnX11 = false;
-#ifdef MOZ_X11
-    useEGLOnX11 =
-        StaticPrefs::gfx_prefer_x11_egl_AtStartup() || IsX11EGLEnvvarEnabled();
-    if (useEGLOnX11) {
-      nsCOMPtr<nsIGfxInfo> gfxInfo = services::GetGfxInfo();
-      nsAutoString testType;
-      gfxInfo->GetTestType(testType);
-      // We can only use X11/EGL if we actually found the EGL library and
-      // successfully use it to determine system information in glxtest.
-      useEGLOnX11 = testType == u"EGL";
+    InitX11EGLConfig();
+    if (IsWaylandDisplay() || gfxConfig::IsEnabled(Feature::X11_EGL)) {
+      gfxVars::SetUseEGL(true);
     }
 
-#endif
-    if (IsWaylandDisplay() || useEGLOnX11) {
-      gfxVars::SetUseEGL(true);
-
-      nsCOMPtr<nsIGfxInfo> gfxInfo = services::GetGfxInfo();
-      nsAutoCString drmRenderDevice;
-      gfxInfo->GetDrmRenderDevice(drmRenderDevice);
-      gfxVars::SetDrmRenderDevice(drmRenderDevice);
+    InitDmabufConfig();
+    if (gfxConfig::IsEnabled(Feature::DMABUF)) {
+      gfxVars::SetUseDMABuf(true);
     }
   }
 
@@ -134,7 +120,7 @@ gfxPlatformGtk::gfxPlatformGtk() {
 
 #ifdef MOZ_WAYLAND
   mUseWebGLDmabufBackend =
-      gfxVars::UseEGL() && GetDMABufDevice()->IsDMABufWebGLEnabled();
+      gfxVars::UseDMABuf() && GetDMABufDevice()->IsDMABufWebGLEnabled();
 #endif
 
   gPlatformFTLibrary = Factory::NewFTLibrary();
@@ -151,6 +137,89 @@ gfxPlatformGtk::gfxPlatformGtk() {
 gfxPlatformGtk::~gfxPlatformGtk() {
   Factory::ReleaseFTLibrary(gPlatformFTLibrary);
   gPlatformFTLibrary = nullptr;
+}
+
+void gfxPlatformGtk::InitX11EGLConfig() {
+  FeatureState& feature = gfxConfig::GetFeature(Feature::X11_EGL);
+#ifdef MOZ_X11
+  feature.EnableByDefault();
+
+  if (StaticPrefs::gfx_x11_egl_force_enabled_AtStartup()) {
+    feature.UserForceEnable("Force enabled by pref");
+  } else if (IsX11EGLEnvvarEnabled()) {
+    feature.UserForceEnable("Force enabled by envvar");
+  } else if (StaticPrefs::gfx_x11_egl_force_disabled_AtStartup()) {
+    feature.UserDisable("Force disabled by pref",
+                        "FEATURE_FAILURE_USER_FORCE_DISABLED"_ns);
+  }
+
+  nsCString failureId;
+  int32_t status;
+  nsCOMPtr<nsIGfxInfo> gfxInfo = components::GfxInfo::Service();
+  if (NS_FAILED(gfxInfo->GetFeatureStatus(nsIGfxInfo::FEATURE_X11_EGL,
+                                          failureId, &status))) {
+    feature.Disable(FeatureStatus::BlockedNoGfxInfo, "gfxInfo is broken",
+                    "FEATURE_FAILURE_NO_GFX_INFO"_ns);
+  } else if (status != nsIGfxInfo::FEATURE_STATUS_OK) {
+    feature.Disable(FeatureStatus::Blocklisted, "Blocklisted by gfxInfo",
+                    failureId);
+  }
+
+  nsAutoString testType;
+  gfxInfo->GetTestType(testType);
+  // We can only use X11/EGL if we actually found the EGL library and
+  // successfully use it to determine system information in glxtest.
+  if (testType != u"EGL") {
+    feature.ForceDisable(FeatureStatus::Broken, "glxtest could not use EGL",
+                         "FEATURE_FAILURE_GLXTEST_NO_EGL"_ns);
+  }
+#else
+  feature.DisableByDefault(FeatureStatus::Unavailable, "X11 support missing",
+                           "FEATURE_FAILURE_NO_X11"_ns);
+#endif
+}
+
+void gfxPlatformGtk::InitDmabufConfig() {
+  FeatureState& feature = gfxConfig::GetFeature(Feature::DMABUF);
+#ifdef MOZ_WAYLAND
+  feature.EnableByDefault();
+
+  if (StaticPrefs::widget_dmabuf_force_enabled_AtStartup()) {
+    feature.UserForceEnable("Force enabled by pref");
+  }
+
+  nsCString failureId;
+  int32_t status;
+  nsCOMPtr<nsIGfxInfo> gfxInfo = components::GfxInfo::Service();
+  if (NS_FAILED(gfxInfo->GetFeatureStatus(nsIGfxInfo::FEATURE_DMABUF, failureId,
+                                          &status))) {
+    feature.Disable(FeatureStatus::BlockedNoGfxInfo, "gfxInfo is broken",
+                    "FEATURE_FAILURE_NO_GFX_INFO"_ns);
+  } else if (status != nsIGfxInfo::FEATURE_STATUS_OK) {
+    feature.Disable(FeatureStatus::Blocklisted, "Blocklisted by gfxInfo",
+                    failureId);
+  }
+
+  if (!gfxVars::UseEGL()) {
+    feature.ForceDisable(FeatureStatus::Unavailable, "Requires EGL",
+                         "FEATURE_FAILURE_REQUIRES_EGL"_ns);
+  }
+
+  if (feature.IsEnabled()) {
+    nsAutoCString drmRenderDevice;
+    gfxInfo->GetDrmRenderDevice(drmRenderDevice);
+    gfxVars::SetDrmRenderDevice(drmRenderDevice);
+
+    if (!GetDMABufDevice()->Configure(failureId)) {
+      feature.ForceDisable(FeatureStatus::Failed, "Failed to configure",
+                           failureId);
+    }
+  }
+#else
+  feature.DisableByDefault(FeatureStatus::Unavailable,
+                           "Wayland support missing",
+                           "FEATURE_FAILURE_NO_WAYLAND"_ns);
+#endif
 }
 
 void gfxPlatformGtk::FlushContentDrawing() {
@@ -284,6 +353,9 @@ gfxPlatformFontList* gfxPlatformGtk::CreatePlatformFontList() {
 }
 
 int32_t gfxPlatformGtk::GetFontScaleDPI() {
+  MOZ_ASSERT(XRE_IsParentProcess(),
+             "You can access this via LookAndFeel if you need it in child "
+             "processes");
   if (MOZ_LIKELY(sDPI != 0)) {
     return sDPI;
   }
@@ -732,7 +804,7 @@ already_AddRefed<gfx::VsyncSource> gfxPlatformGtk::CreateHardwareVsyncSource() {
   if (gfxConfig::IsEnabled(Feature::HW_COMPOSITING)) {
     bool useGlxVsync = false;
 
-    nsCOMPtr<nsIGfxInfo> gfxInfo = services::GetGfxInfo();
+    nsCOMPtr<nsIGfxInfo> gfxInfo = components::GfxInfo::Service();
     nsString adapterDriverVendor;
     gfxInfo->GetAdapterDriverVendor(adapterDriverVendor);
 

@@ -2386,7 +2386,7 @@ NPError PluginInstanceChild::NPN_InitAsyncSurface(NPSize* size,
       // Hold the shmem alive until Finalize() is called or this actor dies.
       holder = new DirectBitmap(this, shmem, IntSize(size->width, size->height),
                                 surface->bitmap.stride, mozformat);
-      mDirectBitmaps.Put(surface, std::move(holder));
+      mDirectBitmaps.InsertOrUpdate(surface, std::move(holder));
       return NPERR_NO_ERROR;
     }
 #if defined(XP_WIN)
@@ -2417,7 +2417,7 @@ NPError PluginInstanceChild::NPN_InitAsyncSurface(NPSize* size,
       surface->format = format;
       surface->sharedHandle = reinterpret_cast<HANDLE>(handle);
 
-      mDxgiSurfaces.Put(surface, handle);
+      mDxgiSurfaces.InsertOrUpdate(surface, handle);
       return NPERR_NO_ERROR;
     }
 #endif
@@ -3685,10 +3685,9 @@ void PluginInstanceChild::ClearAllSurfaces() {
 }
 
 static void InvalidateObjects(nsTHashtable<DeletingObjectEntry>& aEntries) {
-  for (auto iter = aEntries.Iter(); !iter.Done(); iter.Next()) {
-    DeletingObjectEntry* e = iter.Get();
-    NPObject* o = e->GetKey();
-    if (!e->mDeleted && o->_class && o->_class->invalidate) {
+  for (const auto& e : aEntries) {
+    NPObject* o = e.GetKey();
+    if (!e.mDeleted && o->_class && o->_class->invalidate) {
       o->_class->invalidate(o);
     }
   }

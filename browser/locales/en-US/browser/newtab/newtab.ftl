@@ -18,13 +18,26 @@ newtab-search-box-search-button =
     .title = Search
     .aria-label = Search
 
-newtab-search-box-search-the-web-text = Search the Web
+# Variables
+#  $engine (String): the name of the user's default search engine
+newtab-search-box-handoff-text = Search with { $engine } or enter address
+newtab-search-box-handoff-text-no-engine = Search or enter address
+# Variables
+#  $engine (String): the name of the user's default search engine
+newtab-search-box-handoff-input =
+    .placeholder = Search with { $engine } or enter address
+    .title = Search with { $engine } or enter address
+    .aria-label = Search with { $engine } or enter address
+newtab-search-box-handoff-input-no-engine =
+    .placeholder = Search or enter address
+    .title = Search or enter address
+    .aria-label = Search or enter address
+
 newtab-search-box-search-the-web-input =
     .placeholder = Search the Web
     .title = Search the Web
     .aria-label = Search the Web
 
-newtab-search-box-text = Search the web
 newtab-search-box-input =
     .placeholder = Search the web
     .aria-label = Search the web
@@ -200,7 +213,6 @@ newtab-empty-section-highlights = Start browsing, and we’ll show some of the g
 # Variables:
 #  $provider (String): Name of the content provider for this section, e.g "Pocket".
 newtab-empty-section-topstories = You’ve caught up. Check back later for more top stories from { $provider }. Can’t wait? Select a popular topic to find more great stories from around the web.
-
 
 ## Empty Section (Content Discovery Experience). These show when there are no more stories or when some stories fail to load.
 

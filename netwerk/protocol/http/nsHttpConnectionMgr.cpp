@@ -16,7 +16,7 @@
 #include <utility>
 
 #include "NullHttpTransaction.h"
-#include "mozilla/Services.h"
+#include "mozilla/Components.h"
 #include "mozilla/SpinEventLoopUntil.h"
 #include "mozilla/Telemetry.h"
 #include "mozilla/Unused.h"
@@ -93,10 +93,10 @@ nsHttpConnectionMgr::~nsHttpConnectionMgr() {
 
 nsresult nsHttpConnectionMgr::EnsureSocketThreadTarget() {
   nsCOMPtr<nsIEventTarget> sts;
-  nsCOMPtr<nsIIOService> ioService = services::GetIOService();
+  nsCOMPtr<nsIIOService> ioService = components::IO::Service();
   if (ioService) {
     nsCOMPtr<nsISocketTransportService> realSTS =
-        services::GetSocketTransportService();
+        components::SocketTransport::Service();
     sts = do_QueryInterface(realSTS);
   }
 
@@ -803,15 +803,16 @@ void nsHttpConnectionMgr::UpdateCoalescingForNewConn(
         "UpdateCoalescingForNewConn() registering newConn %p %s under key %s\n",
         newConn, newConn->ConnectionInfo()->HashKey().get(),
         ent->mCoalescingKeys[i].get()));
-    nsTArray<nsWeakPtr>* listOfWeakConns =
-        mCoalescingHash.Get(ent->mCoalescingKeys[i]);
-    if (!listOfWeakConns) {
-      LOG(("UpdateCoalescingForNewConn() need new list element\n"));
-      listOfWeakConns = new nsTArray<nsWeakPtr>(1);
-      mCoalescingHash.Put(ent->mCoalescingKeys[i], listOfWeakConns);
-    }
-    listOfWeakConns->AppendElement(
-        do_GetWeakReference(static_cast<nsISupportsWeakReference*>(newConn)));
+
+    mCoalescingHash
+        .LookupOrInsertWith(
+            ent->mCoalescingKeys[i],
+            [] {
+              LOG(("UpdateCoalescingForNewConn() need new list element\n"));
+              return MakeUnique<nsTArray<nsWeakPtr>>(1);
+            })
+        ->AppendElement(do_GetWeakReference(
+            static_cast<nsISupportsWeakReference*>(newConn)));
   }
 
   // this is a new connection that can be coalesced onto. hooray!
@@ -1202,7 +1203,7 @@ nsresult nsHttpConnectionMgr::MakeNewConnection(
     // If the global number of connections is preventing the opening of new
     // connections to a host without idle connections, then close them
     // regardless of their TTL.
-    auto iter = mCT.Iter();
+    auto iter = mCT.ConstIter();
     while (mNumIdleConns + mNumActiveConns + 1 >= mMaxConns && !iter.Done()) {
       RefPtr<ConnectionEntry> entry = iter.Data();
       entry->CloseIdleConnections((mNumIdleConns + mNumActiveConns + 1) -
@@ -1216,8 +1217,7 @@ nsresult nsHttpConnectionMgr::MakeNewConnection(
     // If the global number of connections is preventing the opening of new
     // connections to a host without idle connections, then close any spdy
     // ASAP.
-    for (auto iter = mCT.Iter(); !iter.Done(); iter.Next()) {
-      RefPtr<ConnectionEntry> entry = iter.Data();
+    for (const RefPtr<ConnectionEntry>& entry : mCT.Values()) {
       while (entry->MakeFirstActiveSpdyConnDontReuse()) {
         // Stop on <= (particularly =) because this dontreuse
         // causes async close.
@@ -1498,6 +1498,19 @@ nsresult nsHttpConnectionMgr::DispatchTransaction(ConnectionEntry* ent,
   // when a muxed connection (e.g. h2) becomes available.
   trans->CancelPacing(NS_OK);
 
+  auto recordPendingTimeForHTTPSRR = [&](nsCString& aKey) {
+    uint32_t stage = trans->HTTPSSVCReceivedStage();
+    if (HTTPS_RR_IS_USED(stage)) {
+      aKey.Append("_with_https_rr");
+    } else {
+      aKey.Append("_no_https_rr");
+    }
+
+    AccumulateTimeDelta(Telemetry::TRANSACTION_WAIT_TIME_HTTPS_RR, aKey,
+                        trans->GetPendingTime(), TimeStamp::Now());
+  };
+
+  nsAutoCString httpVersionkey("h1"_ns);
   if (conn->UsingSpdy() || conn->UsingHttp3()) {
     LOG(
         ("Spdy Dispatch Transaction via Activate(). Transaction host = %s, "
@@ -1506,12 +1519,15 @@ nsresult nsHttpConnectionMgr::DispatchTransaction(ConnectionEntry* ent,
     rv = conn->Activate(trans, caps, priority);
     if (NS_SUCCEEDED(rv) && !trans->GetPendingTime().IsNull()) {
       if (conn->UsingSpdy()) {
+        httpVersionkey = "h2"_ns;
         AccumulateTimeDelta(Telemetry::TRANSACTION_WAIT_TIME_SPDY,
                             trans->GetPendingTime(), TimeStamp::Now());
       } else {
+        httpVersionkey = "h3"_ns;
         AccumulateTimeDelta(Telemetry::TRANSACTION_WAIT_TIME_HTTP3,
                             trans->GetPendingTime(), TimeStamp::Now());
       }
+      recordPendingTimeForHTTPSRR(httpVersionkey);
       trans->SetPendingTime(false);
     }
     return rv;
@@ -1525,6 +1541,7 @@ nsresult nsHttpConnectionMgr::DispatchTransaction(ConnectionEntry* ent,
   if (NS_SUCCEEDED(rv) && !trans->GetPendingTime().IsNull()) {
     AccumulateTimeDelta(Telemetry::TRANSACTION_WAIT_TIME_HTTP,
                         trans->GetPendingTime(), TimeStamp::Now());
+    recordPendingTimeForHTTPSRR(httpVersionkey);
     trans->SetPendingTime(false);
   }
   return rv;
@@ -1845,8 +1862,8 @@ void nsHttpConnectionMgr::ProcessSpdyPendingQ(ConnectionEntry* ent) {
 void nsHttpConnectionMgr::OnMsgProcessAllSpdyPendingQ(int32_t, ARefBase*) {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   LOG(("nsHttpConnectionMgr::OnMsgProcessAllSpdyPendingQ\n"));
-  for (auto iter = mCT.Iter(); !iter.Done(); iter.Next()) {
-    ProcessSpdyPendingQ(iter.Data().get());
+  for (const auto& entry : mCT.Values()) {
+    ProcessSpdyPendingQ(entry.get());
   }
 }
 
@@ -2096,8 +2113,8 @@ void nsHttpConnectionMgr::OnMsgProcessPendingQ(int32_t, ARefBase* param) {
   if (!ci) {
     LOG(("nsHttpConnectionMgr::OnMsgProcessPendingQ [ci=nullptr]\n"));
     // Try and dispatch everything
-    for (auto iter = mCT.Iter(); !iter.Done(); iter.Next()) {
-      Unused << ProcessPendingQForEntry(iter.Data().get(), true);
+    for (const auto& entry : mCT.Values()) {
+      Unused << ProcessPendingQForEntry(entry.get(), true);
     }
     return;
   }
@@ -2110,8 +2127,8 @@ void nsHttpConnectionMgr::OnMsgProcessPendingQ(int32_t, ARefBase* param) {
   if (!(ent && ProcessPendingQForEntry(ent, false))) {
     // if we reach here, it means that we couldn't dispatch a transaction
     // for the specified connection info.  walk the connection table...
-    for (auto iter = mCT.Iter(); !iter.Done(); iter.Next()) {
-      if (ProcessPendingQForEntry(iter.Data().get(), false)) {
+    for (const auto& entry : mCT.Values()) {
+      if (ProcessPendingQForEntry(entry.get(), false)) {
         break;
       }
     }
@@ -2200,9 +2217,8 @@ void nsHttpConnectionMgr::OnMsgPruneNoTraffic(int32_t, ARefBase*) {
   LOG(("nsHttpConnectionMgr::OnMsgPruneNoTraffic\n"));
 
   // Prune connections without traffic
-  for (auto iter = mCT.Iter(); !iter.Done(); iter.Next()) {
+  for (const RefPtr<ConnectionEntry>& ent : mCT.Values()) {
     // Close the connections with no registered traffic.
-    RefPtr<ConnectionEntry> ent = iter.Data();
     ent->PruneNoTraffic();
   }
 
@@ -2220,8 +2236,8 @@ void nsHttpConnectionMgr::OnMsgVerifyTraffic(int32_t, ARefBase*) {
   }
 
   // Mark connections for traffic verification
-  for (auto iter = mCT.Iter(); !iter.Done(); iter.Next()) {
-    iter.Data()->VerifyTraffic();
+  for (const auto& entry : mCT.Values()) {
+    entry->VerifyTraffic();
   }
 
   // If the timer is already there. we just re-init it
@@ -2248,8 +2264,8 @@ void nsHttpConnectionMgr::OnMsgDoShiftReloadConnectionCleanup(int32_t,
 
   nsHttpConnectionInfo* ci = static_cast<nsHttpConnectionInfo*>(param);
 
-  for (auto iter = mCT.Iter(); !iter.Done(); iter.Next()) {
-    iter.Data()->ClosePersistentConnections();
+  for (const auto& entry : mCT.Values()) {
+    entry->ClosePersistentConnections();
   }
 
   if (ci) ResetIPFamilyPreference(ci);
@@ -2574,14 +2590,12 @@ void nsHttpConnectionMgr::LogActiveTransactions(char operation) {
   trs = mActiveTransactions[true].Get(mCurrentTopLevelOuterContentWindowId);
   at = trs ? trs->Length() : 0;
 
-  for (auto iter = mActiveTransactions[false].Iter(); !iter.Done();
-       iter.Next()) {
-    bu += iter.UserData()->Length();
+  for (const auto& data : mActiveTransactions[false].Values()) {
+    bu += data->Length();
   }
   bu -= au;
-  for (auto iter = mActiveTransactions[true].Iter(); !iter.Done();
-       iter.Next()) {
-    bt += iter.UserData()->Length();
+  for (const auto& data : mActiveTransactions[true].Values()) {
+    bt += data->Length();
   }
   bt -= at;
 
@@ -2600,7 +2614,7 @@ void nsHttpConnectionMgr::AddActiveTransaction(nsHttpTransaction* aTrans) {
   bool throttled = aTrans->EligibleForThrottling();
 
   nsTArray<RefPtr<nsHttpTransaction>>* transactions =
-      mActiveTransactions[throttled].LookupOrAdd(tabId);
+      mActiveTransactions[throttled].GetOrInsertNew(tabId);
 
   MOZ_ASSERT(!transactions->Contains(aTrans));
 
@@ -3049,13 +3063,13 @@ void nsHttpConnectionMgr::ResumeReadOf(
     nsClassHashtable<nsUint64HashKey, nsTArray<RefPtr<nsHttpTransaction>>>&
         hashtable,
     bool excludeForActiveTab) {
-  for (auto iter = hashtable.Iter(); !iter.Done(); iter.Next()) {
+  for (const auto& entry : hashtable) {
     if (excludeForActiveTab &&
-        iter.Key() == mCurrentTopLevelOuterContentWindowId) {
+        entry.GetKey() == mCurrentTopLevelOuterContentWindowId) {
       // These have never been throttled (never stopped reading)
       continue;
     }
-    ResumeReadOf(iter.UserData());
+    ResumeReadOf(entry.GetWeak());
   }
 }
 
@@ -3188,9 +3202,7 @@ void nsHttpConnectionMgr::TimeoutTick() {
   // reduce it to their local needs.
   mTimeoutTickNext = 3600;  // 1hr
 
-  for (auto iter = mCT.Iter(); !iter.Done(); iter.Next()) {
-    RefPtr<ConnectionEntry> ent = iter.Data();
-
+  for (const RefPtr<ConnectionEntry>& ent : mCT.Values()) {
     uint32_t timeoutTickNext = ent->TimeoutTick();
     mTimeoutTickNext = std::min(mTimeoutTickNext, timeoutTickNext);
   }
@@ -3256,7 +3268,7 @@ ConnectionEntry* nsHttpConnectionMgr::GetOrCreateConnectionEntry(
   if (!specificEnt) {
     RefPtr<nsHttpConnectionInfo> clone(specificCI->Clone());
     specificEnt = new ConnectionEntry(clone);
-    mCT.Put(clone->HashKey(), RefPtr{specificEnt});
+    mCT.InsertOrUpdate(clone->HashKey(), RefPtr{specificEnt});
   }
   return specificEnt;
 }
@@ -3343,12 +3355,7 @@ void nsHttpConnectionMgr::RegisterOriginCoalescingKey(HttpConnectionBase* conn,
 
   nsCString newKey;
   BuildOriginFrameHashKey(newKey, ci, host, port);
-  nsTArray<nsWeakPtr>* listOfWeakConns = mCoalescingHash.Get(newKey);
-  if (!listOfWeakConns) {
-    listOfWeakConns = new nsTArray<nsWeakPtr>(1);
-    mCoalescingHash.Put(newKey, listOfWeakConns);
-  }
-  listOfWeakConns->AppendElement(
+  mCoalescingHash.GetOrInsertNew(newKey, 1)->AppendElement(
       do_GetWeakReference(static_cast<nsISupportsWeakReference*>(conn)));
 
   LOG(
@@ -3358,9 +3365,7 @@ void nsHttpConnectionMgr::RegisterOriginCoalescingKey(HttpConnectionBase* conn,
 }
 
 bool nsHttpConnectionMgr::GetConnectionData(nsTArray<HttpRetParams>* aArg) {
-  for (auto iter = mCT.Iter(); !iter.Done(); iter.Next()) {
-    RefPtr<ConnectionEntry> ent = iter.Data();
-
+  for (const RefPtr<ConnectionEntry>& ent : mCT.Values()) {
     if (ent->mConnInfo->GetPrivate()) {
       continue;
     }

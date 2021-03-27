@@ -13,6 +13,7 @@
 #include "mozilla/ArrayUtils.h"
 #include "mozilla/BasePrincipal.h"
 #include "mozilla/CheckedInt.h"
+#include "mozilla/Components.h"
 #include "mozilla/dom/BlobBinding.h"
 #include "mozilla/dom/BlobURLProtocolHandler.h"
 #include "mozilla/dom/DocGroup.h"
@@ -294,7 +295,8 @@ void XMLHttpRequestMainThread::InitParameters(bool aAnon, bool aSystem) {
       return;
     }
 
-    nsCOMPtr<nsIPermissionManager> permMgr = services::GetPermissionManager();
+    nsCOMPtr<nsIPermissionManager> permMgr =
+        components::PermissionManager::Service();
     if (NS_WARN_IF(!permMgr)) {
       SetParameters(aAnon, false);
       return;
@@ -1073,9 +1075,9 @@ bool XMLHttpRequestMainThread::IsSafeHeader(
       return false;
     }
   }
-  const char* kCrossOriginSafeHeaders[] = {"cache-control", "content-language",
-                                           "content-type",  "expires",
-                                           "last-modified", "pragma"};
+  const char* kCrossOriginSafeHeaders[] = {
+      "cache-control", "content-language", "content-type", "content-length",
+      "expires",       "last-modified",    "pragma"};
   for (uint32_t i = 0; i < ArrayLength(kCrossOriginSafeHeaders); ++i) {
     if (aHeader.LowerCaseEqualsASCII(kCrossOriginSafeHeaders[i])) {
       return true;
@@ -2356,6 +2358,17 @@ void XMLHttpRequestMainThread::ChangeStateToDoneInternal() {
     DispatchProgressEvent(this, ProgressEventType::progress, mLoadTransferred,
                           mLoadTotal);
     mProgressSinceLastProgressEvent = false;
+  }
+
+  // Notify the document when an XHR request completes successfully.
+  // This is used by the password manager as a hint to observe DOM mutations.
+  // Call this prior to changing state to DONE to ensure we set up the
+  // observer before mutations occur.
+  if (mErrorLoad == ErrorType::eOK) {
+    Document* doc = GetDocumentIfCurrent();
+    if (doc) {
+      doc->NotifyFetchOrXHRSuccess();
+    }
   }
 
   // Per spec, fire readystatechange=4/done before final error events.

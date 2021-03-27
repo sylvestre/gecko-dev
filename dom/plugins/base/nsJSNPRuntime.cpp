@@ -8,7 +8,6 @@
 
 #include "jsfriendapi.h"
 
-#include "GeckoProfiler.h"
 #include "mozilla/UniquePtr.h"
 #include "nsIInterfaceRequestorUtils.h"
 #include "nsJSNPRuntime.h"
@@ -31,7 +30,9 @@
 #include "js/TracingAPI.h"
 #include "js/Wrapper.h"
 #include "mozilla/HashFunctions.h"
+#include "mozilla/ProfilerLabels.h"
 #include "mozilla/UniquePtr.h"
+#include "mozilla/dom/AutoEntryScript.h"
 #include "mozilla/dom/ScriptSettings.h"
 
 #define NPRUNTIME_JSCLASS_NAME "NPObject JS wrapper class"
@@ -738,11 +739,12 @@ static bool doInvoke(NPObject* npobj, NPIdentifier method,
   bool ok = false;
 
   if (ctorCall) {
-    JSObject* newObj = ::JS_New(cx, jsobj, jsargs);
+    JS::Rooted<JS::Value> objVal(cx, JS::ObjectValue(*jsobj));
+    JS::Rooted<JSObject*> result(cx);
+    ok = JS::Construct(cx, objVal, jsargs, &result);
 
-    if (newObj) {
-      v.setObject(*newObj);
-      ok = true;
+    if (ok) {
+      v.setObject(*result);
     }
   } else {
     ok = ::JS_CallFunctionValue(cx, jsobj, fv, jsargs, &v);

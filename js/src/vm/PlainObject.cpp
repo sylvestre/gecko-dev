@@ -42,14 +42,9 @@ PlainObject* js::CreateThisForFunction(JSContext* cx,
 
   PlainObject* res;
   if (proto) {
-    Rooted<ObjectGroup*> group(
-        cx, ObjectGroup::defaultNewGroup(cx, &PlainObject::class_,
-                                         TaggedProto(proto)));
-    if (!group) {
-      return nullptr;
-    }
-    js::gc::AllocKind allocKind = NewObjectGCKind(&PlainObject::class_);
-    res = NewObjectWithGroup<PlainObject>(cx, group, allocKind, newKind);
+    js::gc::AllocKind allocKind = NewObjectGCKind();
+    res = NewObjectWithGivenProtoAndKinds<PlainObject>(cx, proto, allocKind,
+                                                       newKind);
   } else {
     res = NewBuiltinClassInstanceWithKind<PlainObject>(cx, newKind);
   }
@@ -58,3 +53,32 @@ PlainObject* js::CreateThisForFunction(JSContext* cx,
 
   return res;
 }
+
+#ifdef DEBUG
+void PlainObject::assertHasNoNonWritableOrAccessorPropExclProto() const {
+  // Check the most recent MaxCount properties to not slow down debug builds too
+  // much.
+  static constexpr size_t MaxCount = 8;
+
+  size_t count = 0;
+  PropertyName* protoName = runtimeFromMainThread()->commonNames->proto;
+
+  for (Shape::Range<NoGC> r(lastProperty()); !r.empty(); r.popFront()) {
+    Shape& propShape = r.front();
+    jsid id = propShape.propidRaw();
+
+    // __proto__ is always allowed.
+    if (JSID_IS_ATOM(id, protoName)) {
+      continue;
+    }
+
+    MOZ_ASSERT(propShape.isDataProperty());
+    MOZ_ASSERT(propShape.writable());
+
+    count++;
+    if (count > MaxCount) {
+      return;
+    }
+  }
+}
+#endif

@@ -113,9 +113,13 @@ class AboutLoginsChild extends JSWindowActorChild {
       }
       case "AboutLoginsImportReportInit": {
         this.sendAsyncMessage("AboutLogins:ImportReportInit");
+        let documentElement = this.document.documentElement;
+        documentElement.classList.toggle(
+          "official-branding",
+          AppConstants.MOZILLA_OFFICIAL
+        );
         break;
       }
-
       case "AboutLoginsCopyLoginDetail": {
         ClipboardHelper.copyString(event.detail);
         break;

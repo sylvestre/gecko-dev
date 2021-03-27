@@ -280,6 +280,13 @@ interface nsISocketTransport : nsITransport
     const unsigned long USE_IP_HINT_ADDRESS = (1 << 13);
 
     /**
+     * This is used for a temporary workaround for a web-compat issue. The flag is
+     * only set on CORS preflight request to allowed sending client certificates
+     * on a connection for an anonymous request.
+     */
+    const long ANONYMOUS_CONNECT_ALLOW_CLIENT_CERT = (1 << 14);
+
+    /**
      * An opaque flags for non-standard behavior of the TLS system.
      * It is unlikely this will need to be set outside of telemetry studies
      * relating to the TLS implementation.
@@ -348,4 +355,9 @@ interface nsISocketTransport : nsITransport
      * e.g. NS_ERROR_CONNECTION_REFUSED, NS_ERROR_RESET, etc.
      */
     readonly attribute boolean retryDnsIfPossible;
+
+    /**
+     * Return the current status of the socket.
+     */
+    [noscript] readonly attribute nsresult status;
 };

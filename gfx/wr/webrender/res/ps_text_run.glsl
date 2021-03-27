@@ -55,14 +55,13 @@ Glyph fetch_glyph(int specific_prim_address,
 
 struct GlyphResource {
     vec4 uv_rect;
-    float layer;
     vec2 offset;
     float scale;
 };
 
 GlyphResource fetch_glyph_resource(int address) {
     vec4 data[2] = fetch_from_gpu_cache_2(address);
-    return GlyphResource(data[0], data[1].x, data[1].yz, data[1].w);
+    return GlyphResource(data[0], data[1].xy, data[1].z);
 }
 
 struct TextRun {
@@ -254,7 +253,7 @@ void main() {
             v_color = vec4(1.0);
     }
 
-    vec2 texture_size = vec2(textureSize(sColor0, 0));
+    vec2 texture_size = vec2(TEX_SIZE(sColor0));
     vec2 st0 = res.uv_rect.xy / texture_size;
     vec2 st1 = res.uv_rect.zw / texture_size;
 

@@ -54,7 +54,7 @@ nsresult URLPreloader::CollectReports(nsIHandleReportCallback* aHandleReport,
                      ShallowSizeOfIncludingThis(MallocSizeOf),
                      "Memory used by the URL preloader service itself.");
 
-  for (const auto& elem : IterHash(mCachedURLs)) {
+  for (const auto& elem : mCachedURLs.Values()) {
     nsAutoCString pathName;
     pathName.Append(elem->mPath);
     // The backslashes will automatically be replaced with slashes in
@@ -224,9 +224,9 @@ Result<Ok, nsresult> URLPreloader::WriteCache() {
                                         &fd.rwget()));
 
     nsTArray<URLEntry*> entries;
-    for (auto& entry : IterHash(mCachedURLs)) {
+    for (const auto& entry : mCachedURLs.Values()) {
       if (entry->mReadTime) {
-        entries.AppendElement(entry);
+        entries.AppendElement(entry.get());
       }
     }
 
@@ -306,7 +306,7 @@ Result<Ok, nsresult> URLPreloader::ReadCache(
 
       LOG(Debug, "Cached file: %s %s", key.TypeString(), key.mPath.get());
 
-      auto entry = mCachedURLs.LookupOrAdd(key, key);
+      auto entry = mCachedURLs.GetOrInsertNew(key, key);
       entry->mResultCode = NS_ERROR_NOT_INITIALIZED;
 
       pendingURLs.insertBack(entry);
@@ -458,7 +458,7 @@ Result<nsCString, nsresult> URLPreloader::ReadInternal(const CacheKey& key,
     return entry.Read();
   }
 
-  auto entry = mCachedURLs.LookupOrAdd(key, key);
+  auto entry = mCachedURLs.GetOrInsertNew(key, key);
 
   entry->UpdateUsedTime();
 

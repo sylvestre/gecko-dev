@@ -12,7 +12,6 @@
 
 #include "AllocationPolicy.h"
 #include "DecoderBenchmark.h"
-#include "GeckoProfiler.h"
 #include "MediaData.h"
 #include "MediaDataDecoderProxy.h"
 #include "MediaInfo.h"
@@ -24,12 +23,15 @@
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/NotNull.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/ProfilerLabels.h"
+#include "mozilla/ProfilerMarkers.h"
 #include "mozilla/SharedThreadPool.h"
 #include "mozilla/StaticPrefs_media.h"
 #include "mozilla/TaskQueue.h"
 #include "mozilla/Unused.h"
 #include "nsContentUtils.h"
 #include "nsPrintfCString.h"
+#include "nsTHashSet.h"
 
 using namespace mozilla::media;
 
@@ -74,7 +76,7 @@ class MediaFormatReader::ShutdownPromisePool {
  private:
   bool mShutdown = false;
   const RefPtr<ShutdownPromise::Private> mOnShutdownComplete;
-  nsTHashtable<nsRefPtrHashKey<ShutdownPromise>> mPromises;
+  nsTHashSet<RefPtr<ShutdownPromise>> mPromises;
 };
 
 RefPtr<ShutdownPromise> MediaFormatReader::ShutdownPromisePool::Shutdown() {
@@ -90,10 +92,10 @@ void MediaFormatReader::ShutdownPromisePool::Track(
     RefPtr<ShutdownPromise> aPromise) {
   MOZ_DIAGNOSTIC_ASSERT(!mShutdown);
   MOZ_DIAGNOSTIC_ASSERT(!mPromises.Contains(aPromise));
-  mPromises.PutEntry(aPromise);
+  mPromises.Insert(aPromise);
   aPromise->Then(AbstractThread::GetCurrent(), __func__, [aPromise, this]() {
     MOZ_DIAGNOSTIC_ASSERT(mPromises.Contains(aPromise));
-    mPromises.RemoveEntry(aPromise);
+    mPromises.Remove(aPromise);
     if (mShutdown && mPromises.Count() == 0) {
       mOnShutdownComplete->Resolve(true, __func__);
     }
@@ -1152,8 +1154,7 @@ void MediaFormatReader::OnDemuxerInitDone(const MediaResult& aResult) {
     UniquePtr<TrackInfo> videoInfo = mVideo.mTrackDemuxer->GetInfo();
     videoActive = videoInfo && videoInfo->IsValid();
     if (videoActive) {
-      if (platform &&
-          !platform->SupportsMimeType(videoInfo->mMimeType, nullptr)) {
+      if (platform && !platform->SupportsMimeType(videoInfo->mMimeType)) {
         // We have no decoder for this track. Error.
         mMetadataPromise.Reject(NS_ERROR_DOM_MEDIA_METADATA_ERR, __func__);
         return;
@@ -1161,7 +1162,7 @@ void MediaFormatReader::OnDemuxerInitDone(const MediaResult& aResult) {
       mInfo.mVideo = *videoInfo->GetAsVideoInfo();
       mVideo.mWorkingInfo = MakeUnique<VideoInfo>(mInfo.mVideo);
       for (const MetadataTag& tag : videoInfo->mTags) {
-        tags->Put(tag.mKey, tag.mValue);
+        tags->InsertOrUpdate(tag.mKey, tag.mValue);
       }
       mVideo.mOriginalInfo = std::move(videoInfo);
       mTrackDemuxersMayBlock |= mVideo.mTrackDemuxer->GetSamplesMayBlock();
@@ -1182,15 +1183,15 @@ void MediaFormatReader::OnDemuxerInitDone(const MediaResult& aResult) {
 
     UniquePtr<TrackInfo> audioInfo = mAudio.mTrackDemuxer->GetInfo();
     // We actively ignore audio tracks that we know we can't play.
-    audioActive = audioInfo && audioInfo->IsValid() &&
-                  (!platform ||
-                   platform->SupportsMimeType(audioInfo->mMimeType, nullptr));
+    audioActive =
+        audioInfo && audioInfo->IsValid() &&
+        (!platform || platform->SupportsMimeType(audioInfo->mMimeType));
 
     if (audioActive) {
       mInfo.mAudio = *audioInfo->GetAsAudioInfo();
       mAudio.mWorkingInfo = MakeUnique<AudioInfo>(mInfo.mAudio);
       for (const MetadataTag& tag : audioInfo->mTags) {
-        tags->Put(tag.mKey, tag.mValue);
+        tags->InsertOrUpdate(tag.mKey, tag.mValue);
       }
       mAudio.mOriginalInfo = std::move(audioInfo);
       mTrackDemuxersMayBlock |= mAudio.mTrackDemuxer->GetSamplesMayBlock();

@@ -6,6 +6,8 @@
 #include "mozilla/widget/NativeMenuSupport.h"
 
 #include "MainThreadUtils.h"
+#include "NativeMenuMac.h"
+#include "nsCocoaWindow.h"
 #include "nsMenuBarX.h"
 
 namespace mozilla::widget {
@@ -13,10 +15,12 @@ namespace mozilla::widget {
 void NativeMenuSupport::CreateNativeMenuBar(nsIWidget* aParent, dom::Element* aMenuBarElement) {
   MOZ_RELEASE_ASSERT(NS_IsMainThread(), "Attempting to create native menu bar on wrong thread!");
 
-  RefPtr<nsMenuBarX> mb = new nsMenuBarX();
+  // Create the menubar and give it to the parent window. The parent takes ownership.
+  static_cast<nsCocoaWindow*>(aParent)->SetMenuBar(MakeRefPtr<nsMenuBarX>(aMenuBarElement));
+}
 
-  nsresult rv = mb->Create(aParent, aMenuBarElement);
-  MOZ_RELEASE_ASSERT(NS_SUCCEEDED(rv));
+already_AddRefed<NativeMenu> NativeMenuSupport::CreateNativeContextMenu(dom::Element* aPopup) {
+  return MakeAndAddRef<NativeMenuMac>(aPopup);
 }
 
 }  // namespace mozilla::widget

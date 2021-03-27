@@ -20,11 +20,13 @@
 #include "nsWhitespaceTokenizer.h"
 #include "mozilla/Telemetry.h"
 #include "mozilla/gfx/Logging.h"
+#include "mozilla/SSE.h"
 
 #include "GfxInfoX11.h"
 
 #include <gdk/gdkx.h>
 #ifdef MOZ_WAYLAND
+#  include "mozilla/WidgetUtilsGtk.h"
 #  include "mozilla/widget/nsWaylandDisplay.h"
 #  include "mozilla/widget/DMABufLibWrapper.h"
 #endif
@@ -51,7 +53,6 @@ nsresult GfxInfo::Init() {
   mIsMesa = false;
   mIsAccelerated = true;
   mIsWayland = false;
-  mIsWaylandDRM = false;
   mIsXWayland = false;
   mHasMultipleGPUs = false;
   mGlxTestError = false;
@@ -69,8 +70,6 @@ void GfxInfo::AddCrashReportAnnotations() {
       CrashReporter::Annotation::AdapterDriverVersion, mDriverVersion);
   CrashReporter::AnnotateCrashReport(CrashReporter::Annotation::IsWayland,
                                      mIsWayland);
-  CrashReporter::AnnotateCrashReport(CrashReporter::Annotation::IsWaylandDRM,
-                                     mIsWaylandDRM);
   CrashReporter::AnnotateCrashReport(
       CrashReporter::Annotation::DesktopEnvironment, mDesktopEnvironment);
 
@@ -461,20 +460,14 @@ void GfxInfo::GetData() {
 
   mAdapterDescription.Assign(glRenderer);
 #ifdef MOZ_WAYLAND
-  mIsWayland = gdk_display_get_default() &&
-               !GDK_IS_X11_DISPLAY(gdk_display_get_default());
-  if (mIsWayland) {
-    mIsWaylandDRM = GetDMABufDevice()->IsDMABufVAAPIEnabled() ||
-                    GetDMABufDevice()->IsDMABufWebGLEnabled() ||
-                    GetDMABufDevice()->IsDMABufTexturesEnabled();
-  }
+  mIsWayland = GdkIsWaylandDisplay();
 #endif
 
   // Make a best effort guess at whether or not we are using the XWayland compat
   // layer. For all intents and purposes, we should otherwise believe we are
   // using X11.
-  const char* windowEnv = getenv("XDG_SESSION_TYPE");
-  mIsXWayland = windowEnv && strcmp(windowEnv, "wayland") == 0;
+  const char* waylandDisplay = getenv("WAYLAND_DISPLAY");
+  mIsXWayland = !mIsWayland && waylandDisplay;
 
   // Make a best effort guess at the desktop environment in use. Sadly there
   // does not appear to be a standard way to do this, so we check a few
@@ -718,41 +711,64 @@ const nsTArray<GfxDriverInfo>& GfxInfo::GetGfxDriverInfo() {
         V(0, 0, 0, 0), "FEATURE_FAILURE_WEBRENDER_BUG_1673939",
         "https://gitlab.freedesktop.org/mesa/mesa/-/issues/3720");
 
+#ifndef EARLY_BETA_OR_EARLIER
+    // Bug 1635186 - Poor performance with video playing in a background window
+    // on XWayland.
+    APPEND_TO_DRIVER_BLOCKLIST_EXT(
+        OperatingSystem::Linux, ScreenSizeStatus::All, BatteryStatus::All,
+        DesktopEnvironment::All, WindowProtocol::XWayland, DriverVendor::All,
+        DeviceFamily::All, nsIGfxInfo::FEATURE_WEBRENDER,
+        nsIGfxInfo::FEATURE_BLOCKED_DEVICE, DRIVER_COMPARISON_IGNORED,
+        V(0, 0, 0, 0), "FEATURE_FAILURE_WEBRENDER_BUG_1635186",
+        "https://bugzilla.mozilla.org/show_bug.cgi?id=1635186");
+#endif
+
     ////////////////////////////////////
     // FEATURE_WEBRENDER - ALLOWLIST
 
     // Intel Mesa baseline, chosen arbitrarily.
     APPEND_TO_DRIVER_BLOCKLIST_EXT(
         OperatingSystem::Linux, ScreenSizeStatus::All, BatteryStatus::All,
-        DesktopEnvironment::GNOME, WindowProtocol::X11, DriverVendor::MesaAll,
+        DesktopEnvironment::GNOME, WindowProtocol::All, DriverVendor::MesaAll,
         DeviceFamily::IntelRolloutWebRender, nsIGfxInfo::FEATURE_WEBRENDER,
         nsIGfxInfo::FEATURE_ALLOW_ALWAYS, DRIVER_GREATER_THAN_OR_EQUAL,
-        V(17, 0, 0, 0), "FEATURE_ROLLOUT_INTEL_GNOME_X11_MESA",
-        "Mesa 17.0.0.0");
+        V(17, 0, 0, 0), "FEATURE_ROLLOUT_INTEL_GNOME_MESA", "Mesa 17.0.0.0");
 
     APPEND_TO_DRIVER_BLOCKLIST_EXT(
         OperatingSystem::Linux, ScreenSizeStatus::All, BatteryStatus::All,
-        DesktopEnvironment::GNOME, WindowProtocol::Wayland,
-        DriverVendor::MesaAll, DeviceFamily::IntelRolloutWebRender,
-        nsIGfxInfo::FEATURE_WEBRENDER, nsIGfxInfo::FEATURE_ALLOW_ALWAYS,
-        DRIVER_GREATER_THAN_OR_EQUAL, V(17, 0, 0, 0),
-        "FEATURE_ROLLOUT_INTEL_GNOME_WAYLAND_MESA", "Mesa 17.0.0.0");
+        DesktopEnvironment::KDE, WindowProtocol::All, DriverVendor::MesaAll,
+        DeviceFamily::IntelRolloutWebRender, nsIGfxInfo::FEATURE_WEBRENDER,
+        nsIGfxInfo::FEATURE_ALLOW_ALWAYS, DRIVER_GREATER_THAN_OR_EQUAL,
+        V(17, 0, 0, 0), "FEATURE_ROLLOUT_INTEL_KDE_MESA", "Mesa 17.0.0.0");
+
+    APPEND_TO_DRIVER_BLOCKLIST_EXT(
+        OperatingSystem::Linux, ScreenSizeStatus::All, BatteryStatus::All,
+        DesktopEnvironment::XFCE, WindowProtocol::All, DriverVendor::MesaAll,
+        DeviceFamily::IntelRolloutWebRender, nsIGfxInfo::FEATURE_WEBRENDER,
+        nsIGfxInfo::FEATURE_ALLOW_ALWAYS, DRIVER_GREATER_THAN_OR_EQUAL,
+        V(17, 0, 0, 0), "FEATURE_ROLLOUT_INTEL_XFCE_MESA", "Mesa 17.0.0.0");
 
     // ATI Mesa baseline, chosen arbitrarily.
     APPEND_TO_DRIVER_BLOCKLIST_EXT(
         OperatingSystem::Linux, ScreenSizeStatus::All, BatteryStatus::All,
-        DesktopEnvironment::GNOME, WindowProtocol::X11, DriverVendor::MesaAll,
+        DesktopEnvironment::GNOME, WindowProtocol::All, DriverVendor::MesaAll,
         DeviceFamily::AtiRolloutWebRender, nsIGfxInfo::FEATURE_WEBRENDER,
         nsIGfxInfo::FEATURE_ALLOW_ALWAYS, DRIVER_GREATER_THAN_OR_EQUAL,
-        V(17, 0, 0, 0), "FEATURE_ROLLOUT_ATI_GNOME_X11_MESA", "Mesa 17.0.0.0");
+        V(17, 0, 0, 0), "FEATURE_ROLLOUT_ATI_GNOME_MESA", "Mesa 17.0.0.0");
 
     APPEND_TO_DRIVER_BLOCKLIST_EXT(
         OperatingSystem::Linux, ScreenSizeStatus::All, BatteryStatus::All,
-        DesktopEnvironment::GNOME, WindowProtocol::Wayland,
-        DriverVendor::MesaAll, DeviceFamily::AtiRolloutWebRender,
-        nsIGfxInfo::FEATURE_WEBRENDER, nsIGfxInfo::FEATURE_ALLOW_ALWAYS,
-        DRIVER_GREATER_THAN_OR_EQUAL, V(17, 0, 0, 0),
-        "FEATURE_ROLLOUT_ATI_GNOME_WAYLAND_MESA", "Mesa 17.0.0.0");
+        DesktopEnvironment::KDE, WindowProtocol::All, DriverVendor::MesaAll,
+        DeviceFamily::AtiRolloutWebRender, nsIGfxInfo::FEATURE_WEBRENDER,
+        nsIGfxInfo::FEATURE_ALLOW_ALWAYS, DRIVER_GREATER_THAN_OR_EQUAL,
+        V(17, 0, 0, 0), "FEATURE_ROLLOUT_ATI_KDE_MESA", "Mesa 17.0.0.0");
+
+    APPEND_TO_DRIVER_BLOCKLIST_EXT(
+        OperatingSystem::Linux, ScreenSizeStatus::All, BatteryStatus::All,
+        DesktopEnvironment::XFCE, WindowProtocol::All, DriverVendor::MesaAll,
+        DeviceFamily::AtiRolloutWebRender, nsIGfxInfo::FEATURE_WEBRENDER,
+        nsIGfxInfo::FEATURE_ALLOW_ALWAYS, DRIVER_GREATER_THAN_OR_EQUAL,
+        V(17, 0, 0, 0), "FEATURE_ROLLOUT_ATI_XFCE_MESA", "Mesa 17.0.0.0");
 
 #ifdef EARLY_BETA_OR_EARLIER
     // Intel Mesa baseline, chosen arbitrarily.
@@ -793,15 +809,40 @@ const nsTArray<GfxDriverInfo>& GfxInfo::GetGfxDriverInfo() {
     ////////////////////////////////////
     // FEATURE_WEBRENDER_SOFTWARE - ALLOWLIST
 #ifdef EARLY_BETA_OR_EARLIER
-#  if defined(_M_IX86) || defined(_M_X64) || defined(__i386__) || \
-      defined(__i386) || defined(__amd64__)
     APPEND_TO_DRIVER_BLOCKLIST(OperatingSystem::Linux, DeviceFamily::All,
                                nsIGfxInfo::FEATURE_WEBRENDER_SOFTWARE,
                                nsIGfxInfo::FEATURE_ALLOW_ALWAYS,
                                DRIVER_COMPARISON_IGNORED, V(0, 0, 0, 0),
                                "FEATURE_ROLLOUT_EARLY_BETA_SOFTWARE_WR", "");
-#  endif
 #endif
+
+#if defined(_M_X64) || defined(__amd64__)
+    // Initial Linux release population for SW-WR.
+    if (mozilla::supports_avx2()) {
+      APPEND_TO_DRIVER_BLOCKLIST_EXT(
+          OperatingSystem::Linux, ScreenSizeStatus::Small, BatteryStatus::All,
+          DesktopEnvironment::All, WindowProtocol::X11,
+          DriverVendor::NonMesaAll, DeviceFamily::NvidiaAll,
+          nsIGfxInfo::FEATURE_WEBRENDER_SOFTWARE,
+          nsIGfxInfo::FEATURE_ALLOW_ALWAYS, DRIVER_LESS_THAN, V(460, 32, 3, 0),
+          "FEATURE_ROLLOUT_OLD_NVIDIA_RELEASE_SOFTWARE_WR", "");
+
+      APPEND_TO_DRIVER_BLOCKLIST_EXT(
+          OperatingSystem::Linux, ScreenSizeStatus::Small, BatteryStatus::All,
+          DesktopEnvironment::All, WindowProtocol::X11,
+          DriverVendor::MesaLLVMPipe, DeviceFamily::All,
+          nsIGfxInfo::FEATURE_WEBRENDER_SOFTWARE,
+          nsIGfxInfo::FEATURE_ALLOW_ALWAYS, DRIVER_COMPARISON_IGNORED,
+          V(0, 0, 0, 0), "FEATURE_ROLLOUT_LLVMPIPE_RELEASE_SOFTWARE_WR", "");
+    }
+#endif
+
+    ////////////////////////////////////
+    // FEATURE_X11_EGL
+    APPEND_TO_DRIVER_BLOCKLIST(
+        OperatingSystem::Linux, DeviceFamily::All, nsIGfxInfo::FEATURE_X11_EGL,
+        nsIGfxInfo::FEATURE_BLOCKED_DEVICE, DRIVER_COMPARISON_IGNORED,
+        V(0, 0, 0, 0), "FEATURE_FAILURE_X11_EGL_DISABLED", "");
 
     ////////////////////////////////////
 
@@ -938,13 +979,7 @@ NS_IMETHODIMP
 GfxInfo::GetWindowProtocol(nsAString& aWindowProtocol) {
   GetData();
   if (mIsWayland) {
-    if (mIsWaylandDRM) {
-      aWindowProtocol =
-          GfxDriverInfo::GetWindowProtocol(WindowProtocol::WaylandDRM);
-    } else {
-      aWindowProtocol =
-          GfxDriverInfo::GetWindowProtocol(WindowProtocol::Wayland);
-    }
+    aWindowProtocol = GfxDriverInfo::GetWindowProtocol(WindowProtocol::Wayland);
   } else if (mIsXWayland) {
     aWindowProtocol =
         GfxDriverInfo::GetWindowProtocol(WindowProtocol::XWayland);

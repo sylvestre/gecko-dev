@@ -4,7 +4,7 @@
 
 "use strict";
 
-const EXPORTED_SYMBOLS = ["Branch", "MarionettePrefs"];
+const EXPORTED_SYMBOLS = ["Branch", "EnvironmentPrefs", "MarionettePrefs"];
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { XPCOMUtils } = ChromeUtils.import(
@@ -129,20 +129,6 @@ class MarionetteBranch extends Branch {
   }
 
   /**
-   * The `marionette.enabled` preference.  When it returns true,
-   * this signifies that the Marionette server is running.
-   *
-   * @return {boolean}
-   */
-  get enabled() {
-    return this.get("enabled", false);
-  }
-
-  set enabled(isEnabled) {
-    this.set("enabled", isEnabled);
-  }
-
-  /**
    * The `marionette.debugging.clicktostart` preference delays
    * server startup until a modal dialogue has been clicked to allow
    * time for user to set breakpoints in the Browser Toolbox.
@@ -151,20 +137,6 @@ class MarionetteBranch extends Branch {
    */
   get clickToStart() {
     return this.get("debugging.clicktostart", false);
-  }
-
-  /**
-   * Whether content scripts can be safely reused.
-   *
-   * @deprecated
-   * @return {boolean}
-   */
-  get contentListener() {
-    return this.get("contentListener", false);
-  }
-
-  set contentListener(value) {
-    this.set("contentListener", value);
   }
 
   /**
@@ -230,6 +202,16 @@ class MarionetteBranch extends Branch {
    */
   get recommendedPrefs() {
     return this.get("prefs.recommended", true);
+  }
+
+  /**
+   * Gets the `marionette.setpermission.enabled` preference, should
+   * only be used for testdriver's set_permission API.
+   *
+   * @return {boolean}
+   */
+  get setPermissionEnabled() {
+    return this.get("setpermission.enabled", false);
   }
 }
 

@@ -145,6 +145,15 @@ template void LIRGeneratorMIPSShared::lowerForShiftInt64(
     LInstructionHelper<INT64_PIECES, INT64_PIECES + 1, 1>* ins,
     MDefinition* mir, MDefinition* lhs, MDefinition* rhs);
 
+void LIRGeneratorMIPSShared::lowerForCompareI64AndBranch(
+    MTest* mir, MCompare* comp, JSOp op, MDefinition* left, MDefinition* right,
+    MBasicBlock* ifTrue, MBasicBlock* ifFalse) {
+  LCompareI64AndBranch* lir = new (alloc())
+      LCompareI64AndBranch(comp, op, useInt64Register(left),
+                           useInt64OrConstant(right), ifTrue, ifFalse);
+  add(lir, mir);
+}
+
 void LIRGeneratorMIPSShared::lowerForFPU(LInstructionHelper<1, 1, 0>* ins,
                                          MDefinition* mir, MDefinition* input) {
   ins->setOperand(0, useRegister(input));
@@ -895,4 +904,12 @@ void LIRGenerator::visitWasmUnarySimd128(MWasmUnarySimd128* ins) {
 
 void LIRGenerator::visitWasmReduceSimd128(MWasmReduceSimd128* ins) {
   MOZ_CRASH("reduce-SIMD NYI");
+}
+
+void LIRGenerator::visitWasmLoadLaneSimd128(MWasmLoadLaneSimd128* ins) {
+  MOZ_CRASH("load-lane SIMD NYI");
+}
+
+void LIRGenerator::visitWasmStoreLaneSimd128(MWasmStoreLaneSimd128* ins) {
+  MOZ_CRASH("store-lane SIMD NYI");
 }

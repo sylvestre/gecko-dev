@@ -10,13 +10,13 @@ import org.mozilla.gecko.AndroidGamepadManager;
 import org.mozilla.gecko.EventDispatcher;
 import org.mozilla.gecko.InputMethods;
 import org.mozilla.gecko.SurfaceViewWrapper;
-import org.mozilla.gecko.util.ActivityUtils;
 import org.mozilla.gecko.util.ThreadUtils;
 
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.Context;
+import android.content.ContextWrapper;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -213,6 +213,17 @@ public class GeckoView extends FrameLayout {
         init();
     }
 
+    private static Activity getActivityFromContext(final Context outerContext) {
+        Context context = outerContext;
+        while (context instanceof ContextWrapper) {
+            if (context instanceof Activity) {
+                return (Activity) context;
+            }
+            context = ((ContextWrapper) context).getBaseContext();
+        }
+        return null;
+    }
+
     private void init() {
         setFocusable(true);
         setFocusableInTouchMode(true);
@@ -235,7 +246,7 @@ public class GeckoView extends FrameLayout {
 
         mSurfaceWrapper.setListener(mDisplay);
 
-        final Activity activity = ActivityUtils.getActivityFromContext(getContext());
+        final Activity activity = getActivityFromContext(getContext());
         if (activity != null) {
             mSelectionActionDelegate = new BasicSelectionActionDelegate(activity);
         }
@@ -392,7 +403,7 @@ public class GeckoView extends FrameLayout {
             return null;
         }
 
-        GeckoSession session = mSession;
+        final GeckoSession session = mSession;
         mSession.releaseDisplay(mDisplay.release());
         mSession.getOverscrollEdgeEffect().setInvalidationCallback(null);
         mSession.getCompositorController().setFirstPaintCallback(null);
@@ -724,6 +735,8 @@ public class GeckoView extends FrameLayout {
     }
 
     /**
+     * @deprecated Use {@link #onTouchEventForDetailResult(MotionEvent)} instead.
+     *
      * Dispatches a {@link MotionEvent} to the {@link PanZoomController}. This is the same as
      * {@link #onTouchEvent(MotionEvent)}, but instead returns a {@link PanZoomController.InputResult}
      * indicating how the event was handled.
@@ -733,20 +746,45 @@ public class GeckoView extends FrameLayout {
      * a lot of allocations and unnecessary GC pressure.
      *
      * @param event A {@link MotionEvent}
-     * @return One of the {@link PanZoomController#INPUT_RESULT_UNHANDLED INPUT_RESULT_*}) indicating how the event was handled.
+     * @return One of the {@link PanZoomController#INPUT_RESULT_UNHANDLED INPUT_RESULT_*} indicating how the event was handled.
      */
+    @Deprecated @DeprecationSchedule(version = 90, id = "on-touch-event-for-result")
     public @NonNull GeckoResult<Integer> onTouchEventForResult(final @NonNull MotionEvent event) {
+        if (mSession == null) {
+            return GeckoResult.fromValue(PanZoomController.INPUT_RESULT_UNHANDLED);
+        }
+
+        return mSession.getPanZoomController().onTouchEventForDetailResult(event)
+                       .map(detail -> detail.handledResult());
+    }
+
+    /**
+     * Dispatches a {@link MotionEvent} to the {@link PanZoomController}. This is the same as
+     * {@link #onTouchEvent(MotionEvent)}, but instead returns a {@link PanZoomController.InputResult}
+     * indicating how the event was handled.
+     *
+     * NOTE: It is highly recommended to only call this with ACTION_DOWN or in otherwise
+     * limited capacity. Returning a GeckoResult for every touch event will generate
+     * a lot of allocations and unnecessary GC pressure.
+     *
+     * @param event A {@link MotionEvent}
+     * @return A GeckoResult resolving to {@link PanZoomController.InputResultDetail}.
+     */
+    public @NonNull GeckoResult<PanZoomController.InputResultDetail> onTouchEventForDetailResult(final @NonNull MotionEvent event) {
         if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
             requestFocus();
         }
 
         if (mSession == null) {
-            return GeckoResult.fromValue(PanZoomController.INPUT_RESULT_UNHANDLED);
+            return GeckoResult.fromValue(
+                new PanZoomController.InputResultDetail(PanZoomController.INPUT_RESULT_UNHANDLED,
+                                                        PanZoomController.SCROLLABLE_FLAG_NONE,
+                                                        PanZoomController.OVERSCROLL_FLAG_NONE));
         }
 
         // NOTE: Treat mouse events as "touch" rather than as "mouse", so mouse can be
         // used to pan/zoom. Call onMouseEvent() instead for behavior similar to desktop.
-        return mSession.getPanZoomController().onTouchEventForResult(event);
+        return mSession.getPanZoomController().onTouchEventForDetailResult(event);
     }
 
     @Override

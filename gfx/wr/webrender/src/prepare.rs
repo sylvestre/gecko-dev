@@ -24,19 +24,20 @@ use crate::gpu_types::{BrushFlags};
 use crate::internal_types::{FastHashMap, PlaneSplitAnchor};
 use crate::picture::{PicturePrimitive, SliceId, TileCacheLogger, ClusterFlags, SurfaceRenderTasks};
 use crate::picture::{PrimitiveList, PrimitiveCluster, SurfaceIndex, TileCacheInstance};
-use crate::prim_store::gradient::{GRADIENT_FP_STOPS, GradientCacheKey, GradientStopKey};
+use crate::prim_store::gradient::{GRADIENT_FP_STOPS, FastLinearGradientCacheKey, GradientStopKey, CachedGradientSegment};
 use crate::prim_store::gradient::LinearGradientPrimitive;
 use crate::prim_store::line_dec::MAX_LINE_DECORATION_RESOLUTION;
 use crate::prim_store::*;
 use crate::render_backend::DataStores;
-use crate::render_task_cache::{RenderTaskCacheKeyKind, RenderTaskCacheEntryHandle};
+use crate::render_task_graph::RenderTaskId;
+use crate::render_task_cache::RenderTaskCacheKeyKind;
 use crate::render_task_cache::{RenderTaskCacheKey, to_cache_size, RenderTaskParent};
 use crate::render_task::{RenderTaskKind, RenderTask};
 use crate::segment::SegmentBuilder;
 use crate::space::SpaceMapper;
 use crate::texture_cache::TEXTURE_REGION_DIMENSIONS;
 use crate::util::{clamp_to_scale_factor, pack_as_float, raster_rect_to_device_pixels};
-use crate::visibility::{compute_conservative_visible_rect, PrimitiveVisibility, VisibilityState, PrimitiveVisibilityMask};
+use crate::visibility::{compute_conservative_visible_rect, PrimitiveVisibility, VisibilityState};
 
 
 const MAX_MASK_SIZE: f32 = 4096.0;
@@ -90,22 +91,19 @@ pub fn prepare_primitives(
                     // Clear the current visibiilty mask, and build a more detailed one based on the dirty rect
                     // regions below.
                     let dirty_region = frame_state.current_dirty_region();
-                    let mut visibility_mask = PrimitiveVisibilityMask::empty();
+                    let is_in_dirty_region = dirty_region.dirty_rects
+                        .iter()
+                        .any(|region| {
+                            rect_in_pic_space.intersects(&region.rect_in_pic_space)
+                        });
 
-                    for dirty_region in &dirty_region.dirty_rects {
-                        if rect_in_pic_space.intersects(&dirty_region.rect_in_pic_space) {
-                            visibility_mask.include(dirty_region.visibility_mask);
+                    if is_in_dirty_region {
+                        prim_instance.vis.state = VisibilityState::Detailed {
+                            rect_in_pic_space: *rect_in_pic_space,
                         }
-                    }
-
-                    // Check again if the prim is now visible after considering the current dirty regions.
-                    if visibility_mask.is_empty() {
+                    } else {
                         prim_instance.clear_visibility();
                         continue;
-                    } else {
-                        prim_instance.vis.state = VisibilityState::Detailed {
-                            visibility_mask,
-                        }
                     }
                 }
                 VisibilityState::Detailed { .. } => {
@@ -166,111 +164,80 @@ fn prepare_prim_for_render(
     // For example, scrolling may affect the location of an item in
     // local space, which may force us to render this item on a larger
     // picture target, if being composited.
-    let pic_info = {
-        match prim_instance.kind {
-            PrimitiveInstanceKind::Picture { pic_index ,.. } => {
-                let pic = &mut store.pictures[pic_index.0];
+    if let PrimitiveInstanceKind::Picture { pic_index, .. } = prim_instance.kind {
+        let pic = &mut store.pictures[pic_index.0];
 
-                match pic.take_context(
-                    pic_index,
-                    pic_context.surface_spatial_node_index,
-                    pic_context.raster_spatial_node_index,
-                    pic_context.surface_index,
-                    &pic_context.subpixel_mode,
-                    frame_state,
+        match pic.take_context(
+            pic_index,
+            pic_context.surface_spatial_node_index,
+            pic_context.raster_spatial_node_index,
+            pic_context.surface_index,
+            &pic_context.subpixel_mode,
+            frame_state,
+            frame_context,
+            scratch,
+            tile_cache_log,
+            tile_caches,
+        ) {
+            Some((pic_context_for_children, mut pic_state_for_children, mut prim_list)) => {
+                prepare_primitives(
+                    store,
+                    &mut prim_list,
+                    &pic_context_for_children,
+                    &mut pic_state_for_children,
                     frame_context,
+                    frame_state,
+                    data_stores,
                     scratch,
                     tile_cache_log,
                     tile_caches,
-                ) {
-                    Some(info) => Some(info),
-                    None => {
-                        if prim_instance.is_chased() {
-                            println!("\tculled for carrying an invisible composite filter");
-                        }
-
-                        return false;
-                    }
-                }
-            }
-            PrimitiveInstanceKind::TextRun { .. } |
-            PrimitiveInstanceKind::Rectangle { .. } |
-            PrimitiveInstanceKind::LineDecoration { .. } |
-            PrimitiveInstanceKind::NormalBorder { .. } |
-            PrimitiveInstanceKind::ImageBorder { .. } |
-            PrimitiveInstanceKind::YuvImage { .. } |
-            PrimitiveInstanceKind::Image { .. } |
-            PrimitiveInstanceKind::LinearGradient { .. } |
-            PrimitiveInstanceKind::RadialGradient { .. } |
-            PrimitiveInstanceKind::ConicGradient { .. } |
-            PrimitiveInstanceKind::Clear { .. } |
-            PrimitiveInstanceKind::Backdrop { .. } => {
-                None
-            }
-        }
-    };
-
-    let is_passthrough = match pic_info {
-        Some((pic_context_for_children, mut pic_state_for_children, mut prim_list)) => {
-            let is_passthrough = pic_context_for_children.is_passthrough;
-
-            prepare_primitives(
-                store,
-                &mut prim_list,
-                &pic_context_for_children,
-                &mut pic_state_for_children,
-                frame_context,
-                frame_state,
-                data_stores,
-                scratch,
-                tile_cache_log,
-                tile_caches,
-            );
-
-            // Restore the dependencies (borrow check dance)
-            store.pictures[pic_context_for_children.pic_index.0]
-                .restore_context(
-                    prim_list,
-                    pic_context_for_children,
-                    pic_state_for_children,
-                    frame_state,
                 );
 
-            is_passthrough
+                // Restore the dependencies (borrow check dance)
+                store.pictures[pic_context_for_children.pic_index.0]
+                    .restore_context(
+                        prim_list,
+                        pic_context_for_children,
+                        pic_state_for_children,
+                        frame_state,
+                    );
+            }
+            None => {
+                if prim_instance.is_chased() {
+                    println!("\tculled for carrying an invisible composite filter");
+                }
+
+                return false;
+            }
         }
-        None => {
-            false
-        }
-    };
+    }
 
     let prim_rect = data_stores.get_local_prim_rect(
         prim_instance,
         store,
     );
 
-    if !is_passthrough {
-        if !update_clip_task(
-            prim_instance,
-            &prim_rect.origin,
-            cluster.spatial_node_index,
-            pic_context.raster_spatial_node_index,
-            pic_context,
-            pic_state,
-            frame_context,
-            frame_state,
-            store,
-            data_stores,
-            scratch,
-        ) {
-            if prim_instance.is_chased() {
-                println!("\tconsidered invisible");
-            }
-            return false;
-        }
-
+    if !update_clip_task(
+        prim_instance,
+        &prim_rect.origin,
+        cluster.spatial_node_index,
+        pic_context.raster_spatial_node_index,
+        pic_context,
+        pic_state,
+        frame_context,
+        frame_state,
+        store,
+        data_stores,
+        scratch,
+    ) {
         if prim_instance.is_chased() {
-            println!("\tconsidered visible and ready with local pos {:?}", prim_rect.origin);
+            println!("\tconsidered invisible");
         }
+        return false;
+    }
+
+    if prim_instance.is_chased() {
+        println!("\tconsidered visible and ready with local pos {:?}", prim_rect.origin);
     }
 
     #[cfg(debug_assertions)]
@@ -315,7 +282,7 @@ fn prepare_interned_prim_for_render(
     let mut is_opaque = false;
 
     match &mut prim_instance.kind {
-        PrimitiveInstanceKind::LineDecoration { data_handle, ref mut cache_handle, .. } => {
+        PrimitiveInstanceKind::LineDecoration { data_handle, ref mut render_task, .. } => {
             profile_scope!("LineDecoration");
             let prim_data = &mut data_stores.line_decoration[*data_handle];
             let common_data = &mut prim_data.common;
@@ -350,7 +317,7 @@ fn prepare_interned_prim_for_render(
                 //           once the prepare_prims and batching are unified. When that
                 //           happens, we can use the cache handle immediately, and not need
                 //           to temporarily store it in the primitive instance.
-                *cache_handle = Some(frame_state.resource_cache.request_render_task(
+                *render_task = Some(frame_state.resource_cache.request_render_task(
                     RenderTaskCacheKey {
                         size: task_size,
                         kind: RenderTaskCacheKeyKind::LineDecoration(cache_key.clone()),
@@ -430,7 +397,7 @@ fn prepare_interned_prim_for_render(
             // cache with any shared template data.
             prim_data.update(frame_state, frame_context.scene_properties);
         }
-        PrimitiveInstanceKind::NormalBorder { data_handle, ref mut cache_handles, .. } => {
+        PrimitiveInstanceKind::NormalBorder { data_handle, ref mut render_task_ids, .. } => {
             profile_scope!("NormalBorder");
             let prim_data = &mut data_stores.normal_border[*data_handle];
             let common_data = &mut prim_data.common;
@@ -475,7 +442,7 @@ fn prepare_interned_prim_for_render(
             // For each edge and corner, request the render task by content key
             // from the render task cache. This ensures that the render task for
             // this segment will be available for batching later in the frame.
-            let mut handles: SmallVec<[RenderTaskCacheEntryHandle; 8]> = SmallVec::new();
+            let mut handles: SmallVec<[RenderTaskId; 8]> = SmallVec::new();
 
             for segment in &border_data.border_segments {
                 // Update the cache key device size based on requested scale.
@@ -509,7 +476,7 @@ fn prepare_interned_prim_for_render(
                 ));
             }
 
-            *cache_handles = scratch
+            *render_task_ids = scratch
                 .border_cache_handles
                 .extend(handles);
         }
@@ -517,12 +484,15 @@ fn prepare_interned_prim_for_render(
             profile_scope!("ImageBorder");
             let prim_data = &mut data_stores.image_border[*data_handle];
 
-            // TODO: get access to the ninepatch and to check whwther we need support
+            // TODO: get access to the ninepatch and to check whether we need support
             // for repetitions in the shader.
 
-            // Update the template this instane references, which may refresh the GPU
+            // Update the template this instance references, which may refresh the GPU
             // cache with any shared template data.
-            prim_data.kind.update(&mut prim_data.common, frame_state);
+            prim_data.kind.update(
+                &mut prim_data.common,
+                frame_state
+            );
         }
         PrimitiveInstanceKind::Rectangle { data_handle, segment_instance_index, color_binding_index, .. } => {
             profile_scope!("Rectangle");
@@ -597,28 +567,26 @@ fn prepare_interned_prim_for_render(
         }
         PrimitiveInstanceKind::Image { data_handle, image_instance_index, .. } => {
             profile_scope!("Image");
+
             let prim_data = &mut data_stores.image[*data_handle];
             let common_data = &mut prim_data.common;
             let image_data = &mut prim_data.kind;
+            let image_instance = &mut store.images[*image_instance_index];
 
-            if image_data.stretch_size.width >= common_data.prim_rect.size.width &&
-                image_data.stretch_size.height >= common_data.prim_rect.size.height {
-
-                common_data.may_need_repetition = false;
-            }
-
-            // Update the template this instane references, which may refresh the GPU
+            // Update the template this instance references, which may refresh the GPU
             // cache with any shared template data.
             image_data.update(
                 common_data,
+                image_instance,
                 pic_context.surface_index,
+                prim_spatial_node_index,
                 frame_state,
+                frame_context,
+                &mut prim_instance.vis,
             );
 
             // common_data.opacity.is_opaque is computed in the above update call.
             is_opaque = common_data.opacity.is_opaque;
-
-            let image_instance = &mut store.images[*image_instance_index];
 
             write_segment(
                 image_instance.segment_instance_index,
@@ -778,7 +746,7 @@ fn prepare_interned_prim_for_render(
                             segment_stops[i] = stops[first_stop + i];
                         }
 
-                        let cache_key = GradientCacheKey {
+                        let cache_key = FastLinearGradientCacheKey {
                             orientation,
                             start_stop_point: VectorKey {
                                 x: segment_start_point,
@@ -817,10 +785,10 @@ fn prepare_interned_prim_for_render(
                             // Request the render task each frame.
                             gradient.cache_segments.push(
                                 CachedGradientSegment {
-                                    handle: frame_state.resource_cache.request_render_task(
+                                    render_task: frame_state.resource_cache.request_render_task(
                                         RenderTaskCacheKey {
                                             size: task_size,
-                                            kind: RenderTaskCacheKeyKind::Gradient(cache_key),
+                                            kind: RenderTaskCacheKeyKind::FastLinearGradient(cache_key),
                                         },
                                         frame_state.gpu_cache,
                                         frame_state.rg_builder,
@@ -922,7 +890,7 @@ fn prepare_interned_prim_for_render(
                 // have it in the shader.
                 prim_data.common.may_need_repetition = false;
 
-                gradient.visible_tiles_range = decompose_repeated_primitive(
+                gradient.visible_tiles_range = decompose_repeated_gradient(
                     &prim_instance.vis,
                     &prim_data.common.prim_rect,
                     prim_spatial_node_index,
@@ -931,7 +899,7 @@ fn prepare_interned_prim_for_render(
                     frame_state,
                     &mut scratch.gradient_tiles,
                     &frame_context.spatial_tree,
-                    &mut |_, mut request| {
+                    Some(&mut |_, mut request| {
                         request.push([
                             prim_data.start_point.x,
                             prim_data.start_point.y,
@@ -944,7 +912,7 @@ fn prepare_interned_prim_for_render(
                             prim_data.stretch_size.height,
                             0.0,
                         ]);
-                    }
+                    })
                 );
 
                 if gradient.visible_tiles_range.is_empty() {
@@ -959,22 +927,17 @@ fn prepare_interned_prim_for_render(
             profile_scope!("RadialGradient");
             let prim_data = &mut data_stores.radial_grad[*data_handle];
 
-            if prim_data.stretch_size.width >= prim_data.common.prim_rect.size.width &&
-                prim_data.stretch_size.height >= prim_data.common.prim_rect.size.height {
-
-                // We are performing the decomposition on the CPU here, no need to
-                // have it in the shader.
-                prim_data.common.may_need_repetition = false;
-            }
+            prim_data.common.may_need_repetition = prim_data.stretch_size.width < prim_data.common.prim_rect.size.width
+                || prim_data.stretch_size.height < prim_data.common.prim_rect.size.height;
 
             // Update the template this instane references, which may refresh the GPU
             // cache with any shared template data.
-            prim_data.update(frame_state);
+            prim_data.update(frame_state, pic_context.surface_index);
 
             if prim_data.tile_spacing != LayoutSize::zero() {
                 prim_data.common.may_need_repetition = false;
 
-                *visible_tiles_range = decompose_repeated_primitive(
+                *visible_tiles_range = decompose_repeated_gradient(
                     &prim_instance.vis,
                     &prim_data.common.prim_rect,
                     prim_spatial_node_index,
@@ -983,20 +946,7 @@ fn prepare_interned_prim_for_render(
                     frame_state,
                     &mut scratch.gradient_tiles,
                     &frame_context.spatial_tree,
-                    &mut |_, mut request| {
-                        request.push([
-                            prim_data.center.x,
-                            prim_data.center.y,
-                            prim_data.params.start_radius,
-                            prim_data.params.end_radius,
-                        ]);
-                        request.push([
-                            prim_data.params.ratio_xy,
-                            pack_as_float(prim_data.extend_mode as u32),
-                            prim_data.stretch_size.width,
-                            prim_data.stretch_size.height,
-                        ]);
-                    },
+                    None,
                 );
 
                 if visible_tiles_range.is_empty() {
@@ -1011,22 +961,17 @@ fn prepare_interned_prim_for_render(
             profile_scope!("ConicGradient");
             let prim_data = &mut data_stores.conic_grad[*data_handle];
 
-            if prim_data.stretch_size.width >= prim_data.common.prim_rect.size.width &&
-                prim_data.stretch_size.height >= prim_data.common.prim_rect.size.height {
-
-                // We are performing the decomposition on the CPU here, no need to
-                // have it in the shader.
-                prim_data.common.may_need_repetition = false;
-            }
+            prim_data.common.may_need_repetition = prim_data.stretch_size.width < prim_data.common.prim_rect.size.width
+                || prim_data.stretch_size.height < prim_data.common.prim_rect.size.height;
 
             // Update the template this instane references, which may refresh the GPU
             // cache with any shared template data.
-            prim_data.update(frame_state);
+            prim_data.update(frame_state, pic_context.surface_index);
 
             if prim_data.tile_spacing != LayoutSize::zero() {
                 prim_data.common.may_need_repetition = false;
 
-                *visible_tiles_range = decompose_repeated_primitive(
+                *visible_tiles_range = decompose_repeated_gradient(
                     &prim_instance.vis,
                     &prim_data.common.prim_rect,
                     prim_spatial_node_index,
@@ -1035,20 +980,7 @@ fn prepare_interned_prim_for_render(
                     frame_state,
                     &mut scratch.gradient_tiles,
                     &frame_context.spatial_tree,
-                    &mut |_, mut request| {
-                        request.push([
-                            prim_data.center.x,
-                            prim_data.center.y,
-                            prim_data.params.start_offset,
-                            prim_data.params.end_offset,
-                        ]);
-                        request.push([
-                            prim_data.params.angle,
-                            pack_as_float(prim_data.extend_mode as u32),
-                            prim_data.stretch_size.width,
-                            prim_data.stretch_size.height,
-                        ]);
-                    },
+                    None,
                 );
 
                 if visible_tiles_range.is_empty() {
@@ -1182,7 +1114,7 @@ fn write_segment<F>(
     }
 }
 
-fn decompose_repeated_primitive(
+fn decompose_repeated_gradient(
     prim_vis: &PrimitiveVisibility,
     prim_local_rect: &LayoutRect,
     prim_spatial_node_index: SpatialNodeIndex,
@@ -1191,7 +1123,7 @@ fn decompose_repeated_primitive(
     frame_state: &mut FrameBuildingState,
     gradient_tiles: &mut GradientTileStorage,
     spatial_tree: &SpatialTree,
-    callback: &mut dyn FnMut(&LayoutRect, GpuDataRequest),
+    mut callback: Option<&mut dyn FnMut(&LayoutRect, GpuDataRequest)>,
 ) -> GradientTileRange {
     let mut visible_tiles = Vec::new();
 
@@ -1218,8 +1150,10 @@ fn decompose_repeated_primitive(
             size: *stretch_size,
         };
 
-        if let Some(request) = frame_state.gpu_cache.request(&mut handle) {
-            callback(&rect, request);
+        if let Some(callback) = &mut callback {
+            if let Some(request) = frame_state.gpu_cache.request(&mut handle) {
+                callback(&rect, request);
+            }
         }
 
         visible_tiles.push(VisibleGradientTile {
@@ -1887,3 +1821,4 @@ fn adjust_mask_scale_for_max_size(device_rect: DeviceRect, device_pixel_scale: D
         (device_rect, device_pixel_scale)
     }
 }
+

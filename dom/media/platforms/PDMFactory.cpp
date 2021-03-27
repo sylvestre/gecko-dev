@@ -399,13 +399,12 @@ PDMFactory::CreateDecoderWithPDM(PlatformDecoderModule* aPDM,
   return aPDM->AsyncCreateDecoder(aParams);
 }
 
-bool PDMFactory::SupportsMimeType(
-    const nsACString& aMimeType, DecoderDoctorDiagnostics* aDiagnostics) const {
+bool PDMFactory::SupportsMimeType(const nsACString& aMimeType) const {
   UniquePtr<TrackInfo> trackInfo = CreateTrackInfoWithMIMEType(aMimeType);
   if (!trackInfo) {
     return false;
   }
-  return Supports(SupportDecoderParams(*trackInfo), aDiagnostics);
+  return Supports(SupportDecoderParams(*trackInfo), nullptr);
 }
 
 bool PDMFactory::Supports(const SupportDecoderParams& aParams,
@@ -450,6 +449,26 @@ void PDMFactory::CreateGpuPDMs() {
 #endif
 }
 
+#if defined(MOZ_FFMPEG)
+static DecoderDoctorDiagnostics::Flags GetFailureFlagBasedOnFFmpegStatus(
+    const FFmpegRuntimeLinker::LinkStatus& aStatus) {
+  switch (aStatus) {
+    case FFmpegRuntimeLinker::LinkStatus_INVALID_FFMPEG_CANDIDATE:
+    case FFmpegRuntimeLinker::LinkStatus_UNUSABLE_LIBAV57:
+    case FFmpegRuntimeLinker::LinkStatus_INVALID_LIBAV_CANDIDATE:
+    case FFmpegRuntimeLinker::LinkStatus_OBSOLETE_FFMPEG:
+    case FFmpegRuntimeLinker::LinkStatus_OBSOLETE_LIBAV:
+    case FFmpegRuntimeLinker::LinkStatus_INVALID_CANDIDATE:
+      return DecoderDoctorDiagnostics::Flags::LibAVCodecUnsupported;
+    default:
+      MOZ_DIAGNOSTIC_ASSERT(
+          aStatus == FFmpegRuntimeLinker::LinkStatus_NOT_FOUND,
+          "Only call this method when linker fails.");
+      return DecoderDoctorDiagnostics::Flags::FFmpegNotFound;
+  }
+}
+#endif
+
 void PDMFactory::CreateRddPDMs() {
 #ifdef XP_WIN
   if (StaticPrefs::media_wmf_enabled() &&
@@ -472,9 +491,8 @@ void PDMFactory::CreateRddPDMs() {
   if (StaticPrefs::media_ffmpeg_enabled() &&
       StaticPrefs::media_rdd_ffmpeg_enabled() &&
       !CreateAndStartupPDM<FFmpegRuntimeLinker>()) {
-    mFailureFlags += DecoderDoctorDiagnostics::Flags::FFmpegFailedToLoad;
-  } else {
-    mFailureFlags -= DecoderDoctorDiagnostics::Flags::FFmpegFailedToLoad;
+    mFailureFlags += GetFailureFlagBasedOnFFmpegStatus(
+        FFmpegRuntimeLinker::LinkStatusCode());
   }
 #endif
   CreateAndStartupPDM<AgnosticDecoderModule>();
@@ -491,8 +509,7 @@ void PDMFactory::CreateContentPDMs() {
 
 #ifdef XP_WIN
   if (StaticPrefs::media_wmf_enabled() && !IsWin7AndPre2000Compatible()) {
-    RefPtr<WMFDecoderModule> m = MakeAndAddRef<WMFDecoderModule>();
-    if (!StartupPDM(m.forget())) {
+    if (!CreateAndStartupPDM<WMFDecoderModule>()) {
       mFailureFlags += DecoderDoctorDiagnostics::Flags::WMFFailedToLoad;
     }
   } else if (StaticPrefs::media_decoder_doctor_wmf_disabled_is_failure()) {
@@ -516,7 +533,8 @@ void PDMFactory::CreateContentPDMs() {
 #ifdef MOZ_FFMPEG
   if (StaticPrefs::media_ffmpeg_enabled() &&
       !CreateAndStartupPDM<FFmpegRuntimeLinker>()) {
-    mFailureFlags += DecoderDoctorDiagnostics::Flags::FFmpegFailedToLoad;
+    mFailureFlags += GetFailureFlagBasedOnFFmpegStatus(
+        FFmpegRuntimeLinker::LinkStatusCode());
   }
 #endif
 #ifdef MOZ_WIDGET_ANDROID
@@ -537,8 +555,7 @@ void PDMFactory::CreateContentPDMs() {
 void PDMFactory::CreateDefaultPDMs() {
 #ifdef XP_WIN
   if (StaticPrefs::media_wmf_enabled() && !IsWin7AndPre2000Compatible()) {
-    RefPtr<WMFDecoderModule> m = MakeAndAddRef<WMFDecoderModule>();
-    if (!StartupPDM(m.forget())) {
+    if (!CreateAndStartupPDM<WMFDecoderModule>()) {
       mFailureFlags += DecoderDoctorDiagnostics::Flags::WMFFailedToLoad;
     }
   } else if (StaticPrefs::media_decoder_doctor_wmf_disabled_is_failure()) {
@@ -562,7 +579,8 @@ void PDMFactory::CreateDefaultPDMs() {
 #ifdef MOZ_FFMPEG
   if (StaticPrefs::media_ffmpeg_enabled() &&
       !CreateAndStartupPDM<FFmpegRuntimeLinker>()) {
-    mFailureFlags += DecoderDoctorDiagnostics::Flags::FFmpegFailedToLoad;
+    mFailureFlags += GetFailureFlagBasedOnFFmpegStatus(
+        FFmpegRuntimeLinker::LinkStatusCode());
   }
 #endif
 #ifdef MOZ_WIDGET_ANDROID
@@ -646,38 +664,38 @@ PDMFactory::MediaCodecsSupported PDMFactory::Supported(bool aForceRefresh) {
     // available.
     // This logic will have to be revisited if a PDM supporting either codec
     // will be added in addition to the WMF and FFmpeg PDM (such as OpenH264)
-    if (pdm->SupportsMimeType("video/avc"_ns, nullptr)) {
+    if (pdm->SupportsMimeType("video/avc"_ns)) {
       supported += MediaCodecs::H264;
     }
-    if (pdm->SupportsMimeType("video/vp9"_ns, nullptr)) {
+    if (pdm->SupportsMimeType("video/vp9"_ns)) {
       supported += MediaCodecs::VP9;
     }
-    if (pdm->SupportsMimeType("video/vp8"_ns, nullptr)) {
+    if (pdm->SupportsMimeType("video/vp8"_ns)) {
       supported += MediaCodecs::VP8;
     }
-    if (pdm->SupportsMimeType("video/av1"_ns, nullptr)) {
+    if (pdm->SupportsMimeType("video/av1"_ns)) {
       supported += MediaCodecs::AV1;
     }
-    if (pdm->SupportsMimeType("video/theora"_ns, nullptr)) {
+    if (pdm->SupportsMimeType("video/theora"_ns)) {
       supported += MediaCodecs::Theora;
     }
-    if (pdm->SupportsMimeType("audio/mp4a-latm"_ns, nullptr)) {
+    if (pdm->SupportsMimeType("audio/mp4a-latm"_ns)) {
       supported += MediaCodecs::AAC;
     }
     // MP3 can be either decoded by ffvpx or WMF/FFmpeg
-    if (pdm->SupportsMimeType("audio/mpeg"_ns, nullptr)) {
+    if (pdm->SupportsMimeType("audio/mpeg"_ns)) {
       supported += MediaCodecs::MP3;
     }
-    if (pdm->SupportsMimeType("audio/opus"_ns, nullptr)) {
+    if (pdm->SupportsMimeType("audio/opus"_ns)) {
       supported += MediaCodecs::Opus;
     }
-    if (pdm->SupportsMimeType("audio/vorbis"_ns, nullptr)) {
+    if (pdm->SupportsMimeType("audio/vorbis"_ns)) {
       supported += MediaCodecs::Vorbis;
     }
-    if (pdm->SupportsMimeType("audio/flac"_ns, nullptr)) {
+    if (pdm->SupportsMimeType("audio/flac"_ns)) {
       supported += MediaCodecs::Flac;
     }
-    if (pdm->SupportsMimeType("audio/x-wav"_ns, nullptr)) {
+    if (pdm->SupportsMimeType("audio/x-wav"_ns)) {
       supported += MediaCodecs::Wave;
     }
     return supported;
@@ -728,6 +746,22 @@ bool PDMFactory::SupportsMimeType(const nsACString& aMimeType,
     return aSupported.contains(MediaCodecs::Wave);
   }
   return false;
+}
+
+/* static */
+bool PDMFactory::AllDecodersAreRemote() {
+  return StaticPrefs::media_rdd_process_enabled() &&
+#if defined(MOZ_FFVPX)
+         StaticPrefs::media_rdd_ffvpx_enabled() &&
+#endif
+         StaticPrefs::media_rdd_opus_enabled() &&
+         StaticPrefs::media_rdd_theora_enabled() &&
+         StaticPrefs::media_rdd_vorbis_enabled() &&
+         StaticPrefs::media_rdd_vpx_enabled() &&
+#if defined(MOZ_WMF)
+         StaticPrefs::media_rdd_wmf_enabled() &&
+#endif
+         StaticPrefs::media_rdd_wav_enabled();
 }
 
 #undef PDM_INIT_LOG

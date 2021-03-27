@@ -16,7 +16,6 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   AddonManager: "resource://gre/modules/AddonManager.jsm",
   IgnoreLists: "resource://gre/modules/IgnoreLists.jsm",
   OpenSearchEngine: "resource://gre/modules/OpenSearchEngine.jsm",
-  OS: "resource://gre/modules/osfile.jsm",
   Region: "resource://gre/modules/Region.jsm",
   RemoteSettings: "resource://services-settings/remote-settings.js",
   SearchEngine: "resource://gre/modules/SearchEngine.jsm",
@@ -185,6 +184,26 @@ SearchService.prototype = {
 
   // A reference to the handler for the default override allow list.
   _defaultOverrideAllowlist: null,
+
+  // This is a list of search engines that we currently consider to be "General"
+  // search, as opposed to a vertical search engine such as one used for
+  // shopping, book search, etc.
+  //
+  // Currently these are a list of hard-coded application provided ones. At some
+  // point in the future we expect to allow WebExtensions to specify by themselves,
+  // however this needs more definition on the "vertical" search terms, and the
+  // effects before we enable it.
+  //
+  // TODO: Bug 1697477 will move this to SearchEngine and combine it with the
+  // urlbar lists.
+  GENERAL_SEARCH_ENGINE_IDS: new Set([
+    "google@search.mozilla.org",
+    "ddg@search.mozilla.org",
+    "bing@search.mozilla.org",
+    "baidu@search.mozilla.org",
+    "yahoo-jp@search.mozilla.org",
+    "yandex@search.mozilla.org",
+  ]),
 
   // This reflects the combined values of the prefs for enabling the separate
   // private default UI, and for the user choosing a separate private engine.
@@ -1559,39 +1578,6 @@ SearchService.prototype = {
   },
 
   /**
-   * Adds an engine with specific details, only used for tests and should
-   * be considered obsolete, see bug 1649186.
-   *
-   * @param {string} name
-   *   The name of the engine to add.
-   * @param {object} details
-   *   The details of the engine to add.
-   */
-  async addEngineWithDetails(name, details) {
-    let manifest = {
-      description: details.description,
-      iconURL: details.iconURL,
-      chrome_settings_overrides: {
-        search_provider: {
-          name,
-          encoding: details.encoding || SearchUtils.DEFAULT_QUERY_CHARSET,
-          search_url: encodeURI(details.template),
-          keyword: details.alias,
-          search_url_get_params: details.searchGetParams,
-          search_url_post_params: details.postData || details.searchPostParams,
-          suggest_url: details.suggestURL,
-        },
-      },
-    };
-    return this._createAndAddEngine({
-      extensionID: details.extensionID ?? `${name}@test.engine`,
-      extensionBaseURI: "",
-      isAppProvided: false,
-      manifest,
-    });
-  },
-
-  /**
    * Creates and adds a WebExtension based engine.
    * Note: this is currently used for enterprise policy engines as well.
    *
@@ -1748,6 +1734,16 @@ SearchService.prototype = {
           e =>
             e.webExtension.id == extension.id && e.webExtension.locale == locale
         ) ?? {};
+
+      let originalName = engine.name;
+      let name = manifest.chrome_settings_overrides.search_provider.name.trim();
+      if (originalName != name && this._engines.has(name)) {
+        throw new Error("Can't upgrade to the same name as an existing engine");
+      }
+
+      let isDefault = engine == this.defaultEngine;
+      let isDefaultPrivate = engine == this.defaultPrivateEngine;
+
       engine._updateFromManifest(
         extension.id,
         extension.baseURI,
@@ -1755,6 +1751,18 @@ SearchService.prototype = {
         locale,
         configuration
       );
+
+      if (originalName != engine.name) {
+        this._engines.delete(originalName);
+        this._engines.set(engine.name, engine);
+        if (isDefault) {
+          this._settings.setVerifiedAttribute("current", engine.name);
+        }
+        if (isDefaultPrivate) {
+          this._settings.setVerifiedAttribute("private", engine.name);
+        }
+        this.__sortedEngines = null;
+      }
     }
     return extensionEngines;
   },
@@ -1919,7 +1927,10 @@ SearchService.prototype = {
     }
 
     if (engineToRemove == this.defaultEngine) {
-      this._currentEngine = null;
+      this._findAndSetNewDefaultEngine({
+        privateMode: false,
+        excludeEngineName: engineToRemove.name,
+      });
     }
 
     // Bug 1575649 - We can't just check the default private engine here when
@@ -1931,7 +1942,10 @@ SearchService.prototype = {
       this._separatePrivateDefault &&
       engineToRemove == this.defaultPrivateEngine
     ) {
-      this._currentPrivateEngine = null;
+      this._findAndSetNewDefaultEngine({
+        privateMode: true,
+        excludeEngineName: engineToRemove.name,
+      });
     }
 
     if (engineToRemove._isAppProvided) {
@@ -2060,6 +2074,101 @@ SearchService.prototype = {
   },
 
   /**
+   * Helper function to find a new default engine and set it. This could
+   * be used if there is not default set yet, or if the current default is
+   * being removed.
+   *
+   * The new default will be chosen from (in order):
+   *
+   * - Existing default from configuration, if it is not hidden.
+   * - The first non-hidden engine that is a general search engine.
+   * - If all other engines are hidden, unhide the default from the configuration.
+   * - If the default from the configuration is the one being removed, unhide
+   *   the first general search engine, or first visible engine.
+   *
+   * @param {boolean} privateMode
+   *   If true, returns the default engine for private browsing mode, otherwise
+   *   the default engine for the normal mode. Note, this function does not
+   *   check the "separatePrivateDefault" preference - that is up to the caller.
+   * @param {string} [excludeEngineName]
+   *   Exclude the given engine name from the search for a new engine. This is
+   *   typically used when removing engines to ensure we do not try to reselect
+   *   the same engine again.
+   * @returns {nsISearchEngine|null}
+   *   The appropriate search engine, or null if one could not be determined.
+   */
+  _findAndSetNewDefaultEngine({ privateMode, excludeEngineName = "" }) {
+    const currentEngineProp = privateMode
+      ? "_currentPrivateEngine"
+      : "_currentEngine";
+
+    // First to the original default engine...
+    let newDefault = privateMode
+      ? this.originalPrivateDefaultEngine
+      : this.originalDefaultEngine;
+
+    if (
+      !newDefault ||
+      newDefault.hidden ||
+      newDefault.name == excludeEngineName
+    ) {
+      let sortedEngines = this._getSortedEngines(false);
+      let generalSearchEngines = sortedEngines.filter(e =>
+        this.GENERAL_SEARCH_ENGINE_IDS.has(e._extensionID)
+      );
+      // then to the first visible general search engine that isn't excluded...
+      let firstVisible = generalSearchEngines.find(
+        e => e.name != excludeEngineName
+      );
+      if (firstVisible) {
+        newDefault = firstVisible;
+      } else if (newDefault) {
+        // then to the original if it is not the one that is excluded...
+        if (newDefault.name != excludeEngineName) {
+          newDefault.hidden = false;
+        } else {
+          newDefault = null;
+        }
+      }
+
+      // and finally as a last resort we unhide the first engine
+      // even if the name is the same as the excluded one (should never happen).
+      if (!newDefault) {
+        if (!firstVisible) {
+          sortedEngines = this._getSortedEngines(true);
+          firstVisible = sortedEngines.find(e =>
+            this.GENERAL_SEARCH_ENGINE_IDS.has(e._extensionID)
+          );
+          if (!firstVisible) {
+            firstVisible = sortedEngines[0];
+          }
+        }
+        if (firstVisible) {
+          firstVisible.hidden = false;
+          newDefault = firstVisible;
+        }
+      }
+    }
+    // We tried out best but something went very wrong.
+    if (!newDefault) {
+      logConsole.error("Could not find a replacement default engine.");
+      return null;
+    }
+
+    // If the current engine wasn't set or was hidden, we used a fallback
+    // to pick a new current engine. As soon as we return it, this new
+    // current engine will become user-visible, so we should persist it.
+    // by calling the setter.
+    if (privateMode) {
+      this.defaultPrivateEngine = newDefault;
+    } else {
+      this.defaultEngine = newDefault;
+    }
+
+    return this[currentEngineProp];
+  },
+
+  /**
    * Helper function to get the current default engine.
    *
    * @param {boolean} privateMode
@@ -2071,68 +2180,39 @@ SearchService.prototype = {
    */
   _getEngineDefault(privateMode) {
     this._ensureInitialized();
-    const currentEngine = privateMode
+    const currentEngineProp = privateMode
       ? "_currentPrivateEngine"
       : "_currentEngine";
-    if (!this[currentEngine]) {
-      const attributeName = privateMode ? "private" : "current";
-      let name = this._settings.getAttribute(attributeName);
-      let engine = this.getEngineByName(name);
-      if (
-        engine &&
-        (engine.isAppProvided ||
-          this._settings.getVerifiedAttribute(attributeName))
-      ) {
-        // If the current engine is a default one, we can relax the
-        // verification hash check to reduce the annoyance for users who
-        // backup/sync their profile in custom ways.
-        this[currentEngine] = engine;
-      }
-      if (!name) {
-        this[currentEngine] = privateMode
-          ? this.originalPrivateDefaultEngine
-          : this.originalDefaultEngine;
-      }
+
+    if (this[currentEngineProp] && !this[currentEngineProp].hidden) {
+      return this[currentEngineProp];
     }
 
-    // If the current engine is not set or hidden, we fallback...
-    if (!this[currentEngine] || this[currentEngine].hidden) {
-      // first to the original default engine
-      let originalDefault = privateMode
+    // No default loaded, so find it from settings.
+    const attributeName = privateMode ? "private" : "current";
+    let name = this._settings.getAttribute(attributeName);
+    let engine = this.getEngineByName(name);
+    if (
+      engine &&
+      (engine.isAppProvided ||
+        this._settings.getVerifiedAttribute(attributeName))
+    ) {
+      // If the current engine is a default one, we can relax the
+      // verification hash check to reduce the annoyance for users who
+      // backup/sync their profile in custom ways.
+      this[currentEngineProp] = engine;
+    }
+    if (!name) {
+      this[currentEngineProp] = privateMode
         ? this.originalPrivateDefaultEngine
         : this.originalDefaultEngine;
-      if (!originalDefault || originalDefault.hidden) {
-        // then to the first visible engine
-        let firstVisible = this._getSortedEngines(false)[0];
-        if (firstVisible && !firstVisible.hidden) {
-          if (privateMode) {
-            this.defaultPrivateEngine = firstVisible;
-          } else {
-            this.defaultEngine = firstVisible;
-          }
-          return firstVisible;
-        }
-        // and finally as a last resort we unhide the original default engine.
-        if (originalDefault) {
-          originalDefault.hidden = false;
-        }
-      }
-      if (!originalDefault) {
-        return null;
-      }
-
-      // If the current engine wasn't set or was hidden, we used a fallback
-      // to pick a new current engine. As soon as we return it, this new
-      // current engine will become user-visible, so we should persist it.
-      // by calling the setter.
-      if (privateMode) {
-        this.defaultPrivateEngine = originalDefault;
-      } else {
-        this.defaultEngine = originalDefault;
-      }
     }
 
-    return this[currentEngine];
+    if (this[currentEngineProp] && !this[currentEngineProp].hidden) {
+      return this[currentEngineProp];
+    }
+    // No default in settings or it is hidden, so find the new default.
+    return this._findAndSetNewDefaultEngine({ privateMode });
   },
 
   /**
@@ -2696,7 +2776,7 @@ SearchService.prototype = {
         stack: undefined,
       },
     };
-    OS.File.profileBeforeChange.addBlocker(
+    IOUtils.profileBeforeChange.addBlocker(
       "Search service: shutting down",
       () =>
         (async () => {

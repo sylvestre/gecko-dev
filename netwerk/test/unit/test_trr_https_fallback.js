@@ -96,6 +96,7 @@ registerCleanupFunction(async () => {
   prefs.clearUserPref("network.dns.httpssvc.reset_exclustion_list");
   prefs.clearUserPref("network.http.http3.enabled");
   prefs.clearUserPref("network.dns.httpssvc.http3_fast_fallback_timeout");
+  prefs.clearUserPref("network.http.speculative-parallel-limit");
   if (trrServer) {
     await trrServer.stop();
   }
@@ -124,6 +125,7 @@ function makeChan(url) {
   let chan = NetUtil.newChannel({
     uri: url,
     loadUsingSystemPrincipal: true,
+    contentPolicyType: Ci.nsIContentPolicy.TYPE_DOCUMENT,
   }).QueryInterface(Ci.nsIHttpChannel);
   return chan;
 }
@@ -157,65 +159,67 @@ add_task(async function testFallbackToTheLastRecord() {
   );
 
   // Only the last record is valid to use.
-  await trrServer.registerDoHAnswers("test.fallback.com", "HTTPS", [
-    {
-      name: "test.fallback.com",
-      ttl: 55,
-      type: "HTTPS",
-      flush: false,
-      data: {
-        priority: 1,
-        name: "test.fallback1.com",
-        values: [
-          { key: "alpn", value: ["h2", "h3"] },
-          { key: "echconfig", value: "123..." },
-        ],
+  await trrServer.registerDoHAnswers("test.fallback.com", "HTTPS", {
+    answers: [
+      {
+        name: "test.fallback.com",
+        ttl: 55,
+        type: "HTTPS",
+        flush: false,
+        data: {
+          priority: 1,
+          name: "test.fallback1.com",
+          values: [
+            { key: "alpn", value: ["h2", "h3"] },
+            { key: "echconfig", value: "123..." },
+          ],
+        },
       },
-    },
-    {
-      name: "test.fallback.com",
-      ttl: 55,
-      type: "HTTPS",
-      flush: false,
-      data: {
-        priority: 4,
-        name: "foo.example.com",
-        values: [
-          { key: "alpn", value: ["h2", "h3"] },
-          { key: "port", value: h2Port },
-          { key: "echconfig", value: "456..." },
-        ],
+      {
+        name: "test.fallback.com",
+        ttl: 55,
+        type: "HTTPS",
+        flush: false,
+        data: {
+          priority: 4,
+          name: "foo.example.com",
+          values: [
+            { key: "alpn", value: ["h2", "h3"] },
+            { key: "port", value: h2Port },
+            { key: "echconfig", value: "456..." },
+          ],
+        },
       },
-    },
-    {
-      name: "test.fallback.com",
-      ttl: 55,
-      type: "HTTPS",
-      flush: false,
-      data: {
-        priority: 3,
-        name: "test.fallback3.com",
-        values: [
-          { key: "alpn", value: ["h2", "h3"] },
-          { key: "echconfig", value: "456..." },
-        ],
+      {
+        name: "test.fallback.com",
+        ttl: 55,
+        type: "HTTPS",
+        flush: false,
+        data: {
+          priority: 3,
+          name: "test.fallback3.com",
+          values: [
+            { key: "alpn", value: ["h2", "h3"] },
+            { key: "echconfig", value: "456..." },
+          ],
+        },
       },
-    },
-    {
-      name: "test.fallback.com",
-      ttl: 55,
-      type: "HTTPS",
-      flush: false,
-      data: {
-        priority: 2,
-        name: "test.fallback2.com",
-        values: [
-          { key: "alpn", value: ["h2", "h3"] },
-          { key: "echconfig", value: "456..." },
-        ],
+      {
+        name: "test.fallback.com",
+        ttl: 55,
+        type: "HTTPS",
+        flush: false,
+        data: {
+          priority: 2,
+          name: "test.fallback2.com",
+          values: [
+            { key: "alpn", value: ["h2", "h3"] },
+            { key: "echconfig", value: "456..." },
+          ],
+        },
       },
-    },
-  ]);
+    ],
+  });
 
   let listener = new DNSListener();
 
@@ -252,60 +256,64 @@ add_task(async function testFallbackToTheOrigin() {
 
   // All records are not able to use to connect, so we fallback to the origin
   // one.
-  await trrServer.registerDoHAnswers("test.foo.com", "HTTPS", [
-    {
-      name: "test.foo.com",
-      ttl: 55,
-      type: "HTTPS",
-      flush: false,
-      data: {
-        priority: 1,
-        name: "test.foo1.com",
-        values: [
-          { key: "alpn", value: ["h2", "h3"] },
-          { key: "echconfig", value: "123..." },
-        ],
+  await trrServer.registerDoHAnswers("test.foo.com", "HTTPS", {
+    answers: [
+      {
+        name: "test.foo.com",
+        ttl: 55,
+        type: "HTTPS",
+        flush: false,
+        data: {
+          priority: 1,
+          name: "test.foo1.com",
+          values: [
+            { key: "alpn", value: ["h2", "h3"] },
+            { key: "echconfig", value: "123..." },
+          ],
+        },
       },
-    },
-    {
-      name: "test.foo.com",
-      ttl: 55,
-      type: "HTTPS",
-      flush: false,
-      data: {
-        priority: 3,
-        name: "test.foo3.com",
-        values: [
-          { key: "alpn", value: ["h2", "h3"] },
-          { key: "echconfig", value: "456..." },
-        ],
+      {
+        name: "test.foo.com",
+        ttl: 55,
+        type: "HTTPS",
+        flush: false,
+        data: {
+          priority: 3,
+          name: "test.foo3.com",
+          values: [
+            { key: "alpn", value: ["h2", "h3"] },
+            { key: "echconfig", value: "456..." },
+          ],
+        },
       },
-    },
-    {
-      name: "test.foo.com",
-      ttl: 55,
-      type: "HTTPS",
-      flush: false,
-      data: {
-        priority: 2,
-        name: "test.foo2.com",
-        values: [
-          { key: "alpn", value: ["h2", "h3"] },
-          { key: "echconfig", value: "456..." },
-        ],
+      {
+        name: "test.foo.com",
+        ttl: 55,
+        type: "HTTPS",
+        flush: false,
+        data: {
+          priority: 2,
+          name: "test.foo2.com",
+          values: [
+            { key: "alpn", value: ["h2", "h3"] },
+            { key: "echconfig", value: "456..." },
+          ],
+        },
       },
-    },
-  ]);
+    ],
+  });
 
-  await trrServer.registerDoHAnswers("test.foo.com", "A", [
-    {
-      name: "test.foo.com",
-      ttl: 55,
-      type: "A",
-      flush: false,
-      data: "127.0.0.1",
-    },
-  ]);
+  await trrServer.registerDoHAnswers("test.foo.com", "A", {
+    answers: [
+      {
+        name: "test.foo.com",
+        ttl: 55,
+        type: "A",
+        flush: false,
+        data: "127.0.0.1",
+      },
+    ],
+  });
 
   let listener = new DNSListener();
 
@@ -343,50 +351,52 @@ add_task(async function testAllRecordsFailed() {
   );
   Services.prefs.setBoolPref("network.dns.echconfig.fallback_to_origin", false);
 
-  await trrServer.registerDoHAnswers("test.bar.com", "HTTPS", [
-    {
-      name: "test.bar.com",
-      ttl: 55,
-      type: "HTTPS",
-      flush: false,
-      data: {
-        priority: 1,
-        name: "test.bar1.com",
-        values: [
-          { key: "alpn", value: ["h2", "h3"] },
-          { key: "echconfig", value: "123..." },
-        ],
+  await trrServer.registerDoHAnswers("test.bar.com", "HTTPS", {
+    answers: [
+      {
+        name: "test.bar.com",
+        ttl: 55,
+        type: "HTTPS",
+        flush: false,
+        data: {
+          priority: 1,
+          name: "test.bar1.com",
+          values: [
+            { key: "alpn", value: ["h2", "h3"] },
+            { key: "echconfig", value: "123..." },
+          ],
+        },
       },
-    },
-    {
-      name: "test.bar.com",
-      ttl: 55,
-      type: "HTTPS",
-      flush: false,
-      data: {
-        priority: 3,
-        name: "test.bar3.com",
-        values: [
-          { key: "alpn", value: ["h2", "h3"] },
-          { key: "echconfig", value: "456..." },
-        ],
+      {
+        name: "test.bar.com",
+        ttl: 55,
+        type: "HTTPS",
+        flush: false,
+        data: {
+          priority: 3,
+          name: "test.bar3.com",
+          values: [
+            { key: "alpn", value: ["h2", "h3"] },
+            { key: "echconfig", value: "456..." },
+          ],
+        },
       },
-    },
-    {
-      name: "test.bar.com",
-      ttl: 55,
-      type: "HTTPS",
-      flush: false,
-      data: {
-        priority: 2,
-        name: "test.bar2.com",
-        values: [
-          { key: "alpn", value: ["h2", "h3"] },
-          { key: "echconfig", value: "456..." },
-        ],
+      {
+        name: "test.bar.com",
+        ttl: 55,
+        type: "HTTPS",
+        flush: false,
+        data: {
+          priority: 2,
+          name: "test.bar2.com",
+          values: [
+            { key: "alpn", value: ["h2", "h3"] },
+            { key: "echconfig", value: "456..." },
+          ],
+        },
       },
-    },
-  ]);
+    ],
+  });
 
   let listener = new DNSListener();
 
@@ -422,30 +432,32 @@ add_task(async function testFallbackToTheOrigin2() {
     `https://foo.example.com:${trrServer.port}/dns-query`
   );
 
-  await trrServer.registerDoHAnswers("test.example.com", "HTTPS", [
-    {
-      name: "test.example.com",
-      ttl: 55,
-      type: "HTTPS",
-      flush: false,
-      data: {
-        priority: 1,
-        name: "test.example1.com",
-        values: [{ key: "alpn", value: ["h2", "h3"] }],
+  await trrServer.registerDoHAnswers("test.example.com", "HTTPS", {
+    answers: [
+      {
+        name: "test.example.com",
+        ttl: 55,
+        type: "HTTPS",
+        flush: false,
+        data: {
+          priority: 1,
+          name: "test.example1.com",
+          values: [{ key: "alpn", value: ["h2", "h3"] }],
+        },
       },
-    },
-    {
-      name: "test.example.com",
-      ttl: 55,
-      type: "HTTPS",
-      flush: false,
-      data: {
-        priority: 3,
-        name: "test.example3.com",
-        values: [{ key: "alpn", value: ["h2", "h3"] }],
+      {
+        name: "test.example.com",
+        ttl: 55,
+        type: "HTTPS",
+        flush: false,
+        data: {
+          priority: 3,
+          name: "test.example3.com",
+          values: [{ key: "alpn", value: ["h2", "h3"] }],
+        },
       },
-    },
-  ]);
+    ],
+  });
 
   let listener = new DNSListener();
 
@@ -466,15 +478,17 @@ add_task(async function testFallbackToTheOrigin2() {
   let chan = makeChan(`https://test.example.com:${h2Port}/server-timing`);
   await channelOpenPromise(chan, CL_EXPECT_LATE_FAILURE | CL_ALLOW_UNKNOWN_CL);
 
-  await trrServer.registerDoHAnswers("test.example.com", "A", [
-    {
-      name: "test.example.com",
-      ttl: 55,
-      type: "A",
-      flush: false,
-      data: "127.0.0.1",
-    },
-  ]);
+  await trrServer.registerDoHAnswers("test.example.com", "A", {
+    answers: [
+      {
+        name: "test.example.com",
+        ttl: 55,
+        type: "A",
+        flush: false,
+        data: "127.0.0.1",
+      },
+    ],
+  });
 
   chan = makeChan(`https://test.example.com:${h2Port}/server-timing`);
   await channelOpenPromise(chan);
@@ -495,57 +509,61 @@ add_task(async function testFallbackToTheOrigin3() {
     `https://foo.example.com:${trrServer.port}/dns-query`
   );
 
-  await trrServer.registerDoHAnswers("vulnerable.com", "A", [
-    {
-      name: "vulnerable.com",
-      ttl: 55,
-      type: "A",
-      flush: false,
-      data: "127.0.0.1",
-    },
-  ]);
+  await trrServer.registerDoHAnswers("vulnerable.com", "A", {
+    answers: [
+      {
+        name: "vulnerable.com",
+        ttl: 55,
+        type: "A",
+        flush: false,
+        data: "127.0.0.1",
+      },
+    ],
+  });
 
-  await trrServer.registerDoHAnswers("vulnerable.com", "HTTPS", [
-    {
-      name: "vulnerable.com",
-      ttl: 55,
-      type: "HTTPS",
-      flush: false,
-      data: {
-        priority: 1,
-        name: "vulnerable1.com",
-        values: [
-          { key: "alpn", value: ["h2", "h3"] },
-          { key: "echconfig", value: "456..." },
-        ],
+  await trrServer.registerDoHAnswers("vulnerable.com", "HTTPS", {
+    answers: [
+      {
+        name: "vulnerable.com",
+        ttl: 55,
+        type: "HTTPS",
+        flush: false,
+        data: {
+          priority: 1,
+          name: "vulnerable1.com",
+          values: [
+            { key: "alpn", value: ["h2", "h3"] },
+            { key: "echconfig", value: "456..." },
+          ],
+        },
       },
-    },
-    {
-      name: "vulnerable.com",
-      ttl: 55,
-      type: "HTTPS",
-      flush: false,
-      data: {
-        priority: 2,
-        name: "vulnerable2.com",
-        values: [
-          { key: "alpn", value: ["h2", "h3"] },
-          { key: "echconfig", value: "456..." },
-        ],
+      {
+        name: "vulnerable.com",
+        ttl: 55,
+        type: "HTTPS",
+        flush: false,
+        data: {
+          priority: 2,
+          name: "vulnerable2.com",
+          values: [
+            { key: "alpn", value: ["h2", "h3"] },
+            { key: "echconfig", value: "456..." },
+          ],
+        },
       },
-    },
-    {
-      name: "vulnerable.com",
-      ttl: 55,
-      type: "HTTPS",
-      flush: false,
-      data: {
-        priority: 3,
-        name: "vulnerable3.com",
-        values: [{ key: "alpn", value: ["h2", "h3"] }],
+      {
+        name: "vulnerable.com",
+        ttl: 55,
+        type: "HTTPS",
+        flush: false,
+        data: {
+          priority: 3,
+          name: "vulnerable3.com",
+          values: [{ key: "alpn", value: ["h2", "h3"] }],
+        },
       },
-    },
-  ]);
+    ],
+  });
 
   let listener = new DNSListener();
 
@@ -582,37 +600,39 @@ add_task(async function testResetExclusionList() {
     false
   );
 
-  await trrServer.registerDoHAnswers("test.reset.com", "HTTPS", [
-    {
-      name: "test.reset.com",
-      ttl: 55,
-      type: "HTTPS",
-      flush: false,
-      data: {
-        priority: 1,
-        name: "test.reset1.com",
-        values: [
-          { key: "alpn", value: ["h2", "h3"] },
-          { key: "port", value: h2Port },
-          { key: "echconfig", value: "456..." },
-        ],
+  await trrServer.registerDoHAnswers("test.reset.com", "HTTPS", {
+    answers: [
+      {
+        name: "test.reset.com",
+        ttl: 55,
+        type: "HTTPS",
+        flush: false,
+        data: {
+          priority: 1,
+          name: "test.reset1.com",
+          values: [
+            { key: "alpn", value: ["h2", "h3"] },
+            { key: "port", value: h2Port },
+            { key: "echconfig", value: "456..." },
+          ],
+        },
       },
-    },
-    {
-      name: "test.reset.com",
-      ttl: 55,
-      type: "HTTPS",
-      flush: false,
-      data: {
-        priority: 2,
-        name: "test.reset2.com",
-        values: [
-          { key: "alpn", value: ["h2", "h3"] },
-          { key: "echconfig", value: "456..." },
-        ],
+      {
+        name: "test.reset.com",
+        ttl: 55,
+        type: "HTTPS",
+        flush: false,
+        data: {
+          priority: 2,
+          name: "test.reset2.com",
+          values: [
+            { key: "alpn", value: ["h2", "h3"] },
+            { key: "echconfig", value: "456..." },
+          ],
+        },
       },
-    },
-  ]);
+    ],
+  });
 
   let listener = new DNSListener();
 
@@ -639,15 +659,17 @@ add_task(async function testResetExclusionList() {
   chan = makeChan(`https://test.reset.com:${h2Port}/server-timing`);
   await channelOpenPromise(chan, CL_EXPECT_LATE_FAILURE | CL_ALLOW_UNKNOWN_CL);
 
-  await trrServer.registerDoHAnswers("test.reset1.com", "A", [
-    {
-      name: "test.reset1.com",
-      ttl: 55,
-      type: "A",
-      flush: false,
-      data: "127.0.0.1",
-    },
-  ]);
+  await trrServer.registerDoHAnswers("test.reset1.com", "A", {
+    answers: [
+      {
+        name: "test.reset1.com",
+        ttl: 55,
+        type: "A",
+        flush: false,
+        data: "127.0.0.1",
+      },
+    ],
+  });
 
   Services.prefs.setBoolPref(
     "network.dns.httpssvc.reset_exclustion_list",
@@ -673,33 +695,42 @@ add_task(async function testH3Connection() {
   );
   Services.prefs.setBoolPref("network.http.http3.enabled", true);
 
-  await trrServer.registerDoHAnswers("test.h3.com", "HTTPS", [
-    {
-      name: "test.h3.com",
-      ttl: 55,
-      type: "HTTPS",
-      flush: false,
-      data: {
-        priority: 1,
-        name: "www.h3.com",
-        values: [
-          { key: "alpn", value: "h3-27" },
-          { key: "port", value: h3Port },
-          { key: "echconfig", value: "456..." },
-        ],
-      },
-    },
-  ]);
+  Services.prefs.setIntPref(
+    "network.dns.httpssvc.http3_fast_fallback_timeout",
+    100
+  );
 
-  await trrServer.registerDoHAnswers("www.h3.com", "A", [
-    {
-      name: "www.h3.com",
-      ttl: 55,
-      type: "A",
-      flush: false,
-      data: "127.0.0.1",
-    },
-  ]);
+  await trrServer.registerDoHAnswers("test.h3.com", "HTTPS", {
+    answers: [
+      {
+        name: "test.h3.com",
+        ttl: 55,
+        type: "HTTPS",
+        flush: false,
+        data: {
+          priority: 1,
+          name: "www.h3.com",
+          values: [
+            { key: "alpn", value: "h3-27" },
+            { key: "port", value: h3Port },
+            { key: "echconfig", value: "456..." },
+          ],
+        },
+      },
+    ],
+  });
+
+  await trrServer.registerDoHAnswers("www.h3.com", "A", {
+    answers: [
+      {
+        name: "www.h3.com",
+        ttl: 55,
+        type: "A",
+        flush: false,
+        data: "127.0.0.1",
+      },
+    ],
+  });
 
   let listener = new DNSListener();
 
@@ -741,48 +772,52 @@ add_task(async function testFastfallbackToH2() {
     1
   );
 
-  await trrServer.registerDoHAnswers("test.fastfallback.com", "HTTPS", [
-    {
-      name: "test.fastfallback.com",
-      ttl: 55,
-      type: "HTTPS",
-      flush: false,
-      data: {
-        priority: 1,
-        name: "test.fastfallback1.com",
-        values: [
-          { key: "alpn", value: "h3-27" },
-          { key: "port", value: h3Port },
-          { key: "echconfig", value: "456..." },
-        ],
+  await trrServer.registerDoHAnswers("test.fastfallback.com", "HTTPS", {
+    answers: [
+      {
+        name: "test.fastfallback.com",
+        ttl: 55,
+        type: "HTTPS",
+        flush: false,
+        data: {
+          priority: 1,
+          name: "test.fastfallback1.com",
+          values: [
+            { key: "alpn", value: "h3-27" },
+            { key: "port", value: h3Port },
+            { key: "echconfig", value: "456..." },
+          ],
+        },
       },
-    },
-    {
-      name: "test.fastfallback.com",
-      ttl: 55,
-      type: "HTTPS",
-      flush: false,
-      data: {
-        priority: 2,
-        name: "test.fastfallback2.com",
-        values: [
-          { key: "alpn", value: "h2" },
-          { key: "port", value: h2Port },
-          { key: "echconfig", value: "456..." },
-        ],
+      {
+        name: "test.fastfallback.com",
+        ttl: 55,
+        type: "HTTPS",
+        flush: false,
+        data: {
+          priority: 2,
+          name: "test.fastfallback2.com",
+          values: [
+            { key: "alpn", value: "h2" },
+            { key: "port", value: h2Port },
+            { key: "echconfig", value: "456..." },
+          ],
+        },
       },
-    },
-  ]);
+    ],
+  });
 
-  await trrServer.registerDoHAnswers("test.fastfallback2.com", "A", [
-    {
-      name: "test.fastfallback2.com",
-      ttl: 55,
-      type: "A",
-      flush: false,
-      data: "127.0.0.1",
-    },
-  ]);
+  await trrServer.registerDoHAnswers("test.fastfallback2.com", "A", {
+    answers: [
+      {
+        name: "test.fastfallback2.com",
+        ttl: 55,
+        type: "A",
+        flush: false,
+        data: "127.0.0.1",
+      },
+    ],
+  });
 
   let listener = new DNSListener();
 
@@ -837,23 +872,25 @@ add_task(async function testFailedH3Connection() {
     0
   );
 
-  await trrServer.registerDoHAnswers("test.h3.org", "HTTPS", [
-    {
-      name: "test.h3.org",
-      ttl: 55,
-      type: "HTTPS",
-      flush: false,
-      data: {
-        priority: 1,
-        name: "www.h3.org",
-        values: [
-          { key: "alpn", value: "h3-27" },
-          { key: "port", value: h3Port },
-          { key: "echconfig", value: "456..." },
-        ],
+  await trrServer.registerDoHAnswers("test.h3.org", "HTTPS", {
+    answers: [
+      {
+        name: "test.h3.org",
+        ttl: 55,
+        type: "HTTPS",
+        flush: false,
+        data: {
+          priority: 1,
+          name: "www.h3.org",
+          values: [
+            { key: "alpn", value: "h3-27" },
+            { key: "port", value: h3Port },
+            { key: "echconfig", value: "456..." },
+          ],
+        },
       },
-    },
-  ]);
+    ],
+  });
 
   let listener = new DNSListener();
 
@@ -905,36 +942,38 @@ add_task(async function testHttp3ExcludedList() {
 
   // Now www.h3_fail.org should be already excluded, so the second record
   // foo.example.com will be selected.
-  await trrServer.registerDoHAnswers("test.h3_excluded.org", "HTTPS", [
-    {
-      name: "test.h3_excluded.org",
-      ttl: 55,
-      type: "HTTPS",
-      flush: false,
-      data: {
-        priority: 1,
-        name: "www.h3_fail.org",
-        values: [
-          { key: "alpn", value: "h3-27" },
-          { key: "port", value: h3Port },
-        ],
+  await trrServer.registerDoHAnswers("test.h3_excluded.org", "HTTPS", {
+    answers: [
+      {
+        name: "test.h3_excluded.org",
+        ttl: 55,
+        type: "HTTPS",
+        flush: false,
+        data: {
+          priority: 1,
+          name: "www.h3_fail.org",
+          values: [
+            { key: "alpn", value: "h3-27" },
+            { key: "port", value: h3Port },
+          ],
+        },
       },
-    },
-    {
-      name: "test.h3_excluded.org",
-      ttl: 55,
-      type: "HTTPS",
-      flush: false,
-      data: {
-        priority: 2,
-        name: "foo.example.com",
-        values: [
-          { key: "alpn", value: "h3-27" },
-          { key: "port", value: h3Port },
-        ],
+      {
+        name: "test.h3_excluded.org",
+        ttl: 55,
+        type: "HTTPS",
+        flush: false,
+        data: {
+          priority: 2,
+          name: "foo.example.com",
+          values: [
+            { key: "alpn", value: "h3-27" },
+            { key: "port", value: h3Port },
+          ],
+        },
       },
-    },
-  ]);
+    ],
+  });
 
   let listener = new DNSListener();
 
@@ -981,15 +1020,17 @@ add_task(async function testAllRecordsInHttp3ExcludedList() {
     "www.h3_fail1.org;h3-27=:" + h3Port
   );
 
-  await trrServer.registerDoHAnswers("www.h3_all_excluded.org", "A", [
-    {
-      name: "www.h3_all_excluded.org",
-      ttl: 55,
-      type: "A",
-      flush: false,
-      data: "127.0.0.1",
-    },
-  ]);
+  await trrServer.registerDoHAnswers("www.h3_all_excluded.org", "A", {
+    answers: [
+      {
+        name: "www.h3_all_excluded.org",
+        ttl: 55,
+        type: "A",
+        flush: false,
+        data: "127.0.0.1",
+      },
+    ],
+  });
 
   // Test we can connect to www.h3_all_excluded.org sucessfully.
   let chan = makeChan(
@@ -1014,38 +1055,40 @@ add_task(async function testAllRecordsInHttp3ExcludedList() {
   chan = makeChan(`https://www.h3_fail2.org`);
   await channelOpenPromise(chan, CL_EXPECT_LATE_FAILURE | CL_ALLOW_UNKNOWN_CL);
 
-  await trrServer.registerDoHAnswers("www.h3_all_excluded.org", "HTTPS", [
-    {
-      name: "www.h3_all_excluded.org",
-      ttl: 55,
-      type: "HTTPS",
-      flush: false,
-      data: {
-        priority: 1,
-        name: "www.h3_fail1.org",
-        values: [
-          { key: "alpn", value: "h3-27" },
-          { key: "port", value: h3Port },
-          { key: "echconfig", value: "456..." },
-        ],
+  await trrServer.registerDoHAnswers("www.h3_all_excluded.org", "HTTPS", {
+    answers: [
+      {
+        name: "www.h3_all_excluded.org",
+        ttl: 55,
+        type: "HTTPS",
+        flush: false,
+        data: {
+          priority: 1,
+          name: "www.h3_fail1.org",
+          values: [
+            { key: "alpn", value: "h3-27" },
+            { key: "port", value: h3Port },
+            { key: "echconfig", value: "456..." },
+          ],
+        },
       },
-    },
-    {
-      name: "www.h3_all_excluded.org",
-      ttl: 55,
-      type: "HTTPS",
-      flush: false,
-      data: {
-        priority: 2,
-        name: "www.h3_fail2.org",
-        values: [
-          { key: "alpn", value: "h3-27" },
-          { key: "port", value: h3Port },
-          { key: "echconfig", value: "456..." },
-        ],
+      {
+        name: "www.h3_all_excluded.org",
+        ttl: 55,
+        type: "HTTPS",
+        flush: false,
+        data: {
+          priority: 2,
+          name: "www.h3_fail2.org",
+          values: [
+            { key: "alpn", value: "h3-27" },
+            { key: "port", value: h3Port },
+            { key: "echconfig", value: "456..." },
+          ],
+        },
       },
-    },
-  ]);
+    ],
+  });
 
   let listener = new DNSListener();
 
@@ -1063,20 +1106,25 @@ add_task(async function testAllRecordsInHttp3ExcludedList() {
   Assert.equal(inRequest, request, "correct request was used");
   Assert.equal(inStatus, Cr.NS_OK, "status OK");
 
+  Services.prefs.setIntPref("network.http.speculative-parallel-limit", 0);
+  Services.obs.notifyObservers(null, "net:prune-all-connections");
+
   // All HTTPS RRs are in http3 excluded list and all records are failed to
   // connect, so don't fallback to the origin one.
   chan = makeChan(`https://www.h3_all_excluded.org:${h2Port}/server-timing`);
   await channelOpenPromise(chan, CL_EXPECT_LATE_FAILURE | CL_ALLOW_UNKNOWN_CL);
 
-  await trrServer.registerDoHAnswers("www.h3_fail1.org", "A", [
-    {
-      name: "www.h3_fail1.org",
-      ttl: 55,
-      type: "A",
-      flush: false,
-      data: "127.0.0.1",
-    },
-  ]);
+  await trrServer.registerDoHAnswers("www.h3_fail1.org", "A", {
+    answers: [
+      {
+        name: "www.h3_fail1.org",
+        ttl: 55,
+        type: "A",
+        flush: false,
+        data: "127.0.0.1",
+      },
+    ],
+  });
 
   // The the case that when all records are in http3 excluded list, we still
   // give the first record one more shot.

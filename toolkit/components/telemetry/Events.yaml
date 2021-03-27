@@ -131,6 +131,23 @@ readermode:
     expiry_version: never
     extra_keys:
       subcategory: The broad event category for this probe. E.g. navigation
+      reader_time: Time spent in Reader Mode session in seconds (whole number)
+      scroll_position: Percentage of window scrolled in Reader Mode (whole number)
+    products:
+      - "firefox"
+  button:
+    objects: ["click"]
+    release_channel_collection: opt-out
+    record_in_processes: ["content"]
+    description: >
+      This is recorded any time a Reader Mode button is clicked.
+    bug_numbers: [1693362]
+    notification_emails:
+      - "kirill@getpocket.com"
+      - "sdowne@getpocket.com"
+    expiry_version: never
+    extra_keys:
+      label: The type of button clicked.
     products:
       - "firefox"
 
@@ -571,12 +588,12 @@ urlbar:
 
 normandy:
   enroll:
-    objects: ["preference_study", "addon_study", "preference_rollout", "addon_rollout"]
+    objects: ["preference_study", "addon_study", "preference_rollout", "addon_rollout", "nimbus_experiment"]
     description: >
       Sent when applying a Normandy recipe of the above types has succeeded.
     extra_keys:
       experimentType: >
-        For preference_study recipes, the type of experiment this is ("exp" or "exp-highpop").
+        For preference_study and nimbus_experiment recipes, the type of experiment this is ("exp" or "exp-highpop").
       branch: >
         The slug of the branch that was chosen for this client.
       addonId: For addon_study recipes, the ID of the addon that was installed.
@@ -593,7 +610,7 @@ normandy:
 
   enroll_failed:
     methods: ["enrollFailed"]
-    objects: ["addon_study", "preference_rollout", "preference_study", "addon_rollout"]
+    objects: ["addon_study", "preference_rollout", "preference_study", "addon_rollout", "nimbus_experiment"]
     description: >
       Sent when applying a Normandy recipe of the above types has failed.
     extra_keys:
@@ -618,7 +635,7 @@ normandy:
     expiry_version: never
 
   update:
-    objects: ["addon_study", "preference_rollout", "addon_rollout"]
+    objects: ["addon_study", "preference_rollout", "addon_rollout", "nimbus_experiment"]
     description: >
       This event is fired when a client detects that a recipe of the
       ahove types has changed on the server, and the new version of the
@@ -663,7 +680,7 @@ normandy:
     expiry_version: never
 
   unenroll:
-    objects: ["preference_study", "addon_study", "preference_rollback", "addon_rollback"]
+    objects: ["preference_study", "addon_study", "preference_rollback", "addon_rollback", "nimbus_experiment"]
     description: >
       Sent when a Normandy recipe of certain types "ends".  N.B. For
       preference_rollback, this is fired when the recipe is fired (the
@@ -690,12 +707,14 @@ normandy:
     methods: ["unenrollFailed"]
     description: >
       Sent when unenrolling a user fails (see the unenroll event).
-    objects: ["preference_rollback", "preference_study", "addon_rollback"]
+    objects: ["preference_rollback", "preference_study", "addon_rollback", "nimbus_experiment"]
     extra_keys:
       reason: A code describing the reason the unenroll failed.
       enrollmentId: A unique ID for this enrollment that will be included in all related Telemetry.
       changedPref: For preference_study, the preference that was detected to change that caused the attempted unenrollment.
-    bug_numbers: [1443560]
+      caller: The function that caused the stop to happen, included on Nightly to aid debugging.
+      originalReason: The code that would had been used for the unenrollment, had it not failed.
+    bug_numbers: [1443560, 1693402]
     notification_emails: ["normandy-notifications@mozilla.com"]
     products:
       - "firefox"
@@ -723,7 +742,7 @@ normandy:
 
   expose:
     objects: [
-      "feature_study",
+      "nimbus_experiment",
     ]
     methods: ["expose"]
     release_channel_collection: opt-out
@@ -1105,7 +1124,7 @@ telemetry.test:
     expiry_version: "3"
   not_expired_optout:
     objects: ["object1"]
-    bug_numbers: [1286606]
+    bug_numbers: [1286606, 1685406]
     notification_emails: ["telemetry-client-dev@mozilla.com"]
     description: This is an opt-out test entry with unexpired date and version.
     release_channel_collection: opt-out
@@ -1186,6 +1205,17 @@ telemetry.test:
     description: This event is used to test mobile-only main recording.
     expiry_version: never
     products: ["fennec"]
+  mirror_with_extra:
+    objects: ["object1"]
+    bug_numbers: [1685406]
+    notification_emails: ["glean-team@mozilla.com"]
+    record_in_processes: ["all"]
+    description: Test-only. This event is mirrored to from Glean.
+    expiry_version: never
+    extra_keys:
+      extra1: "This must be kept in-sync"
+      extra2: "With the extra_keys in the Glean metric"
+    products: ["firefox", "thunderbird"]
 
 # This is a secondary category used for Telemetry tests.
 # The events here will not be sent out with any pings.
@@ -2102,26 +2132,48 @@ intl.ui.browserLanguage:
     record_in_processes: ["main"]
     bug_numbers: [1486507, 1553311, 1607501, 1672571]
 
-network.jar.channel:
-  noData:
-    objects: ["onStop"]
+network.dns:
+  trrConfirmation:
+    objects: ["context"]
     bug_numbers:
-      - 1675205
+      - 1691408
+      - 1694949
     description: >
-      This event gets recorded whenever onStopRequest gets called with a
-      success code, but no onDataAvailable calls have been made. This indicates
-      an empty file in the JAR archive.
+      This telemetry records the status of the TRR confirmation across.
+      The value of the event is one of:
+        "ok"
+        "trying"
     notification_emails:
       - vgosu@mozilla.com
-      - zbraniecki@mozilla.com
+      - necko@mozilla.com
     release_channel_collection: opt-out
     products:
       - firefox
-    expiry_version: "93"
+    expiry_version: "never"
     record_in_processes:
       - main
     extra_keys:
-      spec: The path of the file being loaded.
+      trigger: >
+        The reason why this confirmation was triggered.
+        Values: [cp-connectivity, pref-change, context-init, retry, failed-lookups]
+      contextReason: >
+        The cause of the current confirmation context.
+        Values: [success, pref-change, network-change, shutdown]
+      attemptCount: >
+        The number of NS requests that were issued for this confirmation.
+      results: >
+        String representation of the last 32 confirmation results.
+        Example: nnnnnnttttttttt indicates a number of network (n) failures
+        followed by timeouts (t).
+      failedLookups: >
+        When the trigger is failed-lookups, this contains the string
+        representation of the failures that triggered the confirmation.
+      networkID: >
+        The network ID for the recorded confirmation attempts
+      captivePortal: >
+        One of [unknown, not_captive, unlocked, locked]
+      time: >
+        Time from first confirmation attempt to event being recorded
 
 security:
   fissionPrincipals:
@@ -2591,6 +2643,8 @@ ysod:
       location: Location as Row:Column of where the error happened.
       last_line: The content of the last line that led to the error.
       last_line_len: The length of the last line that led to the error.
+      hidden: The document is hidden.
+      destroyed: The container of this document is destroyed.
 
 dom.quota.try:
   error:
@@ -2615,11 +2669,11 @@ dom.quota.try:
     record_in_processes: ["main", "content"]
     extra_keys:
       context: The context in which the error occurred, e.g. during a storage initialization. Telemetry events are only emitted for selected contexts.
-      module: The module (quota manager or one of its clients) where the error occured.
       result: Optionally, the name of the error that occurred.
       seq: Sequence number.
-      source_file: The name of the source code file where the error occured.
-      source_line: The line within source_file where the error occured.
+      severity: One of WARNING or ERROR.
+      source_file: The name of the source code file where the error occurred.
+      source_line: The line within source_file where the error occurred.
 
 zero_byte_load:
   load:
@@ -2629,6 +2683,7 @@ zero_byte_load:
         Collection of zero_byte_load events as part of the Yellow Screen of Death analysis.
         When a file is loaded synchronously, this event gets recorded in nsJARChannel::Open if the content length is zero.
         For asynchronous loads, this event gets recorded in onStopRequest.
+        Note that when the load has been cancelled, the consumer could already receive some data, so this event also captures non-zero-byte loads.
     products:
       - "firefox"
     record_in_processes: ["main", "content"]
@@ -2645,10 +2700,17 @@ zero_byte_load:
       - "js"
       - "xml"
       - "xhtml"
+      - "css"
+      - "json"
+      - "html"
+      - "png"
+      - "svg"
       - "others"
     extra_keys:
       sync: Was the load synchronous
       file_name: The name of the file being loaded.
+      status: The channel status code.
+      cancelled: Whether this load has been cancelled.
 
 avif:
   dav1d_get_picture:
@@ -2692,3 +2754,18 @@ installation:
       - agashlin@mozilla.com
       - rtestard@mozilla.com
     expiry_version: "94"
+
+contextservices.quicksuggest:
+  enable_toggled:
+    objects: ["enabled", "disabled"]
+    release_channel_collection: opt-out
+    products:
+      - "firefox"
+    record_in_processes: ["main"]
+    description: >
+      This is recorded when the `browser.urlbar.suggest.quicksuggest` boolean
+      pref is toggled.
+    bug_numbers: [1693126]
+    notification_emails:
+      - fx-search@mozilla.com
+    expiry_version: never

@@ -693,6 +693,20 @@ struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStyleList {
   mozilla::StyleMozListReversed mMozListReversed;
 };
 
+struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStylePage {
+  using StylePageSize = mozilla::StylePageSize;
+  nsStylePage(const nsStylePage& aOther) = default;
+  nsStylePage& operator=(const nsStylePage& aOther) = default;
+  explicit nsStylePage(const mozilla::dom::Document&)
+      : mSize(StylePageSize::Auto()) {}
+
+  static constexpr bool kHasTriggerImageLoads = false;
+  nsChangeHint CalcDifference(const nsStylePage& aNewData) const;
+
+  // page-size property.
+  StylePageSize mSize;
+};
+
 struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStylePosition {
   using LengthPercentageOrAuto = mozilla::LengthPercentageOrAuto;
   using Position = mozilla::Position;
@@ -831,14 +845,7 @@ struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStylePosition {
     if (aCoord.IsLengthPercentage()) {
       return aCoord.AsLengthPercentage().HasPercent();
     }
-
-    if (!aCoord.IsExtremumLength()) {
-      return false;
-    }
-
-    auto keyword = aCoord.AsExtremumLength();
-    return keyword == mozilla::StyleExtremumLength::MozFitContent ||
-           keyword == mozilla::StyleExtremumLength::MozAvailable;
+    return aCoord.IsMozFitContent() || aCoord.IsMozAvailable();
   }
 
   template <typename SizeOrMaxSize>

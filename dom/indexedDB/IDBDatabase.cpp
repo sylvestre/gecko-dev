@@ -203,12 +203,10 @@ RefPtr<IDBDatabase> IDBDatabase::Create(IDBOpenDBRequest* aRequest,
           obsSvc->AddObserver(observer, kWindowObserverTopic, false));
 
       // These topics are not crucial.
-      if (NS_FAILED(obsSvc->AddObserver(observer, kCycleCollectionObserverTopic,
-                                        false)) ||
-          NS_FAILED(obsSvc->AddObserver(observer, kMemoryPressureObserverTopic,
-                                        false))) {
-        NS_WARNING("Failed to add additional memory observers!");
-      }
+      QM_WARNONLY_TRY(
+          obsSvc->AddObserver(observer, kCycleCollectionObserverTopic, false));
+      QM_WARNONLY_TRY(
+          obsSvc->AddObserver(observer, kMemoryPressureObserverTopic, false));
 
       db->mObserver = std::move(observer);
     }
@@ -313,9 +311,9 @@ void IDBDatabase::RevertToPreviousState() {
 void IDBDatabase::RefreshSpec(bool aMayDelete) {
   AssertIsOnOwningThread();
 
-  for (auto iter = mTransactions.Iter(); !iter.Done(); iter.Next()) {
+  for (auto* weakTransaction : mTransactions) {
     const auto transaction =
-        SafeRefPtr{iter.Get()->GetKey(), AcquireStrongRefFromRawPtr{}};
+        SafeRefPtr{weakTransaction, AcquireStrongRefFromRawPtr{}};
     MOZ_ASSERT(transaction);
     transaction->AssertIsOnOwningThread();
     transaction->RefreshSpec(aMayDelete);
@@ -369,11 +367,14 @@ RefPtr<IDBObjectStore> IDBDatabase::CreateObjectStore(
     return nullptr;
   }
 
-  // XXX This didn't use to warn before in case of a error. Should we remove the
-  // warning again?
-  IDB_TRY_INSPECT(const auto& keyPath,
-                  KeyPath::Parse(aOptionalParameters.mKeyPath), nullptr,
-                  [&aRv](const auto&) { aRv.Throw(NS_ERROR_DOM_SYNTAX_ERR); });
+  QM_NOTEONLY_TRY_UNWRAP(const auto maybeKeyPath,
+                         KeyPath::Parse(aOptionalParameters.mKeyPath));
+  if (!maybeKeyPath) {
+    aRv.Throw(NS_ERROR_DOM_SYNTAX_ERR);
+    return nullptr;
+  }
+
+  const auto& keyPath = maybeKeyPath.ref();
 
   auto& objectStores = mSpec->objectStores();
   const auto end = objectStores.cend();
@@ -549,6 +550,14 @@ RefPtr<IDBTransaction> IDBDatabase::Transaction(
           return objectStore.metadata().name() == name;
         });
     if (foundIt == end) {
+      Telemetry::ScalarAdd(
+          storeNames.IsEmpty()
+              ? Telemetry::ScalarID::
+                    IDB_FAILURE_UNKNOWN_OBJECTSTORE_EMPTY_DATABASE
+              : Telemetry::ScalarID::
+                    IDB_FAILURE_UNKNOWN_OBJECTSTORE_NON_EMPTY_DATABASE,
+          1);
+
       // Not using nsPrintfCString in case "name" has embedded nulls.
       aRv.ThrowNotFoundError("'"_ns + NS_ConvertUTF16toUTF8(name) +
                              "' is not a known object store name"_ns);
@@ -682,7 +691,7 @@ void IDBDatabase::RegisterTransaction(IDBTransaction& aTransaction) {
   aTransaction.AssertIsOnOwningThread();
   MOZ_ASSERT(!mTransactions.Contains(&aTransaction));
 
-  mTransactions.PutEntry(&aTransaction);
+  mTransactions.Insert(&aTransaction);
 }
 
 void IDBDatabase::UnregisterTransaction(IDBTransaction& aTransaction) {
@@ -690,7 +699,7 @@ void IDBDatabase::UnregisterTransaction(IDBTransaction& aTransaction) {
   aTransaction.AssertIsOnOwningThread();
   MOZ_ASSERT(mTransactions.Contains(&aTransaction));
 
-  mTransactions.RemoveEntry(&aTransaction);
+  mTransactions.Remove(&aTransaction);
 }
 
 void IDBDatabase::AbortTransactions(bool aShouldWarn) {
@@ -713,8 +722,7 @@ void IDBDatabase::AbortTransactions(bool aShouldWarn) {
   StrongTransactionArray transactionsToAbort;
   transactionsToAbort.SetCapacity(mTransactions.Count());
 
-  for (const auto& entry : mTransactions) {
-    IDBTransaction* transaction = entry.GetKey();
+  for (IDBTransaction* const transaction : mTransactions) {
     MOZ_ASSERT(transaction);
 
     transaction->AssertIsOnOwningThread();
@@ -806,7 +814,7 @@ PBackgroundIDBDatabaseFileChild* IDBDatabase::GetOrCreateFileActorForBlob(
 
     MOZ_ASSERT(actor->GetActorEventTarget(),
                "The event target shall be inherited from its manager actor.");
-    mFileActors.Put(weakRef, actor);
+    mFileActors.InsertOrUpdate(weakRef, actor);
   }
 
   MOZ_ASSERT(actor);

@@ -6,7 +6,7 @@
 
 #include "mozilla/dom/quota/CachingDatabaseConnection.h"
 
-#include "GeckoProfiler.h"
+#include "mozilla/ProfilerLabels.h"
 #include "mozilla/ipc/BackgroundParent.h"
 
 namespace mozilla::dom::quota {
@@ -36,35 +36,36 @@ CachingDatabaseConnection::GetCachedStatement(const nsACString& aQuery) {
 
   AUTO_PROFILER_LABEL("CachingDatabaseConnection::GetCachedStatement", DOM);
 
-  nsCOMPtr<mozIStorageStatement> stmt;
+  QM_TRY_UNWRAP(
+      auto stmt,
+      mCachedStatements.TryLookupOrInsertWith(
+          aQuery, [&]() -> Result<nsCOMPtr<mozIStorageStatement>, nsresult> {
+            const auto extraInfo =
+                ScopedLogExtraInfo{ScopedLogExtraInfo::kTagQuery, aQuery};
 
-  if (!mCachedStatements.Get(aQuery, getter_AddRefs(stmt))) {
-    const auto extraInfo =
-        ScopedLogExtraInfo{ScopedLogExtraInfo::kTagQuery, aQuery};
-
-    QM_TRY_UNWRAP(
-        stmt,
-        MOZ_TO_RESULT_INVOKE_TYPED(nsCOMPtr<mozIStorageStatement>,
-                                   **mStorageConnection, CreateStatement,
-                                   aQuery),
-        QM_PROPAGATE,
-        ([&aQuery, &storageConnection = **mStorageConnection](const auto&) {
+            QM_TRY_RETURN(
+                MOZ_TO_RESULT_INVOKE_TYPED(nsCOMPtr<mozIStorageStatement>,
+                                           **mStorageConnection,
+                                           CreateStatement, aQuery),
+                QM_PROPAGATE,
+                ([&aQuery,
+                  &storageConnection = **mStorageConnection](const auto&) {
 #ifdef DEBUG
-          nsCString msg;
-          MOZ_ALWAYS_SUCCEEDS(storageConnection.GetLastErrorString(msg));
+                  nsCString msg;
+                  MOZ_ALWAYS_SUCCEEDS(
+                      storageConnection.GetLastErrorString(msg));
 
-          nsAutoCString error =
-              "The statement '"_ns + aQuery +
-              "' failed to compile with the error message '"_ns + msg + "'."_ns;
+                  nsAutoCString error =
+                      "The statement '"_ns + aQuery +
+                      "' failed to compile with the error message '"_ns + msg +
+                      "'."_ns;
 
-          NS_WARNING(error.get());
+                  NS_WARNING(error.get());
 #else
-          (void)aQuery;
+                    (void)aQuery;
 #endif
-        }));
-
-    mCachedStatements.Put(aQuery, stmt);
-  }
+                }));
+          }));
 
   return CachedStatement{this, std::move(stmt), aQuery};
 }

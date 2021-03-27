@@ -337,10 +337,10 @@ struct ParamTraits<mozilla::ModulesMap> {
   static void Write(Message* aMsg, const paramType& aParam) {
     aMsg->WriteUInt32(aParam.Count());
 
-    for (auto iter = aParam.ConstIter(); !iter.Done(); iter.Next()) {
-      MOZ_RELEASE_ASSERT(iter.Data());
-      WriteParam(aMsg, iter.Key());
-      WriteParam(aMsg, *(iter.Data()));
+    for (const auto& entry : aParam) {
+      MOZ_RELEASE_ASSERT(entry.GetData());
+      WriteParam(aMsg, entry.GetKey());
+      WriteParam(aMsg, *(entry.GetData()));
     }
   }
 
@@ -362,7 +362,7 @@ struct ParamTraits<mozilla::ModulesMap> {
         return false;
       }
 
-      aResult->Put(key, std::move(rec));
+      aResult->InsertOrUpdate(key, std::move(rec));
     }
 
     return true;
@@ -411,8 +411,8 @@ struct ParamTraits<mozilla::ModulePaths> {
   // NB: This function must write out the set in the same format as WriteVector
   static void WriteSet(Message* aMsg, const paramType::SetType& aSet) {
     aMsg->WriteUInt32(aSet.Count());
-    for (auto iter = aSet.ConstIter(); !iter.Done(); iter.Next()) {
-      WriteParam(aMsg, iter.Get()->GetKey());
+    for (const auto& key : aSet.Keys()) {
+      WriteParam(aMsg, key);
     }
   }
 

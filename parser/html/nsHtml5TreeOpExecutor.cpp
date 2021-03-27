@@ -12,10 +12,11 @@
 #include "mozilla/dom/nsCSPContext.h"
 #include "mozilla/dom/nsCSPService.h"
 
-#include "GeckoProfiler.h"
 #include "mozAutoDocUpdate.h"
 #include "mozilla/IdleTaskRunner.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/ProfilerLabels.h"
+#include "mozilla/ProfilerMarkers.h"
 #include "mozilla/StaticPrefs_content.h"
 #include "mozilla/StaticPrefs_security.h"
 #include "mozilla/StaticPrefs_view_source.h"
@@ -433,6 +434,7 @@ void nsHtml5TreeOpExecutor::ContinueInterruptedParsingAsync() {
     gBackgroundFlushRunner = IdleTaskRunner::Create(
         &BackgroundFlushCallback,
         "nsHtml5TreeOpExecutor::BackgroundFlushCallback",
+        0,    // Start looking for idle time immediately.
         250,  // The hard deadline: 250ms.
         StaticPrefs::content_sink_interactive_parse_time() /
             1000,               // Required budget.
@@ -1119,6 +1121,10 @@ void nsHtml5TreeOpExecutor::PreloadScript(
     bool aLinkPreload) {
   nsCOMPtr<nsIURI> uri = ConvertIfNotPreloadedYetAndMediaApplies(aURL, aMedia);
   if (!uri) {
+    return;
+  }
+  auto key = PreloadHashKey::CreateAsScript(uri, aCrossOrigin, aType);
+  if (mDocument->Preloads().PreloadExists(key)) {
     return;
   }
   mDocument->ScriptLoader()->PreloadURI(

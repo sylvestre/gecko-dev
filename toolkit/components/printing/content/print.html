@@ -64,13 +64,18 @@
       </div>
     </template>
 
+    <template id="copy-template">
+      <input id="copies-count" is="setting-number" data-setting-name="numCopies" min="1" max="10000" class="copy-count-input photon-number" aria-errormessage="error-invalid-copies" required>
+      <p id="error-invalid-copies" hidden data-l10n-id="printui-error-invalid-copies" class="error-message" role="alert"></p>
+    </template>
+
     <template id="margins-template">
       <label for="margins-picker" class="block-label" data-l10n-id="printui-margins"></label>
       <select is="margins-select" id="margins-picker" name="margin-type" class="row" data-setting-name="margins">
         <option value="default" data-l10n-id="printui-margins-default"></option>
         <option value="minimum" data-l10n-id="printui-margins-min"></option>
         <option value="none" data-l10n-id="printui-margins-none"></option>
-        <option value="custom" data-l10n-id="printui-margins-custom-inches"></option>
+        <option value="custom" data-unit-prefix-l10n-id="printui-margins-custom-"></option>
       </select>
       <div id="custom-margins" class="margin-group" role="group" hidden>
         <div class="vertical-margins">
@@ -80,7 +85,7 @@
                    aria-describedby="margins-custom-margin-top-desc"
                    min="0" step="0.01" required>
             <label for="custom-margin-top" class="margin-descriptor" data-l10n-id="printui-margins-custom-top"></label>
-            <label hidden id="margins-custom-margin-top-desc" data-l10n-id="printui-margins-custom-top-inches"></label>
+            <label hidden id="margins-custom-margin-top-desc" data-unit-prefix-l10n-id="printui-margins-custom-top-"></label>
           </div>
           <div class="margin-pair">
             <input is="setting-number"
@@ -88,7 +93,7 @@
                    aria-describedby="margins-custom-margin-bottom-desc"
                    min="0" step="0.01" required>
             <label for="custom-margin-bottom" class="margin-descriptor" data-l10n-id="printui-margins-custom-bottom"></label>
-            <label hidden id="margins-custom-margin-bottom-desc" data-l10n-id="printui-margins-custom-bottom-inches"></label>
+            <label hidden id="margins-custom-margin-bottom-desc" data-unit-prefix-l10n-id="printui-margins-custom-bottom-"></label>
           </div>
         </div>
         <div class="horizontal-margins">
@@ -98,7 +103,7 @@
                    aria-describedby="margins-custom-margin-left-desc"
                    min="0" step="0.01" required>
             <label for="custom-margin-left" class="margin-descriptor" data-l10n-id="printui-margins-custom-left"></label>
-            <label hidden id="margins-custom-margin-left-desc" data-l10n-id="printui-margins-custom-left-inches"></label>
+            <label hidden id="margins-custom-margin-left-desc" data-unit-prefix-l10n-id="printui-margins-custom-left-"></label>
           </div>
           <div class="margin-pair">
             <input is="setting-number"
@@ -106,7 +111,7 @@
                    aria-describedby="margins-custom-margin-right-desc"
                    min="0" step="0.01" required>
             <label for="custom-margin-right" class="margin-descriptor" data-l10n-id="printui-margins-custom-right"></label>
-            <label hidden id="margins-custom-margin-right-desc" data-l10n-id="printui-margins-custom-right-inches"></label>
+            <label hidden id="margins-custom-margin-right-desc" data-unit-prefix-l10n-id="printui-margins-custom-right-"></label>
           </div>
         </div>
         <p id="error-invalid-margin" hidden data-l10n-id="printui-error-invalid-margin" class="error-message" role="alert"></p>
@@ -131,7 +136,7 @@
         <section id="settings">
           <section id="copies" class="section-block">
             <label for="copies-count" class="block-label" data-l10n-id="printui-copies-label"></label>
-            <input id="copies-count" is="setting-number" data-setting-name="numCopies" min="1" max="10000" class="copy-count-input photon-number" required>
+            <copy-count-input></copy-count-input>
           </section>
 
           <section id="orientation" class="section-block">
@@ -188,8 +193,8 @@
               <label class="block-label" for="duplex-select" data-l10n-id="printui-two-sided-printing"></label>
               <select is="setting-select" id="duplex-select" name="duplex-type" class="row" data-setting-name="printDuplex">
                 <option value="off" data-l10n-id="printui-two-sided-printing-off" selected></option>
-                <option value="side-edge" data-l10n-id="printui-two-sided-printing-side-edge"></option>
-                <option value="top-edge" data-l10n-id="printui-two-sided-printing-top-edge"></option>
+                <option value="long-edge" data-l10n-id="printui-two-sided-printing-long-edge"></option>
+                <option value="short-edge" data-l10n-id="printui-two-sided-printing-short-edge"></option>
               </select>
             </section>
 

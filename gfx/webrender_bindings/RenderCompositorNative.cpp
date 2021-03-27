@@ -8,6 +8,8 @@
 
 #include "GLContext.h"
 #include "GLContextProvider.h"
+#include "mozilla/ProfilerLabels.h"
+#include "mozilla/ProfilerMarkers.h"
 #include "mozilla/gfx/gfxVars.h"
 #include "mozilla/gfx/Logging.h"
 #include "mozilla/layers/CompositionRecorder.h"
@@ -222,10 +224,10 @@ void RenderCompositorNative::CompositorBeginFrame() {
 }
 
 void RenderCompositorNative::CompositorEndFrame() {
-#ifdef MOZ_GECKO_PROFILER
   if (profiler_thread_is_being_profiled()) {
     auto bufferSize = GetBufferSize();
-    uint64_t windowPixelCount = uint64_t(bufferSize.width) * bufferSize.height;
+    [[maybe_unused]] uint64_t windowPixelCount =
+        uint64_t(bufferSize.width) * bufferSize.height;
     int nativeLayerCount = 0;
     for (const auto& it : mSurfaces) {
       nativeLayerCount += int(it.second.mNativeLayers.size());
@@ -243,7 +245,6 @@ void RenderCompositorNative::CompositorEndFrame() {
                         int((mTotalTilePixelCount - mAddedTilePixelCount) *
                             100 / windowPixelCount)));
   }
-#endif
   mDrawnPixelCount = 0;
 
   DoFlush();
@@ -412,19 +413,10 @@ void RenderCompositorNative::AddSurface(
   }
 }
 
-CompositorCapabilities RenderCompositorNative::GetCompositorCapabilities() {
-  CompositorCapabilities caps;
-
-  // CoreAnimation doesn't use virtual surfaces
-  caps.virtual_surface_size = 0;
-
-  return caps;
-}
-
 /* static */
 UniquePtr<RenderCompositor> RenderCompositorNativeOGL::Create(
     RefPtr<widget::CompositorWidget>&& aWidget, nsACString& aError) {
-  RefPtr<gl::GLContext> gl = RenderThread::Get()->SharedGL();
+  RefPtr<gl::GLContext> gl = RenderThread::Get()->SingletonGL();
   if (!gl) {
     gl = gl::GLContextProvider::CreateForCompositorWidget(
         aWidget, /* aWebRender */ true, /* aForceAccelerated */ true);

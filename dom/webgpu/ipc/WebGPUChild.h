@@ -23,7 +23,8 @@ struct WGPUClient;
 struct WGPUTextureViewDescriptor;
 }  // namespace ffi
 
-typedef MozPromise<RawId, Maybe<ipc::ResponseRejectReason>, true> RawIdPromise;
+typedef MozPromise<ipc::ByteBuf, Maybe<ipc::ResponseRejectReason>, true>
+    AdapterPromise;
 
 ffi::WGPUByteBuf* ToFFI(ipc::ByteBuf* x);
 
@@ -39,7 +40,7 @@ class WebGPUChild final : public PWebGPUChild, public SupportsWeakPtr {
 
   bool IsOpen() const { return mIPCOpen; }
 
-  RefPtr<RawIdPromise> InstanceRequestAdapter(
+  RefPtr<AdapterPromise> InstanceRequestAdapter(
       const dom::GPURequestAdapterOptions& aOptions);
   Maybe<RawId> AdapterRequestDevice(RawId aSelfId,
                                     const dom::GPUDeviceDescriptor& aDesc);
@@ -104,19 +105,6 @@ class WebGPUChild final : public PWebGPUChild, public SupportsWeakPtr {
  public:
   ipc::IPCResult RecvError(RawId aDeviceId, const nsACString& aMessage);
   ipc::IPCResult RecvDropAction(const ipc::ByteBuf& aByteBuf);
-  ipc::IPCResult RecvFreeAdapter(RawId id);
-  ipc::IPCResult RecvFreeDevice(RawId id);
-  ipc::IPCResult RecvFreePipelineLayout(RawId id);
-  ipc::IPCResult RecvFreeShaderModule(RawId id);
-  ipc::IPCResult RecvFreeBindGroupLayout(RawId id);
-  ipc::IPCResult RecvFreeBindGroup(RawId id);
-  ipc::IPCResult RecvFreeCommandBuffer(RawId id);
-  ipc::IPCResult RecvFreeRenderPipeline(RawId id);
-  ipc::IPCResult RecvFreeComputePipeline(RawId id);
-  ipc::IPCResult RecvFreeBuffer(RawId id);
-  ipc::IPCResult RecvFreeTexture(RawId id);
-  ipc::IPCResult RecvFreeTextureView(RawId id);
-  ipc::IPCResult RecvFreeSampler(RawId id);
 };
 
 }  // namespace webgpu

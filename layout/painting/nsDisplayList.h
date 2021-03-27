@@ -55,7 +55,8 @@
 
 #include <stdint.h>
 #include "nsClassHashtable.h"
-#include "nsTHashtable.h"
+#include "nsTHashSet.h"
+#include "nsTHashMap.h"
 
 #include <stdlib.h>
 #include <algorithm>
@@ -273,13 +274,13 @@ struct ActiveScrolledRoot {
 
   static const ActiveScrolledRoot* PickAncestor(
       const ActiveScrolledRoot* aOne, const ActiveScrolledRoot* aTwo) {
-    MOZ_ASSERT(IsAncestor(aOne, aTwo) || IsAncestor(aTwo, aOne));
+    MOZ_DIAGNOSTIC_ASSERT(IsAncestor(aOne, aTwo) || IsAncestor(aTwo, aOne));
     return Depth(aOne) <= Depth(aTwo) ? aOne : aTwo;
   }
 
   static const ActiveScrolledRoot* PickDescendant(
       const ActiveScrolledRoot* aOne, const ActiveScrolledRoot* aTwo) {
-    MOZ_ASSERT(IsAncestor(aOne, aTwo) || IsAncestor(aTwo, aOne));
+    MOZ_DIAGNOSTIC_ASSERT(IsAncestor(aOne, aTwo) || IsAncestor(aTwo, aOne));
     return Depth(aOne) >= Depth(aTwo) ? aOne : aTwo;
   }
 
@@ -806,9 +807,6 @@ class nsDisplayListBuilder {
    */
   bool IsInFilter() const { return mInFilter; }
 
-  bool IsInPageSequence() const { return mInPageSequence; }
-  void SetInPageSequence(bool aInPage) { mInPageSequence = aInPage; }
-
   /**
    * Return true if we're currently building a display list for a
    * nested presshell.
@@ -931,8 +929,8 @@ class nsDisplayListBuilder {
   nsTArray<ThemeGeometry> GetThemeGeometries() const {
     nsTArray<ThemeGeometry> geometries;
 
-    for (auto iter = mThemeGeometries.ConstIter(); !iter.Done(); iter.Next()) {
-      geometries.AppendElements(*iter.Data());
+    for (const auto& data : mThemeGeometries.Values()) {
+      geometries.AppendElements(*data);
     }
 
     return geometries;
@@ -958,7 +956,8 @@ class nsDisplayListBuilder {
       return;
     }
 
-    nsTArray<ThemeGeometry>* geometries = mThemeGeometries.LookupOrAdd(aItem);
+    nsTArray<ThemeGeometry>* geometries =
+        mThemeGeometries.GetOrInsertNew(aItem);
     geometries->AppendElement(ThemeGeometry(aWidgetType, aRect));
   }
 
@@ -983,13 +982,13 @@ class nsDisplayListBuilder {
   void RemoveModifiedWindowRegions();
   void ClearRetainedWindowRegions();
 
-  const nsDataHashtable<nsPtrHashKey<RemoteBrowser>, EffectsInfo>&
-  GetEffectUpdates() const {
+  const nsTHashMap<nsPtrHashKey<RemoteBrowser>, EffectsInfo>& GetEffectUpdates()
+      const {
     return mEffectsUpdates;
   }
 
   void AddEffectUpdate(RemoteBrowser* aBrowser, EffectsInfo aUpdate) {
-    mEffectsUpdates.Put(aBrowser, aUpdate);
+    mEffectsUpdates.InsertOrUpdate(aBrowser, aUpdate);
   }
 
   /**
@@ -1777,7 +1776,7 @@ class nsDisplayListBuilder {
       void* mFrame;
     };
 
-    nsTHashtable<nsPtrHashKey<void>> mFrameSet;
+    nsTHashSet<void*> mFrameSet;
     nsTArray<WeakFrameWrapper> mFrames;
     nsTArray<pixman_box32_t> mRects;
 
@@ -1787,7 +1786,7 @@ class nsDisplayListBuilder {
         return;
       }
 
-      mFrameSet.PutEntry(aFrame);
+      mFrameSet.Insert(aFrame);
       mFrames.AppendElement(WeakFrameWrapper(aFrame));
       mRects.AppendElement(nsRegion::RectToBox(aRect));
     }
@@ -1847,7 +1846,7 @@ class nsDisplayListBuilder {
       nsIFrame* aAnimatedGeometryRoot, bool aIsAsync,
       AnimatedGeometryRoot* aParent = nullptr);
 
-  nsDataHashtable<nsPtrHashKey<nsIFrame>, RefPtr<AnimatedGeometryRoot>>
+  nsTHashMap<nsIFrame*, RefPtr<AnimatedGeometryRoot>>
       mFrameToAnimatedGeometryRootMap;
 
   /**
@@ -1924,12 +1923,12 @@ class nsDisplayListBuilder {
 
   // will-change budget tracker
   typedef uint32_t DocumentWillChangeBudget;
-  nsDataHashtable<nsPtrHashKey<const nsPresContext>, DocumentWillChangeBudget>
+  nsTHashMap<nsPtrHashKey<const nsPresContext>, DocumentWillChangeBudget>
       mDocumentWillChangeBudgets;
 
   // Any frame listed in this set is already counted in the budget
   // and thus is in-budget.
-  nsDataHashtable<nsPtrHashKey<const nsIFrame>, FrameWillChangeBudget>
+  nsTHashMap<nsPtrHashKey<const nsIFrame>, FrameWillChangeBudget>
       mFrameWillChangeBudgets;
 
   uint8_t mBuildingExtraPagesForPageNum;
@@ -1937,9 +1936,9 @@ class nsDisplayListBuilder {
   // Area of animated geometry root budget already allocated
   uint32_t mUsedAGRBudget;
   // Set of frames already counted in budget
-  nsTHashtable<nsPtrHashKey<nsIFrame>> mAGRBudgetSet;
+  nsTHashSet<nsIFrame*> mAGRBudgetSet;
 
-  nsDataHashtable<nsPtrHashKey<RemoteBrowser>, EffectsInfo> mEffectsUpdates;
+  nsTHashMap<nsPtrHashKey<RemoteBrowser>, EffectsInfo> mEffectsUpdates;
 
   // Relative to mCurrentFrame.
   nsRect mVisibleRect;
@@ -2092,11 +2091,6 @@ void AssertUniqueItem(nsDisplayItem* aItem);
 bool ShouldBuildItemForEvents(const DisplayItemType aType);
 
 /**
- * Updates the item DisplayItemData if needed.
- */
-void UpdateDisplayItemData(nsPaintedDisplayItem* aItem);
-
-/**
  * Initializes the hit test information of |aItem| if the item type supports it.
  */
 void InitializeHitTestInfo(nsDisplayListBuilder* aBuilder,
@@ -2129,7 +2123,6 @@ MOZ_ALWAYS_INLINE T* MakeDisplayItemWithIndex(nsDisplayListBuilder* aBuilder,
 
   nsPaintedDisplayItem* paintedItem = item->AsPaintedDisplayItem();
   if (paintedItem) {
-    UpdateDisplayItemData(paintedItem);
     InitializeHitTestInfo(aBuilder, paintedItem, type);
   }
 
@@ -2248,7 +2241,6 @@ class nsDisplayItemBase : public nsDisplayItemLink {
     MOZ_ASSERT(aFrame);
 
     if (mFrame && aFrame == mFrame) {
-      MOZ_ASSERT(!mFrame->HasDisplayItem(this));
       mFrame = nullptr;
       SetDeletedFrame();
     }
@@ -3183,30 +3175,6 @@ class nsPaintedDisplayItem : public nsDisplayItem {
     return this;
   }
 
-  ~nsPaintedDisplayItem() override { SetDisplayItemData(nullptr, nullptr); }
-
-  void SetDisplayItemData(mozilla::DisplayItemData* aDID,
-                          mozilla::layers::LayerManager* aLayerManager) {
-    if (mDisplayItemData) {
-      MOZ_ASSERT(!mDisplayItemData->GetItem() ||
-                 mDisplayItemData->GetItem() == this);
-      mDisplayItemData->SetItem(nullptr);
-    }
-    if (aDID) {
-      if (aDID->GetItem()) {
-        aDID->GetItem()->SetDisplayItemData(nullptr, nullptr);
-      }
-      aDID->SetItem(this);
-    }
-    mDisplayItemData = aDID;
-    mDisplayItemDataLayerManager = aLayerManager;
-  }
-
-  mozilla::DisplayItemData* GetDisplayItemData() { return mDisplayItemData; }
-  mozilla::layers::LayerManager* GetDisplayItemDataLayerManager() {
-    return mDisplayItemDataLayerManager;
-  }
-
   /**
    * Stores the given opacity value to be applied when drawing. It is an error
    * to call this if CanApplyOpacity returned false.
@@ -3299,13 +3267,9 @@ class nsPaintedDisplayItem : public nsDisplayItem {
                        const nsPaintedDisplayItem& aOther)
       : nsDisplayItem(aBuilder, aOther), mHitTestInfo(aOther.mHitTestInfo) {}
 
- private:
-  mozilla::DisplayItemData* mDisplayItemData = nullptr;
-  mozilla::layers::LayerManager* mDisplayItemDataLayerManager = nullptr;
-  mozilla::Maybe<uint16_t> mCacheIndex;
-
  protected:
   mozilla::HitTestInfo mHitTestInfo;
+  mozilla::Maybe<uint16_t> mCacheIndex;
 };
 
 /**
@@ -4515,13 +4479,6 @@ class nsDisplayBackgroundImage : public nsDisplayImageContainer {
                                     nsIFrame* aFrameForBounds = nullptr);
   ~nsDisplayBackgroundImage() override;
 
-  bool RestoreState() override {
-    bool superChanged = nsDisplayImageContainer::RestoreState();
-    bool opacityChanged = (mOpacity != 1.0f);
-    mOpacity = 1.0f;
-    return (superChanged || opacityChanged);
-  }
-
   NS_DISPLAY_DECL_NAME("Background", TYPE_BACKGROUND)
 
   /**
@@ -4562,13 +4519,6 @@ class nsDisplayBackgroundImage : public nsDisplayImageContainer {
   mozilla::Maybe<nscolor> IsUniform(
       nsDisplayListBuilder* aBuilder) const override;
 
-  bool CanApplyOpacity() const override { return true; }
-
-  void ApplyOpacity(nsDisplayListBuilder* aBuilder, float aOpacity,
-                    const DisplayItemClipChain* aClip) override {
-    mOpacity = aOpacity;
-  }
-
   /**
    * GetBounds() returns the background painting area.
    */
@@ -4608,11 +4558,6 @@ class nsDisplayBackgroundImage : public nsDisplayImageContainer {
   void UpdateDrawResult(mozilla::image::ImgDrawResult aResult) override {
     nsDisplayBackgroundGeometry::UpdateDrawResult(this, aResult);
   }
-
-  static nsRegion GetInsideClipRegion(const nsDisplayItem* aItem,
-                                      StyleGeometryBox aClip,
-                                      const nsRect& aRect,
-                                      const nsRect& aBackgroundRect);
 
   bool ShouldFixToViewport(nsDisplayListBuilder* aBuilder) const override {
     return mShouldFixToViewport;
@@ -4682,7 +4627,6 @@ class nsDisplayBackgroundImage : public nsDisplayImageContainer {
   /* Whether the image should be treated as fixed to the viewport. */
   bool mShouldFixToViewport;
   uint32_t mImageFlags;
-  float mOpacity;
 };
 
 /**
@@ -7175,19 +7119,16 @@ class nsDisplayPerspective : public nsPaintedDisplayItem {
  */
 class nsDisplayText final : public nsPaintedDisplayItem {
  public:
-  nsDisplayText(nsDisplayListBuilder* aBuilder, nsTextFrame* aFrame,
-                const mozilla::Maybe<bool>& aIsSelected);
+  nsDisplayText(nsDisplayListBuilder* aBuilder, nsTextFrame* aFrame);
   MOZ_COUNTED_DTOR_OVERRIDE(nsDisplayText)
 
   NS_DISPLAY_DECL_NAME("Text", TYPE_TEXT)
 
   bool RestoreState() final {
-    if (!nsPaintedDisplayItem::RestoreState() && mIsFrameSelected.isNothing() &&
-        mOpacity == 1.0f) {
+    if (!nsPaintedDisplayItem::RestoreState() && mOpacity == 1.0f) {
       return false;
     }
 
-    mIsFrameSelected.reset();
     mOpacity = 1.0f;
     return true;
   }
@@ -7251,8 +7192,6 @@ class nsDisplayText final : public nsPaintedDisplayItem {
                : nullptr;
   }
 
-  bool IsSelected() const;
-
   struct ClipEdges {
     ClipEdges(const nsIFrame* aFrame, const nsPoint& aToReferenceFrame,
               nscoord aVisIStartEdge, nscoord aVisIEndEdge) {
@@ -7293,9 +7232,6 @@ class nsDisplayText final : public nsPaintedDisplayItem {
   // regardless of bidi directionality; top and bottom in vertical modes).
   nscoord mVisIStartEdge;
   nscoord mVisIEndEdge;
-
-  // Cached result of mFrame->IsSelected().  Only initialized when needed.
-  mutable mozilla::Maybe<bool> mIsFrameSelected;
 };
 
 /**

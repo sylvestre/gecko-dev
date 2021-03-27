@@ -14,7 +14,10 @@ var EXPORTED_SYMBOLS = ["WatchedDataHelpers"];
 // List of all arrays stored in `watchedData`, which are replicated across processes and threads
 const SUPPORTED_DATA = {
   BREAKPOINTS: "breakpoints",
+  XHR_BREAKPOINTS: "xhr-breakpoints",
   RESOURCES: "resources",
+  TARGET_CONFIGURATION: "target-configuration",
+  THREAD_CONFIGURATION: "thread-configuration",
   TARGETS: "targets",
 };
 
@@ -52,6 +55,28 @@ const DATA_KEY_FUNCTION = {
     }
     return `${sourceUrl}:${sourceId}:${line}:${column}`;
   },
+  [SUPPORTED_DATA.TARGET_CONFIGURATION]: function({ key }) {
+    // Configuration data entries are { key, value } objects, `key` can be used
+    // as the unique identifier for the entry.
+    return key;
+  },
+  [SUPPORTED_DATA.THREAD_CONFIGURATION]: function({ key }) {
+    // See target configuration comment
+    return key;
+  },
+  [SUPPORTED_DATA.XHR_BREAKPOINTS]: function({ path, method }) {
+    if (typeof path != "string") {
+      throw new Error(
+        `XHR Breakpoints expect to have path string, got ${typeof path} instead.`
+      );
+    }
+    if (typeof method != "string") {
+      throw new Error(
+        `XHR Breakpoints expect to have method string, got ${typeof method} instead.`
+      );
+    }
+    return `${path}:${method}`;
+  },
 };
 
 function idFunction(v) {
@@ -80,11 +105,17 @@ const WatchedDataHelpers = {
     const toBeAdded = [];
     const keyFunction = DATA_KEY_FUNCTION[type] || idFunction;
     for (const entry of entries) {
-      const alreadyExists = watchedData[type].some(existingEntry => {
+      const existingIndex = watchedData[type].findIndex(existingEntry => {
         return keyFunction(existingEntry) === keyFunction(entry);
       });
-      if (!alreadyExists) {
+      if (existingIndex === -1) {
+        // New entry.
         toBeAdded.push(entry);
+      } else {
+        // Existing entry, update the value. This is relevant if the data-entry
+        // is not a primitive data-type, and the value can change for the same
+        // key.
+        watchedData[type][existingIndex] = entry;
       }
     }
     watchedData[type].push(...toBeAdded);
@@ -122,3 +153,10 @@ const WatchedDataHelpers = {
     return true;
   },
 };
+
+// Allow this JSM to also be loaded as a CommonJS module
+// Because this module is used from the worker thread,
+// (via target-actor-mixin), and workers can't load JSMs.
+if (typeof module == "object") {
+  module.exports.WatchedDataHelpers = WatchedDataHelpers;
+}

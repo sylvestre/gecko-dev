@@ -683,7 +683,7 @@ nsresult nsPageSequenceFrame::DoPageEnd() {
   if (PresContext()->IsRootPaginatedDocument()) {
     PR_PL(("***************** End Page (DoPageEnd) *****************\n"));
     rv = PresContext()->DeviceContext()->EndPage();
-    NS_ENSURE_SUCCESS(rv, rv);
+    // Fall through to clean up resources/state below even if EndPage failed.
   }
 
   ResetPrintCanvasList();
@@ -704,7 +704,6 @@ gfx::Matrix4x4 ComputePageSequenceTransform(nsIFrame* aFrame,
 
 void nsPageSequenceFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                            const nsDisplayListSet& aLists) {
-  aBuilder->SetInPageSequence(true);
   aBuilder->SetDisablePartialUpdates(true);
   DisplayBorderBackgroundOutline(aBuilder, aLists);
 
@@ -737,7 +736,6 @@ void nsPageSequenceFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                              ::ComputePageSequenceTransform);
 
   aLists.Content()->AppendToTop(&content);
-  aBuilder->SetInPageSequence(false);
 }
 
 //------------------------------------------------------------------------------

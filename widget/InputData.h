@@ -299,6 +299,11 @@ class MouseInput : public InputData {
   ScreenPoint mOrigin;
   ParentLayerPoint mLocalOrigin;
   bool mHandledByAPZ;
+  /**
+   * If click event should not be fired in the content after the "mousedown"
+   * event or following "mouseup", set to true.
+   */
+  bool mPreventClickEvent;
 };
 
 /**
@@ -588,6 +593,8 @@ class TapGestureInput : public InputData {
                   const ParentLayerPoint& aLocalPoint, Modifiers aModifiers);
 
   bool TransformToLocal(const ScreenToParentLayerMatrix4x4& aTransform);
+
+  WidgetSimpleGestureEvent ToWidgetEvent(nsIWidget* aWidget) const;
 
   // Warning, this class is serialized and sent over IPC. Any change to its
   // fields must be reflected in its ParamTraits<>, in nsGUIEventIPC.h

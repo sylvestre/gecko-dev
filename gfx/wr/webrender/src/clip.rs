@@ -220,7 +220,9 @@ impl ClipChainBuilder {
                 )
             }
             None => {
-                ClipChainId::NONE
+                // Even if the clip id is None, it's possible that there were parent clips in the builder
+                // that need to be applied and set as the root of this clip-chain builder.
+                parent_clip_chain_id
             }
         };
 
@@ -1584,7 +1586,7 @@ fn compute_box_shadow_parameters(
         clip_mode,
         stretch_mode_x,
         stretch_mode_y,
-        cache_handle: None,
+        render_task: None,
         cache_key: None,
         minimal_shadow_rect,
     }

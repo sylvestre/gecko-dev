@@ -10,7 +10,6 @@
 #include "mozilla/glean/bindings/DistributionData.h"
 #include "mozilla/glean/fog_ffi_generated.h"
 #include "mozilla/Maybe.h"
-#include "nsDataHashtable.h"
 #include "nsIGleanMetrics.h"
 #include "nsTArray.h"
 
@@ -19,6 +18,11 @@ namespace mozilla::glean {
 typedef uint64_t TimerId;
 
 namespace impl {
+
+#ifdef MOZ_GLEAN_ANDROID
+// No Glean around to generate these for us.
+static Atomic<uint64_t> gNextTimerId(1);
+#endif
 
 class TimingDistributionMetric {
  public:
@@ -29,7 +33,20 @@ class TimingDistributionMetric {
    *
    * @returns A unique TimerId for the new timer
    */
-  TimerId Start() const { return fog_timing_distribution_start(mId); }
+  TimerId Start() const {
+#ifdef MOZ_GLEAN_ANDROID
+    TimerId id = gNextTimerId++;
+#else
+    TimerId id = fog_timing_distribution_start(mId);
+#endif
+    auto mirrorId = HistogramIdForMetric(mId);
+    if (mirrorId) {
+      auto map = gTimerIdToStarts.Lock();
+      (void)NS_WARN_IF(map->Remove(id));
+      map->InsertOrUpdate(id, TimeStamp::Now());
+    }
+    return id;
+  }
 
   /*
    * Stops tracking time for the provided metric and associated timer id.
@@ -41,8 +58,18 @@ class TimingDistributionMetric {
    * @param aId The TimerId to associate with this timing. This allows for
    *            concurrent timing of events associated with different ids.
    */
-  void StopAndAccumulate(TimerId&& aId) const {
+  void StopAndAccumulate(const TimerId&& aId) const {
+    auto mirrorId = HistogramIdForMetric(mId);
+    if (mirrorId) {
+      auto map = gTimerIdToStarts.Lock();
+      auto optStart = map->Extract(aId);
+      if (!NS_WARN_IF(!optStart)) {
+        AccumulateTimeDelta(mirrorId.extract(), optStart.extract());
+      }
+    }
+#ifndef MOZ_GLEAN_ANDROID
     fog_timing_distribution_stop_and_accumulate(mId, aId);
+#endif
   }
 
   /*
@@ -51,7 +78,16 @@ class TimingDistributionMetric {
    *
    * @param aId The TimerId whose `Start` you wish to abort.
    */
-  void Cancel(TimerId&& aId) const { fog_timing_distribution_cancel(mId, aId); }
+  void Cancel(const TimerId&& aId) const {
+    auto mirrorId = HistogramIdForMetric(mId);
+    if (mirrorId) {
+      auto map = gTimerIdToStarts.Lock();
+      (void)NS_WARN_IF(!map->Remove(aId));
+    }
+#ifndef MOZ_GLEAN_ANDROID
+    fog_timing_distribution_cancel(mId, aId);
+#endif
+  }
 
   /**
    * **Test-only API**
@@ -72,6 +108,10 @@ class TimingDistributionMetric {
    */
   Maybe<DistributionData> TestGetValue(
       const nsACString& aPingName = nsCString()) const {
+#ifdef MOZ_GLEAN_ANDROID
+    Unused << mId;
+    return Nothing();
+#else
     if (!fog_timing_distribution_test_has_value(mId, &aPingName)) {
       return Nothing();
     }
@@ -81,9 +121,10 @@ class TimingDistributionMetric {
     fog_timing_distribution_test_get_value(mId, &aPingName, &ret.sum, &buckets,
                                            &counts);
     for (size_t i = 0; i < buckets.Length(); ++i) {
-      ret.values.Put(buckets[i], counts[i]);
+      ret.values.InsertOrUpdate(buckets[i], counts[i]);
     }
     return Some(std::move(ret));
+#endif
   }
 
  private:

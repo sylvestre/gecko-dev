@@ -123,6 +123,7 @@ bool JSContext::init(ContextKind kind) {
   if (kind == ContextKind::MainThread) {
     TlsContext.set(this);
     currentThread_ = ThreadId::ThisThreadId();
+    nativeStackBase_.emplace(GetNativeStackBase());
 
     if (!fx.initInstance()) {
       return false;
@@ -889,7 +890,6 @@ JSContext::JSContext(JSRuntime* runtime, const JS::ContextOptions& options)
       isolate(this, nullptr),
       activation_(this, nullptr),
       profilingActivation_(nullptr),
-      nativeStackBase(GetNativeStackBase()),
       entryMonitor(this, nullptr),
       noExecuteDebuggerTop(this, nullptr),
 #ifdef DEBUG
@@ -913,6 +913,9 @@ JSContext::JSContext(JSRuntime* runtime, const JS::ContextOptions& options)
 #endif
 #if defined(DEBUG) || defined(JS_OOM_BREAKPOINT)
       runningOOMTest(this, false),
+#endif
+#ifdef DEBUG
+      disableCompartmentCheckTracer(this, false),
 #endif
       inUnsafeRegion(this, 0),
       generationalDisabled(this, 0),
@@ -1000,6 +1003,7 @@ void JSContext::setHelperThread(const AutoLockHelperThreadState& locked) {
 
   TlsContext.set(this);
   currentThread_ = ThreadId::ThisThreadId();
+  nativeStackBase_.emplace(GetNativeStackBase());
 }
 
 void JSContext::clearHelperThread(const AutoLockHelperThreadState& locked) {
@@ -1008,6 +1012,7 @@ void JSContext::clearHelperThread(const AutoLockHelperThreadState& locked) {
   MOZ_ASSERT(currentThread_ == ThreadId::ThisThreadId());
 
   currentThread_ = ThreadId();
+  nativeStackBase_.reset();
   TlsContext.set(nullptr);
 }
 

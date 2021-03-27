@@ -1137,12 +1137,9 @@ def include_project_configure(project, build_env, help):
     return path
 
 
-@depends(include_project_configure, check_build_environment)
-def build_project(include_project_configure, build_env):
-    ret = os.path.dirname(
-        os.path.relpath(include_project_configure, build_env.topsrcdir)
-    )
-    return ret
+@depends("--enable-project")
+def build_project(project):
+    return project[0]
 
 
 set_config("MOZ_BUILD_APP", build_project)
@@ -1291,13 +1288,6 @@ add_old_configure_assignment("MOZILLA_SYMBOLVERSION", milestone.symbolversion)
 set_config("MOZ_APP_VERSION", milestone.app_version)
 set_config("MOZ_APP_VERSION_DISPLAY", milestone.app_version_display)
 add_old_configure_assignment("MOZ_APP_VERSION", milestone.app_version)
-
-
-# Dummy function for availability in toolkit/moz.configure. Overridden in
-# mobile/android/moz.configure.
-@depends(milestone.is_nightly)
-def fennec_nightly(is_nightly):
-    return is_nightly
 
 
 # The app update channel is 'default' when not supplied. The value is used in

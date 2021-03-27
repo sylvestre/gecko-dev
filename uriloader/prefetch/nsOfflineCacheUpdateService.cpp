@@ -39,11 +39,10 @@ using namespace mozilla::dom;
 
 static nsOfflineCacheUpdateService* gOfflineCacheUpdateService = nullptr;
 
-nsTHashtable<nsCStringHashKey>* nsOfflineCacheUpdateService::mAllowedDomains =
-    nullptr;
+nsTHashSet<nsCString>* nsOfflineCacheUpdateService::mAllowedDomains = nullptr;
 
-nsTHashtable<nsCStringHashKey>* nsOfflineCacheUpdateService::AllowedDomains() {
-  if (!mAllowedDomains) mAllowedDomains = new nsTHashtable<nsCStringHashKey>();
+nsTHashSet<nsCString>* nsOfflineCacheUpdateService::AllowedDomains() {
+  if (!mAllowedDomains) mAllowedDomains = new nsTHashSet<nsCString>();
 
   return mAllowedDomains;
 }
@@ -547,7 +546,7 @@ static nsresult OfflineAppPermForPrincipal(nsIPrincipal* aPrincipal,
   }
 
   nsCOMPtr<nsIPermissionManager> permissionManager =
-      services::GetPermissionManager();
+      components::PermissionManager::Service();
   if (!permissionManager) {
     return NS_OK;
   }
@@ -630,10 +629,10 @@ nsOfflineCacheUpdateService::AllowOfflineApp(nsIPrincipal* aPrincipal) {
     rv = aPrincipal->GetBaseDomain(domain);
     NS_ENSURE_SUCCESS(rv, rv);
 
-    nsOfflineCacheUpdateService::AllowedDomains()->PutEntry(domain);
+    nsOfflineCacheUpdateService::AllowedDomains()->Insert(domain);
   } else {
     nsCOMPtr<nsIPermissionManager> permissionManager =
-        services::GetPermissionManager();
+        components::PermissionManager::Service();
     if (!permissionManager) return NS_ERROR_NOT_AVAILABLE;
 
     rv = permissionManager->AddFromPrincipal(

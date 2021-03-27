@@ -113,7 +113,7 @@
 #include "nsTHashtable.h"
 #include "nsHashKeys.h"
 #include "nsString.h"
-#include "mozilla/Services.h"
+#include "mozilla/Components.h"
 #include "nsNativeThemeWin.h"
 #include "nsWindowsDllInterceptor.h"
 #include "nsLayoutUtils.h"
@@ -148,6 +148,7 @@
 #include "ScreenHelperWin.h"
 #include "mozilla/StaticPrefs_apz.h"
 #include "mozilla/StaticPrefs_dom.h"
+#include "mozilla/StaticPrefs_gfx.h"
 #include "mozilla/StaticPrefs_layout.h"
 
 #include "nsIGfxInfo.h"
@@ -737,7 +738,7 @@ void nsWindow::SendAnAPZEvent(InputData& aEvent) {
   if (mAPZC) {
     result = mAPZC->InputBridge()->ReceiveInputEvent(aEvent);
   }
-  if (result.mStatus == nsEventStatus_eConsumeNoDefault) {
+  if (result.GetStatus() == nsEventStatus_eConsumeNoDefault) {
     return;
   }
 
@@ -896,15 +897,16 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
   if (aInitData->mWindowType == eWindowType_toplevel && !aParent &&
       !sFirstTopLevelWindowCreated) {
     sFirstTopLevelWindowCreated = true;
-    auto skeletonUIResult = ConsumePreXULSkeletonUIHandle();
-    if (skeletonUIResult.isErr()) {
+    mWnd = ConsumePreXULSkeletonUIHandle();
+    auto skeletonUIError = GetPreXULSkeletonUIErrorReason();
+    if (skeletonUIError) {
       nsAutoString errorString(
-          GetPreXULSkeletonUIErrorString(skeletonUIResult.unwrapErr()));
+          GetPreXULSkeletonUIErrorString(skeletonUIError.value()));
       Telemetry::ScalarSet(
           Telemetry::ScalarID::STARTUP_SKELETON_UI_DISABLED_REASON,
           errorString);
-    } else {
-      mWnd = skeletonUIResult.unwrap();
+    }
+    if (mWnd) {
       MOZ_ASSERT(style == kPreXULSkeletonUIWindowStyle,
                  "The skeleton UI window style should match the expected "
                  "style for the first window created");
@@ -1594,8 +1596,7 @@ void nsWindow::Show(bool bState) {
     // Initialize the UI state - this would normally happen below, but since
     // we're actually already showing, we won't hit it in the normal way.
     ::SendMessageW(mWnd, WM_CHANGEUISTATE,
-                   MAKEWPARAM(UIS_INITIALIZE, UISF_HIDEFOCUS | UISF_HIDEACCEL),
-                   0);
+                   MAKEWPARAM(UIS_SET, UISF_HIDEFOCUS | UISF_HIDEACCEL), 0);
   }
 
   if (mWindowType == eWindowType_popup) {
@@ -1700,10 +1701,9 @@ void nsWindow::Show(bool bState) {
 
       if (!wasVisible && (mWindowType == eWindowType_toplevel ||
                           mWindowType == eWindowType_dialog)) {
-        // when a toplevel window or dialog is shown, initialize the UI state
-        ::SendMessageW(
-            mWnd, WM_CHANGEUISTATE,
-            MAKEWPARAM(UIS_INITIALIZE, UISF_HIDEFOCUS | UISF_HIDEACCEL), 0);
+        // When a toplevel window or dialog is shown, initialize the UI state
+        ::SendMessageW(mWnd, WM_CHANGEUISTATE,
+                       MAKEWPARAM(UIS_SET, UISF_HIDEFOCUS | UISF_HIDEACCEL), 0);
       }
     } else {
       // Clear contents to avoid ghosting of old content if we display
@@ -1996,9 +1996,9 @@ void nsWindow::Move(double aX, double aY) {
       if (WinUtils::LogToPhysFactor(mWnd) != oldScale) {
         ChangedDPI();
       }
-    }
 
-    SetThemeRegion();
+      SetThemeRegion();
+    }
 
     ResizeDirectManipulationViewport();
   }
@@ -2062,9 +2062,9 @@ void nsWindow::Resize(double aWidth, double aHeight, bool aRepaint) {
         ChangedDPI();
       }
       SetThemeRegion();
-
-      ResizeDirectManipulationViewport();
     }
+
+    ResizeDirectManipulationViewport();
   }
 
   if (aRepaint) Invalidate();
@@ -2147,9 +2147,9 @@ void nsWindow::Resize(double aX, double aY, double aWidth, double aHeight,
                        SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
       }
       SetThemeRegion();
-
-      ResizeDirectManipulationViewport();
     }
+
+    ResizeDirectManipulationViewport();
   }
 
   if (aRepaint) Invalidate();
@@ -4081,7 +4081,7 @@ LayerManager* nsWindow::GetLayerManager(PLayerTransactionChild* aShadowManager,
         reinterpret_cast<uintptr_t>(static_cast<nsIWidget*>(this)),
         mTransparencyMode, mSizeMode);
     // If we're not using the compositor, the options don't actually matter.
-    CompositorOptions options(false, false);
+    CompositorOptions options(false, false, false);
     mBasicLayersSurface =
         new InProcessWinCompositorWidget(initData, options, this);
     mCompositorWidgetDelegate = mBasicLayersSurface;
@@ -4421,17 +4421,6 @@ void nsWindow::DispatchPendingEvents() {
     nsWindow::DispatchStarvedPaints(topWnd, 0);
     ::EnumChildWindows(topWnd, nsWindow::DispatchStarvedPaints, 0);
   }
-}
-
-bool nsWindow::DispatchPluginEvent(UINT aMessage, WPARAM aWParam,
-                                   LPARAM aLParam,
-                                   bool aDispatchPendingEvents) {
-  bool ret = nsWindowBase::DispatchPluginEvent(
-      WinUtils::InitMSG(aMessage, aWParam, aLParam, mWnd));
-  if (aDispatchPendingEvents && !Destroyed()) {
-    DispatchPendingEvents();
-  }
-  return ret;
 }
 
 void nsWindow::DispatchCustomEvent(const nsString& eventName) {
@@ -5207,22 +5196,30 @@ bool nsWindow::ProcessMessage(UINT msg, WPARAM& wParam, LPARAM& lParam,
         // Windows won't let us do that. Bug 212316.
         nsCOMPtr<nsIObserverService> obsServ =
             mozilla::services::GetObserverService();
-        const char16_t* context = u"shutdown-persist";
         const char16_t* syncShutdown = u"syncShutdown";
         const char16_t* quitType = GetQuitType();
+
+        AppShutdown::Init(AppShutdownMode::Normal, 0);
 
         obsServ->NotifyObservers(nullptr, "quit-application-granted",
                                  syncShutdown);
         obsServ->NotifyObservers(nullptr, "quit-application-forced", nullptr);
-        obsServ->NotifyObservers(nullptr, "quit-application", quitType);
-        obsServ->NotifyObservers(nullptr, "profile-change-net-teardown",
-                                 context);
-        obsServ->NotifyObservers(nullptr, "profile-change-teardown", context);
-        obsServ->NotifyObservers(nullptr, "profile-before-change", context);
-        obsServ->NotifyObservers(nullptr, "profile-before-change-qm", context);
-        obsServ->NotifyObservers(nullptr, "profile-before-change-telemetry",
-                                 context);
-        mozilla::AppShutdown::DoImmediateExit();
+
+        AppShutdown::OnShutdownConfirmed();
+
+        AppShutdown::AdvanceShutdownPhase(ShutdownPhase::AppShutdownConfirmed,
+                                          quitType);
+        AppShutdown::AdvanceShutdownPhase(ShutdownPhase::AppShutdownNetTeardown,
+                                          nullptr);
+        AppShutdown::AdvanceShutdownPhase(ShutdownPhase::AppShutdownTeardown,
+                                          nullptr);
+        AppShutdown::AdvanceShutdownPhase(ShutdownPhase::AppShutdown, nullptr);
+        AppShutdown::AdvanceShutdownPhase(ShutdownPhase::AppShutdownQM,
+                                          nullptr);
+        AppShutdown::AdvanceShutdownPhase(ShutdownPhase::AppShutdownTelemetry,
+                                          nullptr);
+
+        AppShutdown::DoImmediateExit();
       }
       sCanQuit = TRI_UNKNOWN;
       result = true;
@@ -5312,6 +5309,21 @@ bool nsWindow::ProcessMessage(UINT msg, WPARAM& wParam, LPARAM& lParam,
             if (uiUtils) {
               uiUtils->UpdateTabletModeState();
             }
+          }
+        }
+
+        // UserInteractionMode, ConvertibleSlateMode, SystemDockMode may cause
+        // @media(pointer) queries to change, which layout needs to know about
+        //
+        // (WM_SETTINGCHANGE will be sent to all top-level windows, so we
+        //  only respond to the hidden top-level window to avoid hammering
+        //  layout with a bunch of NotifyThemeChanged() calls)
+        //
+        if (mWindowType == eWindowType_invisible) {
+          if (!wcscmp(lParamString, L"UserInteractionMode") ||
+              !wcscmp(lParamString, L"ConvertibleSlateMode") ||
+              !wcscmp(lParamString, L"SystemDockMode")) {
+            NotifyThemeChanged(widget::ThemeChangeKind::MediaQueriesOnly);
           }
         }
       }
@@ -5967,7 +5979,7 @@ bool nsWindow::ProcessMessage(UINT msg, WPARAM& wParam, LPARAM& lParam,
 
     case WM_DISPLAYCHANGE: {
       ScreenHelperWin::RefreshScreens();
-      nsCOMPtr<nsIGfxInfo> gfxInfo = services::GetGfxInfo();
+      nsCOMPtr<nsIGfxInfo> gfxInfo = components::GfxInfo::Service();
       if (gfxInfo) {
         gfxInfo->RefreshMonitors();
       }
@@ -6201,9 +6213,10 @@ bool nsWindow::ProcessMessage(UINT msg, WPARAM& wParam, LPARAM& lParam,
         if (action == UIS_SET || action == UIS_CLEAR) {
           int32_t flags = HIWORD(wParam);
           UIStateChangeType showFocusRings = UIStateChangeType_NoChange;
-          if (flags & UISF_HIDEFOCUS)
+          if (flags & UISF_HIDEFOCUS) {
             showFocusRings = (action == UIS_SET) ? UIStateChangeType_Clear
                                                  : UIStateChangeType_Set;
+          }
           NotifyUIStateChanged(showFocusRings);
         }
       }
@@ -6615,25 +6628,66 @@ nsresult nsWindow::SynthesizeNativeKeyEvent(
       aUnmodifiedCharacters);
 }
 
-nsresult nsWindow::SynthesizeNativeMouseEvent(LayoutDeviceIntPoint aPoint,
-                                              uint32_t aNativeMessage,
-                                              uint32_t aModifierFlags,
-                                              nsIObserver* aObserver) {
+nsresult nsWindow::SynthesizeNativeMouseEvent(
+    LayoutDeviceIntPoint aPoint, NativeMouseMessage aNativeMessage,
+    MouseButton aButton, nsIWidget::Modifiers aModifierFlags,
+    nsIObserver* aObserver) {
   AutoObserverNotifier notifier(aObserver, "mouseevent");
-
-  if (aNativeMessage == MOUSEEVENTF_MOVE) {
-    // Reset sLastMouseMovePoint so that even if we're moving the mouse
-    // to the position it's already at, we still dispatch a mousemove
-    // event, because the callers of this function expect that.
-    sLastMouseMovePoint = {0};
-  }
-  ::SetCursorPos(aPoint.x, aPoint.y);
 
   INPUT input;
   memset(&input, 0, sizeof(input));
 
+  // TODO (bug 1693240):
+  // Now, we synthesize native mouse events asynchronously since we want to
+  // synthesize the event on the front window at the point. However, Windows
+  // does not provide a way to set modifier only while a mouse message is
+  // being handled, and MOUSEEVENTF_MOVE may be coalesced by Windows.  So, we
+  // need a trick for handling it.
+
+  switch (aNativeMessage) {
+    case NativeMouseMessage::Move:
+      input.mi.dwFlags = MOUSEEVENTF_MOVE;
+      // Reset sLastMouseMovePoint so that even if we're moving the mouse
+      // to the position it's already at, we still dispatch a mousemove
+      // event, because the callers of this function expect that.
+      sLastMouseMovePoint = {0};
+      break;
+    case NativeMouseMessage::ButtonDown:
+    case NativeMouseMessage::ButtonUp: {
+      const bool isDown = aNativeMessage == NativeMouseMessage::ButtonDown;
+      switch (aButton) {
+        case MouseButton::ePrimary:
+          input.mi.dwFlags = isDown ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_LEFTUP;
+          break;
+        case MouseButton::eMiddle:
+          input.mi.dwFlags =
+              isDown ? MOUSEEVENTF_MIDDLEDOWN : MOUSEEVENTF_MIDDLEUP;
+          break;
+        case MouseButton::eSecondary:
+          input.mi.dwFlags =
+              isDown ? MOUSEEVENTF_RIGHTDOWN : MOUSEEVENTF_RIGHTUP;
+          break;
+        case MouseButton::eX1:
+          input.mi.dwFlags = isDown ? MOUSEEVENTF_XDOWN : MOUSEEVENTF_XUP;
+          input.mi.mouseData = XBUTTON1;
+          break;
+        case MouseButton::eX2:
+          input.mi.dwFlags = isDown ? MOUSEEVENTF_XDOWN : MOUSEEVENTF_XUP;
+          input.mi.mouseData = XBUTTON2;
+          break;
+        default:
+          return NS_ERROR_INVALID_ARG;
+      }
+      break;
+    }
+    case NativeMouseMessage::EnterWindow:
+    case NativeMouseMessage::LeaveWindow:
+      MOZ_ASSERT_UNREACHABLE("Non supported mouse event on Windows");
+      return NS_ERROR_INVALID_ARG;
+  }
+
   input.type = INPUT_MOUSE;
-  input.mi.dwFlags = aNativeMessage;
+  ::SetCursorPos(aPoint.x, aPoint.y);
   ::SendInput(1, &input, sizeof(INPUT));
 
   return NS_OK;
@@ -7531,7 +7585,7 @@ bool nsWindow::HasBogusPopupsDropShadowOnMultiMonitor() {
       // Otherwise check if Direct3D 9 may be used.
       if (gfxConfig::IsEnabled(gfx::Feature::HW_COMPOSITING) &&
           !gfxConfig::IsEnabled(gfx::Feature::OPENGL_COMPOSITING)) {
-        nsCOMPtr<nsIGfxInfo> gfxInfo = services::GetGfxInfo();
+        nsCOMPtr<nsIGfxInfo> gfxInfo = components::GfxInfo::Service();
         if (gfxInfo) {
           int32_t status;
           nsCString discardFailureId;
@@ -7640,7 +7694,7 @@ TextEventDispatcherListener* nsWindow::GetNativeTextEventDispatcherListener() {
 #    define NS_LOG_WMGETOBJECT(aWnd, aHwnd, aAcc)
 #  endif
 
-a11y::Accessible* nsWindow::GetAccessible() {
+a11y::LocalAccessible* nsWindow::GetAccessible() {
   // If the pref was ePlatformIsDisabled, return null here, disabling a11y.
   if (a11y::PlatformDisabledState() == a11y::ePlatformIsDisabled)
     return nullptr;
@@ -8496,6 +8550,12 @@ void nsWindow::PickerClosed() {
   if (!mPickerDisplayCount && mDestroyCalled) {
     Destroy();
   }
+}
+
+bool nsWindow::WidgetTypePrefersSoftwareWebRender() const {
+  return (mTransparencyMode == eTransparencyTransparent &&
+          StaticPrefs::gfx_webrender_software_unaccelerated_widget_allow()) ||
+         nsBaseWidget::WidgetTypePrefersSoftwareWebRender();
 }
 
 bool nsWindow::WidgetTypeSupportsAcceleration() {

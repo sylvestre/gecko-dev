@@ -16,6 +16,7 @@
 #include "mozilla/SVGIntegrationUtils.h"  // for WrFiltersHolder
 #include "nsDisplayList.h"
 #include "nsIFrame.h"
+#include "nsTHashSet.h"
 #include "DisplayItemCache.h"
 
 namespace mozilla {
@@ -34,11 +35,9 @@ class WebRenderParentCommand;
 class WebRenderUserData;
 
 class WebRenderCommandBuilder final {
-  typedef nsTHashtable<nsRefPtrHashKey<WebRenderUserData>>
-      WebRenderUserDataRefTable;
-  typedef nsTHashtable<nsRefPtrHashKey<WebRenderCanvasData>> CanvasDataSet;
-  typedef nsTHashtable<nsRefPtrHashKey<WebRenderLocalCanvasData>>
-      LocalCanvasDataSet;
+  typedef nsTHashSet<RefPtr<WebRenderUserData>> WebRenderUserDataRefTable;
+  typedef nsTHashSet<RefPtr<WebRenderCanvasData>> CanvasDataSet;
+  typedef nsTHashSet<RefPtr<WebRenderLocalCanvasData>> LocalCanvasDataSet;
 
  public:
   explicit WebRenderCommandBuilder(WebRenderLayerManager* aManager);
@@ -136,15 +135,15 @@ class WebRenderCommandBuilder final {
       frame->AddProperty(WebRenderUserDataProperty::Key(), userDataTable);
     }
 
-    RefPtr<WebRenderUserData>& data = userDataTable->GetOrInsert(
-        WebRenderUserDataKey(aItem->GetPerFrameKey(), T::Type()));
-    if (!data) {
-      data = new T(GetRenderRootStateManager(), aItem);
-      mWebRenderUserDatas.PutEntry(data);
-      if (aOutIsRecycled) {
-        *aOutIsRecycled = false;
-      }
-    }
+    RefPtr<WebRenderUserData>& data = userDataTable->LookupOrInsertWith(
+        WebRenderUserDataKey(aItem->GetPerFrameKey(), T::Type()), [&] {
+          auto data = MakeRefPtr<T>(GetRenderRootStateManager(), aItem);
+          mWebRenderUserDatas.Insert(data);
+          if (aOutIsRecycled) {
+            *aOutIsRecycled = false;
+          }
+          return data;
+        });
 
     MOZ_ASSERT(data);
     MOZ_ASSERT(data->GetType() == T::Type());
@@ -155,10 +154,10 @@ class WebRenderCommandBuilder final {
 
     switch (T::Type()) {
       case WebRenderUserData::UserDataType::eCanvas:
-        mLastCanvasDatas.PutEntry(data->AsCanvasData());
+        mLastCanvasDatas.Insert(data->AsCanvasData());
         break;
       case WebRenderUserData::UserDataType::eLocalCanvas:
-        mLastLocalCanvasDatas.PutEntry(data->AsLocalCanvasData());
+        mLastLocalCanvasDatas.Insert(data->AsLocalCanvasData());
         break;
       default:
         break;

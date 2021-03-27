@@ -216,8 +216,8 @@ NS_IMETHODIMP mozHunspell::SetPersonalDictionary(
 NS_IMETHODIMP mozHunspell::GetDictionaryList(
     nsTArray<nsCString>& aDictionaries) {
   MOZ_ASSERT(aDictionaries.IsEmpty());
-  for (auto iter = mDictionaries.Iter(); !iter.Done(); iter.Next()) {
-    aDictionaries.AppendElement(NS_ConvertUTF16toUTF8(iter.Key()));
+  for (const auto& key : mDictionaries.Keys()) {
+    aDictionaries.AppendElement(NS_ConvertUTF16toUTF8(key));
   }
 
   return NS_OK;
@@ -276,8 +276,9 @@ void mozHunspell::LoadDictionaryList(bool aNotifyChildProcesses) {
     LoadDictionariesFromDir(mDynamicDirectories[i]);
   }
 
-  for (auto iter = mDynamicDictionaries.Iter(); !iter.Done(); iter.Next()) {
-    mDictionaries.Put(iter.Key(), iter.Data());
+  for (const auto& dictionaryEntry : mDynamicDictionaries) {
+    mDictionaries.InsertOrUpdate(dictionaryEntry.GetKey(),
+                                 dictionaryEntry.GetData());
   }
 
   DictionariesChanged(aNotifyChildProcesses);
@@ -348,7 +349,7 @@ mozHunspell::LoadDictionariesFromDir(nsIFile* aDir) {
     rv = NS_NewFileURI(getter_AddRefs(uri), file);
     NS_ENSURE_SUCCESS(rv, rv);
 
-    mDictionaries.Put(dict, uri);
+    mDictionaries.InsertOrUpdate(dict, uri);
   }
 
   return NS_OK;
@@ -482,8 +483,8 @@ NS_IMETHODIMP mozHunspell::AddDictionary(const nsAString& aLang,
                                          nsIURI* aFile) {
   NS_ENSURE_TRUE(aFile, NS_ERROR_INVALID_ARG);
 
-  mDynamicDictionaries.Put(aLang, aFile);
-  mDictionaries.Put(aLang, aFile);
+  mDynamicDictionaries.InsertOrUpdate(aLang, aFile);
+  mDictionaries.InsertOrUpdate(aLang, aFile);
   DictionariesChanged(true);
   return NS_OK;
 }

@@ -26,49 +26,13 @@ using namespace mozilla;
 using mozilla::dom::Event;
 using mozilla::dom::CallerType;
 
-nsMenuItemX::nsMenuItemX() {
-  mType = eRegularMenuItemType;
-  mNativeMenuItem = nil;
-  mMenuParent = nullptr;
-  mMenuGroupOwner = nullptr;
-  mIsChecked = false;
-
-  MOZ_COUNT_CTOR(nsMenuItemX);
-}
-
-nsMenuItemX::~nsMenuItemX() {
+nsMenuItemX::nsMenuItemX(nsMenuX* aParent, const nsString& aLabel, EMenuItemType aItemType,
+                         nsMenuGroupOwnerX* aMenuGroupOwner, nsIContent* aNode)
+    : mContent(aNode), mType(aItemType), mMenuParent(aParent), mMenuGroupOwner(aMenuGroupOwner) {
   NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
 
-  // Prevent the icon object from outliving us.
-  if (mIcon) {
-    mIcon->Destroy();
-  }
+  MOZ_COUNT_CTOR(nsMenuItemX);
 
-  // autorelease the native menu item so that anything else happening to this
-  // object happens before the native menu item actually dies
-  [mNativeMenuItem autorelease];
-
-  if (mContent) {
-    mMenuGroupOwner->UnregisterForContentChanges(mContent);
-  }
-  if (mCommandElement) {
-    mMenuGroupOwner->UnregisterForContentChanges(mCommandElement);
-  }
-
-  MOZ_COUNT_DTOR(nsMenuItemX);
-
-  NS_OBJC_END_TRY_ABORT_BLOCK;
-}
-
-nsresult nsMenuItemX::Create(nsMenuX* aParent, const nsString& aLabel, EMenuItemType aItemType,
-                             nsMenuGroupOwnerX* aMenuGroupOwner, nsIContent* aNode) {
-  NS_OBJC_BEGIN_TRY_ABORT_BLOCK_NSRESULT;
-
-  mType = aItemType;
-  mMenuParent = aParent;
-  mContent = aNode;
-
-  mMenuGroupOwner = aMenuGroupOwner;
   NS_ASSERTION(mMenuGroupOwner, "No menu owner given, must have one!");
 
   mMenuGroupOwner->RegisterForContentChanges(mContent, this);
@@ -115,7 +79,7 @@ nsresult nsMenuItemX::Create(nsMenuX* aParent, const nsString& aLabel, EMenuItem
                                                  action:nil
                                           keyEquivalent:@""];
 
-    [mNativeMenuItem setEnabled:(BOOL)isEnabled];
+    mNativeMenuItem.enabled = isEnabled;
 
     SetChecked(mContent->IsElement() &&
                mContent->AsElement()->AttrValueIs(kNameSpaceID_None, nsGkAtoms::checked,
@@ -123,18 +87,40 @@ nsresult nsMenuItemX::Create(nsMenuX* aParent, const nsString& aLabel, EMenuItem
     SetKeyEquiv();
   }
 
-  mIcon = new nsMenuItemIconX(this, mContent, mNativeMenuItem);
-  if (!mIcon) {
-    return NS_ERROR_OUT_OF_MEMORY;
+  mIcon = MakeUnique<nsMenuItemIconX>(this);
+
+  NS_OBJC_END_TRY_ABORT_BLOCK;
+}
+
+nsMenuItemX::~nsMenuItemX() {
+  NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
+
+  // autorelease the native menu item so that anything else happening to this
+  // object happens before the native menu item actually dies
+  [mNativeMenuItem autorelease];
+
+  DetachFromGroupOwner();
+
+  MOZ_COUNT_DTOR(nsMenuItemX);
+
+  NS_OBJC_END_TRY_ABORT_BLOCK;
+}
+
+void nsMenuItemX::DetachFromGroupOwner() {
+  if (mMenuGroupOwner) {
+    if (mContent) {
+      mMenuGroupOwner->UnregisterForContentChanges(mContent);
+    }
+    if (mCommandElement) {
+      mMenuGroupOwner->UnregisterForContentChanges(mCommandElement);
+    }
   }
 
-  return NS_OK;
-
-  NS_OBJC_END_TRY_ABORT_BLOCK_NSRESULT;
+  mMenuGroupOwner = nullptr;
 }
 
 nsresult nsMenuItemX::SetChecked(bool aIsChecked) {
-  NS_OBJC_BEGIN_TRY_ABORT_BLOCK_NSRESULT;
+  NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
 
   mIsChecked = aIsChecked;
 
@@ -144,22 +130,18 @@ nsresult nsMenuItemX::SetChecked(bool aIsChecked) {
                                  mIsChecked ? u"true"_ns : u"false"_ns, true);
 
   // update native menu item
-  if (mIsChecked) {
-    [mNativeMenuItem setState:NSOnState];
-  } else {
-    [mNativeMenuItem setState:NSOffState];
-  }
+  mNativeMenuItem.state = mIsChecked ? NSOnState : NSOffState;
 
   return NS_OK;
 
-  NS_OBJC_END_TRY_ABORT_BLOCK_NSRESULT;
+  NS_OBJC_END_TRY_ABORT_BLOCK;
 }
 
 EMenuItemType nsMenuItemX::GetMenuItemType() { return mType; }
 
 // Executes the "cached" javaScript command.
 // Returns NS_OK if the command was executed properly, otherwise an error code.
-void nsMenuItemX::DoCommand() {
+void nsMenuItemX::DoCommand(NSEventModifierFlags aModifierFlags) {
   // flip "checked" state if we're a checkbox menu, or an un-checked radio menu
   if (mType == eCheckboxMenuItemType || (mType == eRadioMenuItemType && !mIsChecked)) {
     if (!mContent->IsElement() ||
@@ -170,7 +152,7 @@ void nsMenuItemX::DoCommand() {
     /* the AttributeChanged code will update all the internal state */
   }
 
-  nsMenuUtilsX::DispatchCommandTo(mContent);
+  nsMenuUtilsX::DispatchCommandTo(mContent, aModifierFlags);
 }
 
 nsresult nsMenuItemX::DispatchDOMEvent(const nsString& eventName, bool* preventDefaultCalled) {
@@ -205,16 +187,16 @@ nsresult nsMenuItemX::DispatchDOMEvent(const nsString& eventName, bool* preventD
 
 // Walk the sibling list looking for nodes with the same name and
 // uncheck them all.
-void nsMenuItemX::UncheckRadioSiblings(nsIContent* inCheckedContent) {
+void nsMenuItemX::UncheckRadioSiblings(nsIContent* aCheckedContent) {
   nsAutoString myGroupName;
-  if (inCheckedContent->IsElement()) {
-    inCheckedContent->AsElement()->GetAttr(kNameSpaceID_None, nsGkAtoms::name, myGroupName);
+  if (aCheckedContent->IsElement()) {
+    aCheckedContent->AsElement()->GetAttr(kNameSpaceID_None, nsGkAtoms::name, myGroupName);
   }
   if (!myGroupName.Length()) {  // no groupname, nothing to do
     return;
   }
 
-  nsCOMPtr<nsIContent> parent = inCheckedContent->GetParent();
+  nsCOMPtr<nsIContent> parent = aCheckedContent->GetParent();
   if (!parent) {
     return;
   }
@@ -222,7 +204,7 @@ void nsMenuItemX::UncheckRadioSiblings(nsIContent* inCheckedContent) {
   // loop over siblings
   for (nsIContent* sibling = parent->GetFirstChild(); sibling;
        sibling = sibling->GetNextSibling()) {
-    if (sibling != inCheckedContent && sibling->IsElement()) {  // skip this node
+    if (sibling != aCheckedContent && sibling->IsElement()) {  // skip this node
       // if the current sibling is in the same group, clear it
       if (sibling->AsElement()->AttrValueIs(kNameSpaceID_None, nsGkAtoms::name, myGroupName,
                                             eCaseMatters)) {
@@ -263,14 +245,14 @@ void nsMenuItemX::SetKeyEquiv() {
       uint8_t modifiers = nsMenuUtilsX::GeckoModifiersForNodeAttribute(modifiersStr);
 
       unsigned int macModifiers = nsMenuUtilsX::MacModifiersForGeckoModifiers(modifiers);
-      [mNativeMenuItem setKeyEquivalentModifierMask:macModifiers];
+      mNativeMenuItem.keyEquivalentModifierMask = macModifiers;
 
       NSString* keyEquivalent = [[NSString stringWithCharacters:(unichar*)keyChar.get()
                                                          length:keyChar.Length()] lowercaseString];
       if ([keyEquivalent isEqualToString:@" "]) {
-        [mNativeMenuItem setKeyEquivalent:@""];
+        mNativeMenuItem.keyEquivalent = @"";
       } else {
-        [mNativeMenuItem setKeyEquivalent:keyEquivalent];
+        mNativeMenuItem.keyEquivalent = keyEquivalent;
       }
 
       return;
@@ -278,9 +260,15 @@ void nsMenuItemX::SetKeyEquiv() {
   }
 
   // if the key was removed, clear the key
-  [mNativeMenuItem setKeyEquivalent:@""];
+  mNativeMenuItem.keyEquivalent = @"";
 
   NS_OBJC_END_TRY_ABORT_BLOCK;
+}
+
+void nsMenuItemX::Dump(uint32_t aIndent) const {
+  printf("%*s - item [%p] %-16s <%s>\n", aIndent * 2, "", this,
+         mType == eSeparatorMenuItemType ? "----" : [mNativeMenuItem.title UTF8String],
+         NS_ConvertUTF16toUTF8(mContent->NodeName()).get());
 }
 
 //
@@ -305,20 +293,21 @@ void nsMenuItemX::ObserveAttributeChanged(dom::Document* aDocument, nsIContent* 
         UncheckRadioSiblings(mContent);
       }
       mMenuParent->SetRebuild(true);
-    } else if (aAttribute == nsGkAtoms::hidden || aAttribute == nsGkAtoms::collapsed ||
-               aAttribute == nsGkAtoms::label) {
+    } else if (aAttribute == nsGkAtoms::hidden || aAttribute == nsGkAtoms::collapsed) {
       mMenuParent->SetRebuild(true);
+    } else if (aAttribute == nsGkAtoms::label) {
+      if (mType != eSeparatorMenuItemType) {
+        nsAutoString newLabel;
+        mContent->AsElement()->GetAttr(kNameSpaceID_None, nsGkAtoms::label, newLabel);
+        mNativeMenuItem.title = nsMenuUtilsX::GetTruncatedCocoaLabel(newLabel);
+      }
     } else if (aAttribute == nsGkAtoms::key) {
       SetKeyEquiv();
     } else if (aAttribute == nsGkAtoms::image) {
       SetupIcon();
     } else if (aAttribute == nsGkAtoms::disabled) {
-      if (aContent->AsElement()->AttrValueIs(kNameSpaceID_None, nsGkAtoms::disabled,
-                                             nsGkAtoms::_true, eCaseMatters)) {
-        [mNativeMenuItem setEnabled:NO];
-      } else {
-        [mNativeMenuItem setEnabled:YES];
-      }
+      mNativeMenuItem.enabled = !aContent->AsElement()->AttrValueIs(
+          kNameSpaceID_None, nsGkAtoms::disabled, nsGkAtoms::_true, eCaseMatters);
     }
   } else if (aContent == mCommandElement) {
     // the only thing that really matters when the menu isn't showing is the
@@ -339,12 +328,8 @@ void nsMenuItemX::ObserveAttributeChanged(dom::Document* aDocument, nsIContent* 
         }
       }
       // now we sync our native menu item with the command DOM node
-      if (aContent->AsElement()->AttrValueIs(kNameSpaceID_None, nsGkAtoms::disabled,
-                                             nsGkAtoms::_true, eCaseMatters)) {
-        [mNativeMenuItem setEnabled:NO];
-      } else {
-        [mNativeMenuItem setEnabled:YES];
-      }
+      mNativeMenuItem.enabled = !aContent->AsElement()->AttrValueIs(
+          kNameSpaceID_None, nsGkAtoms::disabled, nsGkAtoms::_true, eCaseMatters);
     }
   }
 
@@ -358,6 +343,9 @@ bool IsMenuStructureElement(nsIContent* aContent) {
 
 void nsMenuItemX::ObserveContentRemoved(dom::Document* aDocument, nsIContent* aContainer,
                                         nsIContent* aChild, nsIContent* aPreviousSibling) {
+  MOZ_RELEASE_ASSERT(mMenuGroupOwner);
+  MOZ_RELEASE_ASSERT(mMenuParent);
+
   if (aChild == mCommandElement) {
     mMenuGroupOwner->UnregisterForContentChanges(mCommandElement);
     mCommandElement = nullptr;
@@ -369,6 +357,8 @@ void nsMenuItemX::ObserveContentRemoved(dom::Document* aDocument, nsIContent* aC
 
 void nsMenuItemX::ObserveContentInserted(dom::Document* aDocument, nsIContent* aContainer,
                                          nsIContent* aChild) {
+  MOZ_RELEASE_ASSERT(mMenuParent);
+
   // The child node could come from the custom element that is for display, so
   // only rebuild the menu if the child is related to the structure of the
   // menu.
@@ -378,7 +368,13 @@ void nsMenuItemX::ObserveContentInserted(dom::Document* aDocument, nsIContent* a
 }
 
 void nsMenuItemX::SetupIcon() {
-  if (mIcon) {
-    mIcon->SetupIcon();
+  if (mType != eRegularMenuItemType) {
+    // Don't support icons on checkbox and radio menuitems, for consistency with Windows & Linux.
+    return;
   }
+
+  mIcon->SetupIcon(mContent);
+  mNativeMenuItem.image = mIcon->GetIconImage();
 }
+
+void nsMenuItemX::IconUpdated() { mNativeMenuItem.image = mIcon->GetIconImage(); }

@@ -13,7 +13,6 @@
 #include "mozilla/layers/SourceSurfaceSharedData.h"
 #include "mozilla/layers/CompositorThread.h"
 #include "mozilla/webrender/RenderSharedSurfaceTextureHost.h"
-#include "mozilla/webrender/RenderSharedSurfaceTextureHostSWGL.h"
 #include "mozilla/webrender/RenderThread.h"
 
 namespace mozilla {
@@ -27,11 +26,11 @@ StaticAutoPtr<SharedSurfacesParent> SharedSurfacesParent::sInstance;
 SharedSurfacesParent::SharedSurfacesParent() = default;
 
 SharedSurfacesParent::~SharedSurfacesParent() {
-  for (auto i = mSurfaces.Iter(); !i.Done(); i.Next()) {
+  for (const auto& key : mSurfaces.Keys()) {
     // There may be lingering consumers of the surfaces that didn't get shutdown
     // yet but since we are here, we know the render thread is finished and we
     // can unregister everything.
-    wr::RenderThread::Get()->UnregisterExternalImageDuringShutdown(i.Key());
+    wr::RenderThread::Get()->UnregisterExternalImageDuringShutdown(key);
   }
 }
 
@@ -132,16 +131,11 @@ void SharedSurfacesParent::AddSameProcess(const wr::ExternalImageId& aId,
   uint64_t id = wr::AsUint64(aId);
   MOZ_ASSERT(!sInstance->mSurfaces.Contains(id));
 
-  RefPtr<wr::RenderTextureHost> texture;
-  if (gfx::gfxVars::UseSoftwareWebRender()) {
-    texture = new wr::RenderSharedSurfaceTextureHostSWGL(surface);
-  } else {
-    texture = new wr::RenderSharedSurfaceTextureHost(surface);
-  }
+  auto texture = MakeRefPtr<wr::RenderSharedSurfaceTextureHost>(surface);
   wr::RenderThread::Get()->RegisterExternalImage(id, texture.forget());
 
   surface->AddConsumer();
-  sInstance->mSurfaces.Put(id, std::move(surface));
+  sInstance->mSurfaces.InsertOrUpdate(id, std::move(surface));
 }
 
 /* static */
@@ -187,16 +181,11 @@ void SharedSurfacesParent::Add(const wr::ExternalImageId& aId,
   uint64_t id = wr::AsUint64(aId);
   MOZ_ASSERT(!sInstance->mSurfaces.Contains(id));
 
-  RefPtr<wr::RenderTextureHost> texture;
-  if (gfx::gfxVars::UseSoftwareWebRender()) {
-    texture = new wr::RenderSharedSurfaceTextureHostSWGL(surface);
-  } else {
-    texture = new wr::RenderSharedSurfaceTextureHost(surface);
-  }
+  auto texture = MakeRefPtr<wr::RenderSharedSurfaceTextureHost>(surface);
   wr::RenderThread::Get()->RegisterExternalImage(id, texture.forget());
 
   surface->AddConsumer();
-  sInstance->mSurfaces.Put(id, std::move(surface));
+  sInstance->mSurfaces.InsertOrUpdate(id, std::move(surface));
 }
 
 /* static */
@@ -213,13 +202,14 @@ void SharedSurfacesParent::AccumulateMemoryReport(
     return;
   }
 
-  for (auto i = sInstance->mSurfaces.ConstIter(); !i.Done(); i.Next()) {
-    SourceSurfaceSharedDataWrapper* surface = i.Data();
+  for (const auto& entry : sInstance->mSurfaces) {
+    SourceSurfaceSharedDataWrapper* surface = entry.GetData();
     if (surface->GetCreatorPid() == aPid) {
       aReport.mSurfaces.insert(std::make_pair(
-          i.Key(), SharedSurfacesMemoryReport::SurfaceEntry{
-                       aPid, surface->GetSize(), surface->Stride(),
-                       surface->GetConsumers(), surface->HasCreatorRef()}));
+          entry.GetKey(),
+          SharedSurfacesMemoryReport::SurfaceEntry{
+              aPid, surface->GetSize(), surface->Stride(),
+              surface->GetConsumers(), surface->HasCreatorRef()}));
     }
   }
 }
@@ -241,10 +231,10 @@ bool SharedSurfacesParent::AccumulateMemoryReport(
     return true;
   }
 
-  for (auto i = sInstance->mSurfaces.ConstIter(); !i.Done(); i.Next()) {
-    SourceSurfaceSharedDataWrapper* surface = i.Data();
+  for (const auto& entry : sInstance->mSurfaces) {
+    SourceSurfaceSharedDataWrapper* surface = entry.GetData();
     aReport.mSurfaces.insert(std::make_pair(
-        i.Key(),
+        entry.GetKey(),
         SharedSurfacesMemoryReport::SurfaceEntry{
             surface->GetCreatorPid(), surface->GetSize(), surface->Stride(),
             surface->GetConsumers(), surface->HasCreatorRef()}));

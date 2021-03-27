@@ -28,6 +28,7 @@
 #include "mozilla/LookAndFeel.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/PresShell.h"
+#include "mozilla/ScopeExit.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/Event.h"  // for Event
 #include "mozilla/dom/MouseEvent.h"
@@ -432,9 +433,20 @@ static void SetTitletipLabel(XULTreeElement* aTree, Element* aTooltip,
 }
 #endif
 
+static bool IsInTree(const Element& aTarget) {
+  for (nsIContent* p = aTarget.GetParent(); p; p = p->GetParent()) {
+    if (p->IsAnyOfXULElements(nsGkAtoms::tree, nsGkAtoms::treechildren)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void nsXULTooltipListener::LaunchTooltip() {
-  nsCOMPtr<Element> currentTooltip = do_QueryReferent(mCurrentTooltip);
-  if (!currentTooltip) return;
+  RefPtr<Element> currentTooltip = do_QueryReferent(mCurrentTooltip);
+  if (!currentTooltip) {
+    return;
+  }
 
 #ifdef MOZ_XUL
   if (mIsSourceTree && mNeedTitletip) {
@@ -450,19 +462,47 @@ void nsXULTooltipListener::LaunchTooltip() {
   } else {
     currentTooltip->UnsetAttr(kNameSpaceID_None, nsGkAtoms::titletip, true);
   }
+
   if (!(currentTooltip = do_QueryReferent(mCurrentTooltip))) {
     // Because of mutation events, currentTooltip can be null.
     return;
   }
 
   nsXULPopupManager* pm = nsXULPopupManager::GetInstance();
-  if (pm) {
-    nsCOMPtr<nsIContent> target = do_QueryReferent(mTargetNode);
+  if (!pm) {
+    return;
+  }
+
+  auto cleanup = MakeScopeExit([&] {
+    // Clear the current tooltip if the popup was not opened successfully.
+    if (!pm->IsPopupOpen(currentTooltip)) {
+      mCurrentTooltip = nullptr;
+    }
+  });
+
+  RefPtr<Element> target = do_QueryReferent(mTargetNode);
+  if (!target) {
+    return;
+  }
+
+  nsAutoString position;
+  if (!IsInTree(*target)) {
+    nsAutoString closest;
+    currentTooltip->GetAttr(nsGkAtoms::anchortoclosest, closest);
+    if (!closest.IsEmpty()) {
+      if (auto* closestTarget =
+              target->Closest(NS_ConvertUTF16toUTF8(closest), IgnoreErrors())) {
+        target = closestTarget;
+      }
+    }
+    currentTooltip->GetAttr(nsGkAtoms::position, position);
+  }
+
+  if (position.IsEmpty()) {
     pm->ShowTooltipAtScreen(currentTooltip, target, mMouseScreenX,
                             mMouseScreenY);
-
-    // Clear the current tooltip if the popup was not opened successfully.
-    if (!pm->IsPopupOpen(currentTooltip)) mCurrentTooltip = nullptr;
+  } else {
+    pm->ShowTooltipAtPosition(currentTooltip, target, position);
   }
 #endif
 }

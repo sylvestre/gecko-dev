@@ -16205,6 +16205,7 @@ class CGDescriptor(CGThing):
                 elif m.getExtendedAttribute("Replaceable"):
                     cgThings.append(CGSpecializedReplaceableSetter(descriptor, m))
                 elif m.getExtendedAttribute("LenientSetter"):
+                    # XXX In this case, we need to add an include for mozilla/dom/Document.h to the generated cpp file.
                     cgThings.append(CGSpecializedLenientSetter(descriptor, m))
                 if (
                     not m.isStatic()
@@ -17982,12 +17983,13 @@ class CGBindingRoot(CGThing):
     """
 
     def __init__(self, config, prefix, webIDLFile):
-        bindingHeaders = dict.fromkeys(("mozilla/dom/NonRefcountedDOMObject.h",), True)
+        bindingHeaders = dict.fromkeys(
+            ("mozilla/dom/NonRefcountedDOMObject.h", "MainThreadUtils.h"), True
+        )
         bindingDeclareHeaders = dict.fromkeys(
             (
                 "mozilla/dom/BindingDeclarations.h",
                 "mozilla/dom/Nullable.h",
-                "mozilla/ErrorResult.h",
             ),
             True,
         )
@@ -18022,8 +18024,44 @@ class CGBindingRoot(CGThing):
             for d in descriptors
         )
 
-        # XXX Not sure when we actually need this
-        bindingHeaders["GeckoProfiler.h"] = True
+        def memberNeedsSubjectPrincipal(d, m):
+            if m.isAttr():
+                return (
+                    "needsSubjectPrincipal" in d.getExtendedAttributes(m, getter=True)
+                ) or (
+                    not m.readonly
+                    and "needsSubjectPrincipal"
+                    in d.getExtendedAttributes(m, setter=True)
+                )
+            return m.isMethod() and "needsSubjectPrincipal" in d.getExtendedAttributes(
+                m
+            )
+
+        if any(
+            memberNeedsSubjectPrincipal(d, m)
+            for d in descriptors
+            for m in d.interface.members
+        ):
+            bindingHeaders["mozilla/BasePrincipal.h"] = True
+            bindingHeaders["nsJSPrincipals.h"] = True
+
+        # The conditions for which we generate profiler labels are fairly
+        # complicated. The check below is a little imprecise to make it simple.
+        # It includes the profiler header in all cases where it is necessary and
+        # generates only a few false positives.
+        bindingHeaders["mozilla/ProfilerLabels.h"] = any(
+            # constructor profiler label
+            d.interface.namedConstructors
+            or (d.interface.hasInterfaceObject() and d.interface.ctor())
+            or any(
+                # getter/setter profiler labels
+                m.isAttr()
+                # method profiler label
+                or m.isMethod()
+                for m in d.interface.members
+            )
+            for d in descriptors
+        )
 
         def descriptorHasCrossOriginProperties(desc):
             def hasCrossOriginProperty(m):
@@ -18197,6 +18235,9 @@ class CGBindingRoot(CGThing):
         bindingHeaders["AtomList.h"] = (
             hasNonEmptyDictionaries or jsImplemented or callbackDescriptors
         )
+
+        if callbackDescriptors:
+            bindingDeclareHeaders["mozilla/ErrorResult.h"] = True
 
         def descriptorClearsPropsInSlots(descriptor):
             if not descriptor.wrapperCache:
@@ -21625,8 +21666,14 @@ class CGMaplikeOrSetlikeHelperFunctionGenerator(CallbackMember):
                 // It's safe to use UnprivilegedJunkScopeOrWorkerGlobal here because
                 // all we want is to wrap into _some_ scope and then unwrap to find
                 // the reflector, and wrapping has no side-effects.
-                JSAutoRealm tempRealm(cx, UnprivilegedJunkScopeOrWorkerGlobal());
+                JSObject* scope = UnprivilegedJunkScopeOrWorkerGlobal(fallible);
+                if (!scope) {
+                  aRv.Throw(NS_ERROR_UNEXPECTED);
+                  return%s;
+                }
+                JSAutoRealm tempRealm(cx, scope);
                 """
+                % self.getDefaultRetval()
             )
 
         code += dedent(
@@ -23080,13 +23127,13 @@ class CGEventRoot(CGThing):
             [
                 config.getDescriptor(parent).headerFile,
                 "mozilla/Attributes.h",
-                "mozilla/ErrorResult.h",
                 "mozilla/dom/%sBinding.h" % interfaceName,
                 "mozilla/dom/BindingUtils.h",
             ],
             [
                 "%s.h" % interfaceName,
                 "js/GCAPI.h",
+                "mozilla/HoldDropJSObjects.h",
                 "mozilla/dom/Nullable.h",
             ],
             "",

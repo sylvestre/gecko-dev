@@ -95,12 +95,6 @@ const ADDITIONAL_FROM_ACTOR_RESOURCE = {
 };
 
 add_task(async function() {
-  await pushPref("devtools.testing.enableServerWatcherSupport", false);
-  await testResourceAvailableFeature();
-  await testResourceUpdateFeature();
-  await testNestedResourceUpdateFeature();
-
-  await pushPref("devtools.testing.enableServerWatcherSupport", true);
   await testResourceAvailableFeature();
   await testResourceUpdateFeature();
   await testNestedResourceUpdateFeature();
@@ -194,9 +188,13 @@ async function testResourceUpdateFeature() {
     EXISTING_RESOURCES.length,
     "Length of existing resources is correct"
   );
+  is(updates.length, 0, "there's no update yet");
 
   info("Check toggleDisabled function");
-  const resource = availableResources[0];
+  // Retrieve the stylesheet of the top-level target
+  const resource = availableResources.find(
+    innerResource => innerResource.targetFront.isTopLevel
+  );
   const styleSheetsFront = await resource.targetFront.getFront("stylesheets");
   await styleSheetsFront.toggleDisabled(resource.resourceId);
   await waitUntil(() => updates.length === 1);
@@ -229,7 +227,7 @@ async function testResourceUpdateFeature() {
       return stylesheet.disabled;
     }
   );
-  is(styleSheetDisabled, true, "actual stylesheet is is updated correctly");
+  is(styleSheetDisabled, true, "actual stylesheet was updated correctly");
 
   info("Check update function");
   const expectedMediaRules = [
@@ -336,7 +334,10 @@ async function testNestedResourceUpdateFeature() {
   // In order to avoid applying the media query (min-height: 400px).
   tab.ownerGlobal.resizeTo(originalWindowWidth, 300);
 
-  const resource = availableResources[0];
+  // Retrieve the stylesheet of the top-level target
+  const resource = availableResources.find(
+    innerResource => innerResource.targetFront.isTopLevel
+  );
   const styleSheetsFront = await resource.targetFront.getFront("stylesheets");
   await styleSheetsFront.update(
     resource.resourceId,
@@ -351,9 +352,6 @@ async function testNestedResourceUpdateFeature() {
   await waitUntil(() => updates.length === 4);
 
   // Check the update content.
-  const isServerWatcher = Services.prefs.getBoolPref(
-    "devtools.testing.enableServerWatcherSupport"
-  );
   const targetUpdate = updates[3];
   assertUpdate(targetUpdate.update, {
     resourceId: resource.resourceId,
@@ -361,29 +359,16 @@ async function testNestedResourceUpdateFeature() {
   });
   ok(resource === targetUpdate.resource, "Update object has the same resource");
 
-  if (isServerWatcher) {
-    is(
-      JSON.stringify(targetUpdate.update.nestedResourceUpdates[0].path),
-      JSON.stringify(["mediaRules", 0, "matches"]),
-      "path of nestedResourceUpdates is correct"
-    );
-    is(
-      targetUpdate.update.nestedResourceUpdates[0].value,
-      true,
-      "value of nestedResourceUpdates is correct"
-    );
-  } else {
-    is(
-      JSON.stringify(targetUpdate.update.nestedResourceUpdates[0].path),
-      JSON.stringify(["mediaRules", 0]),
-      "path of nestedResourceUpdates is correct"
-    );
-    is(
-      targetUpdate.update.nestedResourceUpdates[0].value.matches,
-      true,
-      "value of nestedResourceUpdates is correct"
-    );
-  }
+  is(
+    JSON.stringify(targetUpdate.update.nestedResourceUpdates[0].path),
+    JSON.stringify(["mediaRules", 0, "matches"]),
+    "path of nestedResourceUpdates is correct"
+  );
+  is(
+    targetUpdate.update.nestedResourceUpdates[0].value,
+    true,
+    "value of nestedResourceUpdates is correct"
+  );
 
   // Check the resource.
   const expectedMediaRules = [

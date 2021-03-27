@@ -20,7 +20,8 @@
 #include "nsUnicodeProperties.h"
 
 #include "mozilla/Preferences.h"
-#include "mozilla/Services.h"
+#include "mozilla/ProfilerLabels.h"
+#include "mozilla/Components.h"
 #include "mozilla/Sprintf.h"
 #include "mozilla/WindowsVersion.h"
 #include "nsIGfxInfo.h"
@@ -28,7 +29,6 @@
 #include "nsTArray.h"
 #include "nsThreadUtils.h"
 #include "mozilla/Telemetry.h"
-#include "GeckoProfiler.h"
 
 #include "plbase64.h"
 #include "nsIXULRuntime.h"
@@ -467,13 +467,18 @@ void gfxWindowsPlatform::UpdateBackendPrefs() {
   BackendPrefsData data = GetBackendPrefs();
   // Remove DIRECT2D1 preference if D2D1Device does not exist.
   if (!Factory::HasD2D1Device()) {
-    data.mCanvasBitmask &= ~BackendTypeBit(BackendType::DIRECT2D1_1);
     data.mContentBitmask &= ~BackendTypeBit(BackendType::DIRECT2D1_1);
-    if (data.mCanvasDefault == BackendType::DIRECT2D1_1) {
-      data.mCanvasDefault = BackendType::SKIA;
-    }
     if (data.mContentDefault == BackendType::DIRECT2D1_1) {
       data.mContentDefault = BackendType::SKIA;
+    }
+
+    // Don't exclude DIRECT2D1_1 if using remote canvas, because DIRECT2D1_1 and
+    // hence the device will be used in the GPU process.
+    if (!gfxPlatform::UseRemoteCanvas()) {
+      data.mCanvasBitmask &= ~BackendTypeBit(BackendType::DIRECT2D1_1);
+      if (data.mCanvasDefault == BackendType::DIRECT2D1_1) {
+        data.mCanvasDefault = BackendType::SKIA;
+      }
     }
   }
   InitBackendPrefs(std::move(data));
@@ -1319,7 +1324,7 @@ void gfxWindowsPlatform::InitializeD3D11Config() {
   if (!IsWin8OrLater() &&
       !DeviceManagerDx::Get()->CheckRemotePresentSupport()) {
     nsCOMPtr<nsIGfxInfo> gfxInfo;
-    gfxInfo = services::GetGfxInfo();
+    gfxInfo = components::GfxInfo::Service();
     nsAutoString adaptorId;
     gfxInfo->GetAdapterDeviceID(adaptorId);
     // Blocklist Intel HD Graphics 510/520/530 on Windows 7 without platform

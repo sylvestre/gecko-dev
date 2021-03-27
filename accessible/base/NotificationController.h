@@ -12,6 +12,7 @@
 #include "mozilla/Tuple.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsRefreshObservers.h"
+#include "nsTHashSet.h"
 
 #include <utility>
 
@@ -117,7 +118,7 @@ class NotificationController final : public EventQueue,
    * Returns existing event tree for the given the accessible or creates one if
    * it doesn't exists yet.
    */
-  EventTree* QueueMutation(Accessible* aContainer);
+  EventTree* QueueMutation(LocalAccessible* aContainer);
 
   class MoveGuard final {
    public:
@@ -173,20 +174,20 @@ class NotificationController final : public EventQueue,
     MOZ_ASSERT(aTextNode->GetPrimaryFrame()->StyleVisibility()->IsVisible(),
                "A text node is not visible");
 
-    mTextHash.PutEntry(aTextNode);
+    mTextHash.Insert(aTextNode);
     ScheduleProcessing();
   }
 
   /**
    * Pend accessible tree update for content insertion.
    */
-  void ScheduleContentInsertion(Accessible* aContainer,
+  void ScheduleContentInsertion(LocalAccessible* aContainer,
                                 nsTArray<nsCOMPtr<nsIContent>>& aInsertions);
 
   /**
    * Pend an accessible subtree relocation.
    */
-  void ScheduleRelocation(Accessible* aOwner) {
+  void ScheduleRelocation(LocalAccessible* aOwner) {
     if (!mRelocations.Contains(aOwner)) {
       // XXX(Bug 1631371) Check if this should use a fallible operation as it
       // pretended earlier, or change the return type to void.
@@ -217,8 +218,9 @@ class NotificationController final : public EventQueue,
     if (!IsUpdatePending()) {
 #ifdef A11Y_LOG
       if (mozilla::a11y::logging::IsEnabled(
-              mozilla::a11y::logging::eNotifications))
+              mozilla::a11y::logging::eNotifications)) {
         mozilla::a11y::logging::Text("sync notification processing");
+      }
 #endif
       (aInstance->*aMethod)(aArgs...);
       return;
@@ -350,7 +352,8 @@ class NotificationController final : public EventQueue,
   /**
    * Pending accessible tree update notifications for content insertions.
    */
-  nsClassHashtable<nsRefPtrHashKey<Accessible>, nsTArray<nsCOMPtr<nsIContent>>>
+  nsClassHashtable<nsRefPtrHashKey<LocalAccessible>,
+                   nsTArray<nsCOMPtr<nsIContent>>>
       mContentInsertions;
 
   template <class T>
@@ -381,7 +384,7 @@ class NotificationController final : public EventQueue,
   /**
    * Pending accessible tree update notifications for rendered text changes.
    */
-  nsTHashtable<nsCOMPtrHashKey<nsIContent>> mTextHash;
+  nsTHashSet<nsCOMPtrHashKey<nsIContent>> mTextHash;
 
   /**
    * Other notifications like DOM events. Don't make this an AutoTArray; we
@@ -392,7 +395,7 @@ class NotificationController final : public EventQueue,
   /**
    * Holds all scheduled relocations.
    */
-  nsTArray<RefPtr<Accessible>> mRelocations;
+  nsTArray<RefPtr<LocalAccessible>> mRelocations;
 
   /**
    * Holds all mutation events.
@@ -431,7 +434,7 @@ class NotificationController final : public EventQueue,
     };
 
     void PutEvent(AccTreeMutationEvent* aEvent);
-    AccTreeMutationEvent* GetEvent(Accessible* aTarget, EventType aType);
+    AccTreeMutationEvent* GetEvent(LocalAccessible* aTarget, EventType aType);
     void RemoveEvent(AccTreeMutationEvent* aEvent);
     void Clear() { mTable.Clear(); }
 

@@ -5,7 +5,6 @@
 
 // Test the ResourceWatcher API around DOCUMENT_EVENT
 
-const { TargetList } = require("devtools/shared/resources/target-list");
 const {
   ResourceWatcher,
 } = require("devtools/shared/resources/resource-watcher");
@@ -21,16 +20,10 @@ async function testDocumentEventResources() {
   // Open a test tab
   const tab = await addTab("data:text/html,Document Events");
 
-  // Create a TargetList for the test tab
-  const client = await createLocalClient();
-  const descriptor = await client.mainRoot.getTab({ tab });
-  const target = await descriptor.getTarget();
-  const targetList = new TargetList(client.mainRoot, target);
-  await targetList.startListening();
-
-  // Activate ResourceWatcher
   const listener = new ResourceListener();
-  const resourceWatcher = new ResourceWatcher(targetList);
+  const { client, resourceWatcher, targetList } = await initResourceWatcher(
+    tab
+  );
 
   info(
     "Check whether the document events are fired correctly even when the document was already loaded"
@@ -46,6 +39,12 @@ async function testDocumentEventResources() {
     true,
     "Document events are fired even when the document was already loaded"
   );
+  let domLoadingResource = await onLoadingAtInit;
+  is(
+    domLoadingResource.shouldBeIgnoredAsRedundantWithTargetAvailable,
+    true,
+    "shouldBeIgnoredAsRedundantWithTargetAvailable is true for already loaded page"
+  );
 
   info("Check whether the document events are fired correctly when reloading");
   const onLoadingAtReloaded = listener.once("dom-loading");
@@ -58,6 +57,13 @@ async function testDocumentEventResources() {
     onCompleteAtReloaded
   );
   ok(true, "Document events are fired after reloading");
+
+  domLoadingResource = await onLoadingAtReloaded;
+  is(
+    domLoadingResource.shouldBeIgnoredAsRedundantWithTargetAvailable,
+    undefined,
+    "shouldBeIgnoredAsRedundantWithTargetAvailable is not set after reloading"
+  );
 
   targetList.destroy();
   await client.close();

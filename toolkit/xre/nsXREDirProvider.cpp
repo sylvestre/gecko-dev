@@ -33,11 +33,11 @@
 #include "nsEnumeratorUtils.h"
 #include "nsReadableUtils.h"
 
-#include "GeckoProfiler.h"
 #include "SpecialSystemDirectory.h"
 
 #include "mozilla/dom/ScriptSettings.h"
 
+#include "mozilla/AppShutdown.h"
 #include "mozilla/AutoRestore.h"
 #ifdef MOZ_BACKGROUNDTASKS
 #  include "mozilla/BackgroundTasks.h"
@@ -46,9 +46,15 @@
 #include "mozilla/Services.h"
 #include "mozilla/Omnijar.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/ProfilerLabels.h"
 #include "mozilla/Telemetry.h"
 #include "mozilla/XREAppData.h"
 #include "nsPrintfCString.h"
+
+#ifdef MOZ_THUNDERBIRD
+#  include "nsIPK11TokenDB.h"
+#  include "nsIPK11Token.h"
+#endif
 
 #include <stdlib.h>
 
@@ -979,6 +985,26 @@ nsXREDirProvider::DoStartup() {
     mozilla::SandboxBroker::GeckoDependentInitialize();
 #endif
 
+#ifdef MOZ_THUNDERBIRD
+    if (mozilla::Preferences::GetBool(
+            "security.prompt_for_master_password_on_startup", false)) {
+      // Prompt for the master password prior to opening application windows,
+      // to avoid the race that triggers multiple prompts (see bug 177175).
+      // We use this code until we have a better solution, possibly as
+      // described in bug 177175 comment 384.
+      nsCOMPtr<nsIPK11TokenDB> db =
+          do_GetService("@mozilla.org/security/pk11tokendb;1");
+      if (db) {
+        nsCOMPtr<nsIPK11Token> token;
+        if (NS_SUCCEEDED(db->GetInternalKeyToken(getter_AddRefs(token)))) {
+          mozilla::Unused << token->Login(false);
+        }
+      } else {
+        NS_WARNING("Failed to get nsIPK11TokenDB service.");
+      }
+    }
+#endif
+
     bool initExtensionManager =
 #ifdef MOZ_BACKGROUNDTASKS
         !mozilla::BackgroundTasks::IsBackgroundTaskMode();
@@ -1056,30 +1082,24 @@ void nsXREDirProvider::DoShutdown() {
   AUTO_PROFILER_LABEL("nsXREDirProvider::DoShutdown", OTHER);
 
   if (mProfileNotified) {
-    nsCOMPtr<nsIObserverService> obsSvc =
-        mozilla::services::GetObserverService();
-    NS_ASSERTION(obsSvc, "No observer service?");
-    if (obsSvc) {
-      static const char16_t kShutdownPersist[] = u"shutdown-persist";
-      obsSvc->NotifyObservers(nullptr, "profile-change-net-teardown",
-                              kShutdownPersist);
-      obsSvc->NotifyObservers(nullptr, "profile-change-teardown",
-                              kShutdownPersist);
+    mozilla::AppShutdown::AdvanceShutdownPhase(
+        mozilla::ShutdownPhase::AppShutdownNetTeardown, nullptr);
+    mozilla::AppShutdown::AdvanceShutdownPhase(
+        mozilla::ShutdownPhase::AppShutdownTeardown, nullptr);
 
 #ifdef DEBUG
-      // Not having this causes large intermittent leaks. See bug 1340425.
-      if (JSContext* cx = mozilla::dom::danger::GetJSContext()) {
-        JS_GC(cx);
-      }
+    // Not having this causes large intermittent leaks. See bug 1340425.
+    if (JSContext* cx = mozilla::dom::danger::GetJSContext()) {
+      JS_GC(cx);
+    }
 #endif
 
-      obsSvc->NotifyObservers(nullptr, "profile-before-change",
-                              kShutdownPersist);
-      obsSvc->NotifyObservers(nullptr, "profile-before-change-qm",
-                              kShutdownPersist);
-      obsSvc->NotifyObservers(nullptr, "profile-before-change-telemetry",
-                              kShutdownPersist);
-    }
+    mozilla::AppShutdown::AdvanceShutdownPhase(
+        mozilla::ShutdownPhase::AppShutdown, nullptr);
+    mozilla::AppShutdown::AdvanceShutdownPhase(
+        mozilla::ShutdownPhase::AppShutdownQM, nullptr);
+    mozilla::AppShutdown::AdvanceShutdownPhase(
+        mozilla::ShutdownPhase::AppShutdownTelemetry, nullptr);
     mProfileNotified = false;
   }
 

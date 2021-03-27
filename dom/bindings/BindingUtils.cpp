@@ -837,13 +837,16 @@ static JSObject* CreateInterfaceObject(
 
   if (DOMIfaceAndProtoJSClass::FromJSClass(constructorClass)
           ->wantsInterfaceHasInstance) {
-    JS::Rooted<jsid> hasInstanceId(cx, SYMBOL_TO_JSID(JS::GetWellKnownSymbol(
-                                           cx, JS::SymbolCode::hasInstance)));
-    if (!JS_DefineFunctionById(
-            cx, constructor, hasInstanceId, InterfaceHasInstance, 1,
-            // Flags match those of Function[Symbol.hasInstance]
-            JSPROP_READONLY | JSPROP_PERMANENT)) {
-      return nullptr;
+    if (isChrome ||
+        StaticPrefs::dom_webidl_crosscontext_hasinstance_enabled()) {
+      JS::Rooted<jsid> hasInstanceId(cx, SYMBOL_TO_JSID(JS::GetWellKnownSymbol(
+                                             cx, JS::SymbolCode::hasInstance)));
+      if (!JS_DefineFunctionById(
+              cx, constructor, hasInstanceId, InterfaceHasInstance, 1,
+              // Flags match those of Function[Symbol.hasInstance]
+              JSPROP_READONLY | JSPROP_PERMANENT)) {
+        return nullptr;
+      }
     }
 
     if (isChrome && !JS_DefineFunction(cx, constructor, "isInstance",
@@ -1144,14 +1147,15 @@ bool TryPreserveWrapper(JS::Handle<JSObject*> obj) {
 
   // The addProperty hook for WebIDL classes does wrapper preservation, and
   // nothing else, so call it, if present.
-  const DOMJSClass* domClass = GetDOMClass(obj);
-  const JSClass* clasp = domClass->ToJSClass();
-  JSAddPropertyOp addProperty = clasp->getAddProperty();
+
+  const JSClass* clasp = JS::GetClass(obj);
+  const DOMJSClass* domClass = GetDOMClass(clasp);
 
   // We expect all proxies to be nsISupports.
-  MOZ_RELEASE_ASSERT(!clasp->isProxy(),
+  MOZ_RELEASE_ASSERT(clasp->isNativeObject(),
                      "Should not call addProperty for proxies.");
 
+  JSAddPropertyOp addProperty = clasp->getAddProperty();
   if (!addProperty) {
     return true;
   }
@@ -1172,10 +1176,11 @@ bool HasReleasedWrapper(JS::Handle<JSObject*> obj) {
   if (nsISupports* native = UnwrapDOMObjectToISupports(obj)) {
     CallQueryInterface(native, &cache);
   } else {
-    const DOMJSClass* domClass = GetDOMClass(obj);
+    const JSClass* clasp = JS::GetClass(obj);
+    const DOMJSClass* domClass = GetDOMClass(clasp);
 
     // We expect all proxies to be nsISupports.
-    MOZ_RELEASE_ASSERT(!domClass->ToJSClass()->isProxy(),
+    MOZ_RELEASE_ASSERT(clasp->isNativeObject(),
                        "Should not call getWrapperCache for proxies.");
 
     WrapperCacheGetter getter = domClass->mWrapperCacheGetter;
@@ -2554,6 +2559,10 @@ void ConstructJSImplementation(const char* aContractId,
     AutoNoJSAPI nojsapi;
 
     nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(aGlobal);
+    if (!window) {
+      aRv.ThrowInvalidStateError("Global is not a Window");
+      return;
+    }
     if (!window->IsCurrentInnerWindow()) {
       aRv.ThrowInvalidStateError("Window no longer active");
       return;
@@ -4203,12 +4212,6 @@ JSObject* UnprivilegedJunkScopeOrWorkerGlobal(const fallible_t&) {
   }
 
   return GetCurrentThreadWorkerGlobal();
-}
-
-JSObject* UnprivilegedJunkScopeOrWorkerGlobal() {
-  JSObject* scope = UnprivilegedJunkScopeOrWorkerGlobal(fallible);
-  MOZ_RELEASE_ASSERT(scope);
-  return scope;
 }
 }  // namespace binding_detail
 

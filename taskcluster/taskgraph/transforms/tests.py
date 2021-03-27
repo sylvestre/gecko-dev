@@ -34,7 +34,7 @@ from voluptuous import (
 
 import taskgraph
 from taskgraph.transforms.base import TransformSequence
-from taskgraph.util.attributes import match_run_on_projects, keymatch
+from taskgraph.util.attributes import keymatch
 from taskgraph.util.keyed_by import evaluate_keyed_by
 from taskgraph.util.templates import merge
 from taskgraph.util.treeherder import split_symbol, join_symbol
@@ -155,11 +155,8 @@ WINDOWS_WORKER_TYPES = {
 MACOSX_WORKER_TYPES = {
     "macosx1014-64": "t-osx-1014",
     "macosx1014-64-power": "t-osx-1014-power",
+    "macosx1015-64": "t-osx-1015-r8",
 }
-
-
-def runs_on_central(task):
-    return match_run_on_projects("mozilla-central", task["run-on-projects"])
 
 
 def gv_e10s_filter(task):
@@ -167,11 +164,7 @@ def gv_e10s_filter(task):
 
 
 def fission_filter(task):
-    return (
-        runs_on_central(task)
-        and task.get("e10s") in (True, "both")
-        and get_mobile_project(task) != "fennec"
-    )
+    return task.get("e10s") in (True, "both") and get_mobile_project(task) != "fennec"
 
 
 TEST_VARIANTS = {
@@ -215,8 +208,6 @@ TEST_VARIANTS = {
         "filterfn": gv_e10s_filter,
         "suffix": "fis",
         "merge": {
-            # Ensures the default state is to not run anywhere.
-            "fission-run-on-projects": [],
             "mozharness": {
                 "extra-options": [
                     "--enable-fission",
@@ -232,8 +223,6 @@ TEST_VARIANTS = {
             "e10s": True,
         },
         "merge": {
-            # Ensures the default state is to not run anywhere.
-            "fission-run-on-projects": [],
             "mozharness": {
                 "extra-options": [
                     "--setpref=fission.autostart=true",
@@ -250,8 +239,6 @@ TEST_VARIANTS = {
             "e10s": True,
         },
         "merge": {
-            # Ensures the default state is to not run anywhere.
-            "fission-run-on-projects": [],
             "mozharness": {
                 "extra-options": [
                     "--setpref=fission.autostart=true",
@@ -306,7 +293,7 @@ TEST_VARIANTS = {
         },
     },
     "webgl-ipc": {
-        # TODO: After 2021-02-01, verify this variant is still needed.
+        # TODO: After 2021-05-01, verify this variant is still needed.
         "description": "{description} with WebGL IPC process enabled",
         "suffix": "gli",
         "replace": {
@@ -319,6 +306,18 @@ TEST_VARIANTS = {
                 },
             },
         },
+        "merge": {
+            "mozharness": {
+                "extra-options": [
+                    "--setpref=webgl.out-of-process=true",
+                ],
+            },
+        },
+    },
+    "webgl-ipc-profiling": {
+        # TODO: After 2021-05-01, verify this variant is still needed.
+        "description": "{description} with WebGL IPC process enabled",
+        "suffix": "gli",
         "merge": {
             "mozharness": {
                 "extra-options": [
@@ -394,7 +393,11 @@ test_description_schema = Schema(
         # build task's run-on-projects, meaning that tests run only on platforms
         # that are built.
         Optional("run-on-projects"): optionally_keyed_by(
-            "test-platform", "test-name", "variant", Any([text_type], "built-projects")
+            "app",
+            "test-platform",
+            "test-name",
+            "variant",
+            Any([text_type], "built-projects"),
         ),
         # When set only run on projects where the build would already be running.
         # This ensures tasks where this is True won't be the cause of the build
@@ -404,10 +407,12 @@ test_description_schema = Schema(
         # tasks will ignore `run_on_projects` and non-Fission tasks will ignore
         # `fission-run-on-projects`.
         Optional("fission-run-on-projects"): optionally_keyed_by(
-            "test-platform", Any([text_type], "built-projects")
+            "test-name", "test-platform", Any([text_type], "built-projects")
         ),
         # the sheriffing tier for this task (default: set based on test platform)
-        Optional("tier"): optionally_keyed_by("test-platform", Any(int, "default")),
+        Optional("tier"): optionally_keyed_by(
+            "test-platform", "variant", Any(int, "default")
+        ),
         # Same as `tier` except it only applies to Fission tasks. Fission tasks
         # will ignore `tier` and non-Fission tasks will ignore `fission-tier`.
         Optional("fission-tier"): optionally_keyed_by(
@@ -897,73 +902,6 @@ def set_treeherder_machine_platform(config, tasks):
 
 
 @transforms.add
-def set_tier(config, tasks):
-    """Set the tier based on policy for all test descriptions that do not
-    specify a tier otherwise."""
-    for task in tasks:
-        if "tier" in task:
-            resolve_keyed_by(task, "tier", item_name=task["test-name"])
-
-        if "fission-tier" in task:
-            resolve_keyed_by(task, "fission-tier", item_name=task["test-name"])
-
-        # only override if not set for the test
-        if "tier" not in task or task["tier"] == "default":
-            if task["test-platform"] in [
-                "linux64/opt",
-                "linux64/debug",
-                "linux64-shippable/opt",
-                "linux64-devedition/opt",
-                "linux64-asan/opt",
-                "linux64-qr/opt",
-                "linux64-qr/debug",
-                "linux64-shippable-qr/opt",
-                "linux1804-64/opt",
-                "linux1804-64/debug",
-                "linux1804-64-shippable/opt",
-                "linux1804-64-devedition/opt",
-                "linux1804-64-qr/opt",
-                "linux1804-64-qr/debug",
-                "linux1804-64-shippable-qr/opt",
-                "linux1804-64-asan/opt",
-                "linux1804-64-tsan/opt",
-                "windows7-32/debug",
-                "windows7-32/opt",
-                "windows7-32-devedition/opt",
-                "windows7-32-shippable/opt",
-                "windows10-aarch64/opt",
-                "windows10-64/debug",
-                "windows10-64/opt",
-                "windows10-64-shippable/opt",
-                "windows10-64-devedition/opt",
-                "windows10-64-asan/opt",
-                "windows10-64-qr/opt",
-                "windows10-64-qr/debug",
-                "windows10-64-shippable-qr/opt",
-                "macosx1014-64/opt",
-                "macosx1014-64/debug",
-                "macosx1014-64-shippable/opt",
-                "macosx1014-64-devedition/opt",
-                "macosx1014-64-devedition-qr/opt",
-                "macosx1014-64-qr/opt",
-                "macosx1014-64-shippable-qr/opt",
-                "macosx1014-64-qr/debug",
-                "android-em-7.0-x86_64-shippable/opt",
-                "android-em-7.0-x86_64/debug",
-                "android-em-7.0-x86_64/opt",
-                "android-em-7.0-x86-shippable/opt",
-                "android-em-7.0-x86_64-shippable-qr/opt",
-                "android-em-7.0-x86_64-qr/debug",
-                "android-em-7.0-x86_64-qr/opt",
-            ]:
-                task["tier"] = 1
-            else:
-                task["tier"] = 2
-
-        yield task
-
-
-@transforms.add
 def set_download_symbols(config, tasks):
     """In general, we download symbols immediately for debug builds, but only
     on demand for everything else. ASAN builds shouldn't download
@@ -1036,9 +974,6 @@ def setup_browsertime(config, tasks):
             yield task
             continue
 
-        # This is appropriate as the browsertime task variants mature.
-        task["tier"] = max(task["tier"], 1)
-
         ts = {
             "by-test-platform": {
                 "android.*": ["browsertime", "linux64-geckodriver", "linux64-node"],
@@ -1071,34 +1006,34 @@ def setup_browsertime(config, tasks):
 
         cd_fetches = {
             "android.*": [
-                "linux64-chromedriver-86",
                 "linux64-chromedriver-87",
                 "linux64-chromedriver-88",
+                "linux64-chromedriver-89",
             ],
             "linux.*": [
-                "linux64-chromedriver-86",
                 "linux64-chromedriver-87",
                 "linux64-chromedriver-88",
+                "linux64-chromedriver-89",
             ],
             "macosx.*": [
-                "mac64-chromedriver-86",
                 "mac64-chromedriver-87",
                 "mac64-chromedriver-88",
+                "mac64-chromedriver-89",
             ],
             "windows.*aarch64.*": [
-                "win32-chromedriver-86",
                 "win32-chromedriver-87",
                 "win32-chromedriver-88",
+                "win32-chromedriver-89",
             ],
             "windows.*-32.*": [
-                "win32-chromedriver-86",
                 "win32-chromedriver-87",
                 "win32-chromedriver-88",
+                "win32-chromedriver-89",
             ],
             "windows.*-64.*": [
-                "win32-chromedriver-86",
                 "win32-chromedriver-87",
                 "win32-chromedriver-88",
+                "win32-chromedriver-89",
             ],
         }
 
@@ -1238,6 +1173,56 @@ def disable_wpt_timeouts_on_autoland(config, tasks):
 
 
 @transforms.add
+def split_variants(config, tasks):
+    for task in tasks:
+        variants = task.pop("variants", [])
+
+        yield copy.deepcopy(task)
+
+        for name in variants:
+            variant = TEST_VARIANTS[name]
+
+            if "filterfn" in variant and not variant["filterfn"](task):
+                continue
+
+            taskv = copy.deepcopy(task)
+            taskv["attributes"]["unittest_variant"] = name
+            taskv["description"] = variant["description"].format(**taskv)
+
+            suffix = "-" + variant["suffix"]
+            taskv["test-name"] += suffix
+            taskv["try-name"] += suffix
+
+            group, symbol = split_symbol(taskv["treeherder-symbol"])
+            if group != "?":
+                group += suffix
+            else:
+                symbol += suffix
+            taskv["treeherder-symbol"] = join_symbol(group, symbol)
+
+            taskv.update(variant.get("replace", {}))
+            yield merge(taskv, variant.get("merge", {}))
+
+
+@transforms.add
+def handle_keyed_by_variant(config, tasks):
+    """Resolve fields that can be keyed by platform, etc."""
+    fields = [
+        "run-on-projects",
+        "tier",
+    ]
+    for task in tasks:
+        for field in fields:
+            resolve_keyed_by(
+                task,
+                field,
+                item_name=task["test-name"],
+                variant=task["attributes"].get("unittest_variant"),
+            )
+        yield task
+
+
+@transforms.add
 def enable_code_coverage(config, tasks):
     """Enable code coverage for the ccov build-platforms"""
     for task in tasks:
@@ -1332,55 +1317,86 @@ def handle_run_on_projects(config, tasks):
 
 
 @transforms.add
-def split_variants(config, tasks):
+def handle_tier(config, tasks):
+    """Set the tier based on policy for all test descriptions that do not
+    specify a tier otherwise."""
     for task in tasks:
-        variants = task.pop("variants", [])
+        if "tier" in task:
+            resolve_keyed_by(task, "tier", item_name=task["test-name"])
 
-        yield copy.deepcopy(task)
+        if "fission-tier" in task:
+            resolve_keyed_by(task, "fission-tier", item_name=task["test-name"])
 
-        for name in variants:
-            taskv = copy.deepcopy(task)
-            variant = TEST_VARIANTS[name]
-
-            if "filterfn" in variant and not variant["filterfn"](taskv):
-                continue
-
-            taskv["attributes"]["unittest_variant"] = name
-            taskv["description"] = variant["description"].format(**taskv)
-
-            suffix = "-" + variant["suffix"]
-            taskv["test-name"] += suffix
-            taskv["try-name"] += suffix
-
-            group, symbol = split_symbol(taskv["treeherder-symbol"])
-            if group != "?":
-                group += suffix
+        # only override if not set for the test
+        if "tier" not in task or task["tier"] == "default":
+            if task["test-platform"] in [
+                "linux64/opt",
+                "linux64/debug",
+                "linux64-shippable/opt",
+                "linux64-devedition/opt",
+                "linux64-asan/opt",
+                "linux64-qr/opt",
+                "linux64-qr/debug",
+                "linux64-shippable-qr/opt",
+                "linux1804-64/opt",
+                "linux1804-64/debug",
+                "linux1804-64-shippable/opt",
+                "linux1804-64-devedition/opt",
+                "linux1804-64-qr/opt",
+                "linux1804-64-qr/debug",
+                "linux1804-64-shippable-qr/opt",
+                "linux1804-64-asan/opt",
+                "linux1804-64-tsan/opt",
+                "windows7-32/debug",
+                "windows7-32/opt",
+                "windows7-32-devedition/opt",
+                "windows7-32-shippable/opt",
+                "windows10-aarch64/opt",
+                "windows10-64/debug",
+                "windows10-64/opt",
+                "windows10-64-shippable/opt",
+                "windows10-64-devedition/opt",
+                "windows10-64-asan/opt",
+                "windows10-64-qr/opt",
+                "windows10-64-qr/debug",
+                "windows10-64-shippable-qr/opt",
+                "macosx1014-64/opt",
+                "macosx1014-64/debug",
+                "macosx1014-64-shippable/opt",
+                "macosx1014-64-devedition/opt",
+                "macosx1014-64-devedition-qr/opt",
+                "macosx1014-64-qr/opt",
+                "macosx1014-64-shippable-qr/opt",
+                "macosx1014-64-qr/debug",
+                "android-em-7.0-x86_64-shippable/opt",
+                "android-em-7.0-x86_64/debug",
+                "android-em-7.0-x86_64/opt",
+                "android-em-7.0-x86-shippable/opt",
+                "android-em-7.0-x86_64-shippable-qr/opt",
+                "android-em-7.0-x86_64-qr/debug",
+                "android-em-7.0-x86_64-qr/opt",
+            ]:
+                task["tier"] = 1
             else:
-                symbol += suffix
-            taskv["treeherder-symbol"] = join_symbol(group, symbol)
+                task["tier"] = 2
 
-            taskv.update(variant.get("replace", {}))
-
-            if task["suite"] == "raptor":
-                taskv["tier"] = max(taskv["tier"], 2)
-
-            yield merge(taskv, variant.get("merge", {}))
+        yield task
 
 
 @transforms.add
-def handle_keyed_by_variant(config, tasks):
-    """Resolve fields that can be keyed by platform, etc."""
-    fields = [
-        "run-on-projects",
-    ]
+def apply_raptor_tier_optimization(config, tasks):
     for task in tasks:
-        for field in fields:
-            resolve_keyed_by(
-                task,
-                field,
-                item_name=task["test-name"],
-                variant=task["attributes"].get("unittest_variant"),
-            )
+        if task["suite"] != "raptor":
+            yield task
+            continue
+
+        if not task["test-platform"].startswith("android-hw"):
+            task["optimization"] = {"skip-unless-expanded": None}
+            if task["tier"] > 1:
+                task["optimization"] = {"skip-unless-backstop": None}
+
+        if task["attributes"].get("unittest_variant"):
+            task["tier"] = max(task["tier"], 2)
         yield task
 
 
@@ -1388,6 +1404,7 @@ def handle_keyed_by_variant(config, tasks):
 def handle_fission_attributes(config, tasks):
     """Handle run_on_projects for fission tasks."""
     for task in tasks:
+
         for attr in ("run-on-projects", "tier"):
             fission_attr = task.pop("fission-{}".format(attr), None)
 
@@ -1751,10 +1768,12 @@ def set_worker_type(config, tasks):
             # This test already has its worker type defined, so just use that (yields below)
             pass
         elif test_platform.startswith("macosx1014-64"):
+            task["worker-type"] = MACOSX_WORKER_TYPES["macosx1014-64"]
+        elif test_platform.startswith("macosx1015-64"):
             if "--power-test" in task["mozharness"]["extra-options"]:
                 task["worker-type"] = MACOSX_WORKER_TYPES["macosx1014-64-power"]
             else:
-                task["worker-type"] = MACOSX_WORKER_TYPES["macosx1014-64"]
+                task["worker-type"] = MACOSX_WORKER_TYPES["macosx1015-64"]
         elif test_platform.startswith("win"):
             # figure out what platform the job needs to run on
             if task["virtualization"] == "hardware":
@@ -1795,17 +1814,7 @@ def set_worker_type(config, tasks):
             if task.get("suite", "") in ["talos", "raptor"] and not task[
                 "build-platform"
             ].startswith("linux64-ccov"):
-                task["worker-type"] = "t-linux-talos"
-                # TODO: duplicate tasks for linux-1804 (remove March 1st)
-                task1804 = copy.deepcopy(task)
-                task1804["test-platform"] = test_platform.replace(
-                    "linux64", "linux1804-64"
-                )
-                task1804["treeherder-machine-platform"] = task1804[
-                    "treeherder-machine-platform"
-                ].replace("linux64", "linux1804-64")
-                task1804["worker-type"] = "t-linux-talos-1804"
-                yield task1804
+                task["worker-type"] = "t-linux-talos-1804"
             else:
                 task["worker-type"] = LINUX_WORKER_TYPES[task["instance-size"]]
         else:

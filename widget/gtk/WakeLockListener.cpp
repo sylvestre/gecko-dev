@@ -12,6 +12,8 @@
 #  include <dbus/dbus.h>
 #  include <dbus/dbus-glib-lowlevel.h>
 
+#  include "WidgetUtilsGtk.h"
+
 #  if defined(MOZ_X11)
 #    include "gfxPlatformGtk.h"
 #    include "prlink.h"
@@ -197,7 +199,7 @@ bool WakeLockTopic::CheckXScreenSaverSupport() {
   }
 
   GdkDisplay* gDisplay = gdk_display_get_default();
-  if (!gDisplay || !GDK_IS_X11_DISPLAY(gDisplay)) {
+  if (!GdkIsX11Display(gDisplay)) {
     return false;
   }
   Display* display = GDK_DISPLAY_XDISPLAY(gDisplay);
@@ -222,7 +224,7 @@ bool WakeLockTopic::InhibitXScreenSaver(bool inhibit) {
     return false;
   }
   GdkDisplay* gDisplay = gdk_display_get_default();
-  if (!gDisplay || !GDK_IS_X11_DISPLAY(gDisplay)) {
+  if (!GdkIsX11Display(gDisplay)) {
     return false;
   }
   Display* display = GDK_DISPLAY_XDISPLAY(gDisplay);
@@ -482,11 +484,8 @@ nsresult WakeLockListener::Callback(const nsAString& topic,
       !topic.Equals(u"video-playing"_ns))
     return NS_OK;
 
-  WakeLockTopic* topicLock = mTopics.Get(topic);
-  if (!topicLock) {
-    topicLock = new WakeLockTopic(topic, mConnection);
-    mTopics.Put(topic, topicLock);
-  }
+  WakeLockTopic* const topicLock =
+      mTopics.GetOrInsertNew(topic, topic, mConnection);
 
   // Treat "locked-background" the same as "unlocked" on desktop linux.
   bool shouldLock = state.EqualsLiteral("locked-foreground");

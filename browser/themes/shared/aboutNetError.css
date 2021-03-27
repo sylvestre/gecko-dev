@@ -164,7 +164,7 @@ body:not(.neterror) #advancedButton {
 
 #certificateErrorDebugInformation {
   display: none;
-  background-color: var(--in-content-box-background-hover) !important;
+  background-color: var(--in-content-box-info-background) !important;
   border-top: 1px solid var(--in-content-border-color);
   width: 100%;
   padding: 1em 17.5%;
@@ -193,6 +193,7 @@ body:not(.neterror) #advancedButton {
   display: none;
 }
 
+@supports not -moz-bool-pref("browser.proton.enabled") {
 .connectionFailure #errorPageContainer,
 .netInterrupt #errorPageContainer,
 .netTimeout #errorPageContainer,
@@ -213,6 +214,7 @@ body:not(.neterror) #advancedButton {
   background-image: url("chrome://browser/skin/illustrations/blue-berror.svg");
   background-size: 18.5em;
 }
+} /* END !proton */
 
 .clockSkewError #returnButton {
   display: none;

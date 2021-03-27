@@ -636,23 +636,20 @@ const gfxFT2FontBase::GlyphMetrics& gfxFT2FontBase::GetCachedGlyphMetrics(
     uint16_t aGID, IntRect* aBounds) {
   if (!mGlyphMetrics) {
     mGlyphMetrics =
-        mozilla::MakeUnique<nsDataHashtable<nsUint32HashKey, GlyphMetrics>>(
-            128);
+        mozilla::MakeUnique<nsTHashMap<nsUint32HashKey, GlyphMetrics>>(128);
   }
 
-  if (const GlyphMetrics* metrics = mGlyphMetrics->GetValue(aGID)) {
-    return *metrics;
-  }
-
-  GlyphMetrics& metrics = mGlyphMetrics->GetOrInsert(aGID);
-  IntRect bounds;
-  if (GetFTGlyphExtents(aGID, &metrics.mAdvance, &bounds)) {
-    metrics.SetBounds(bounds);
-    if (aBounds) {
-      *aBounds = bounds;
+  return mGlyphMetrics->LookupOrInsertWith(aGID, [&] {
+    GlyphMetrics metrics;
+    IntRect bounds;
+    if (GetFTGlyphExtents(aGID, &metrics.mAdvance, &bounds)) {
+      metrics.SetBounds(bounds);
+      if (aBounds) {
+        *aBounds = bounds;
+      }
     }
-  }
-  return metrics;
+    return metrics;
+  });
 }
 
 int32_t gfxFT2FontBase::GetGlyphWidth(uint16_t aGID) {

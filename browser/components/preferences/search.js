@@ -25,11 +25,22 @@ ChromeUtils.defineModuleGetter(
   "UrlbarUtils",
   "resource:///modules/UrlbarUtils.jsm"
 );
+ChromeUtils.defineModuleGetter(
+  this,
+  "ExperimentFeature",
+  "resource://nimbus/ExperimentAPI.jsm"
+);
+
+XPCOMUtils.defineLazyModuleGetters(this, {
+  UrlbarProviderQuickSuggest:
+    "resource:///modules/UrlbarProviderQuickSuggest.jsm",
+});
 
 Preferences.addAll([
   { id: "browser.search.suggest.enabled", type: "bool" },
   { id: "browser.urlbar.suggest.searches", type: "bool" },
   { id: "browser.search.suggest.enabled.private", type: "bool" },
+  { id: "browser.urlbar.suggest.quicksuggest", type: "bool" },
   { id: "browser.search.hiddenOneOffs", type: "unichar" },
   { id: "browser.search.widget.inNavBar", type: "bool" },
   { id: "browser.urlbar.showSearchSuggestionsFirst", type: "bool" },
@@ -122,6 +133,13 @@ var gSearchPane = {
     this._initDefaultEngines();
     this._updateSuggestionCheckboxes();
     this._showAddEngineButton();
+    this._updateQuickSuggest = this._updateQuickSuggest.bind(this);
+    this.urlbarExperimentFeature = new ExperimentFeature("urlbar");
+    this.urlbarExperimentFeature.onUpdate(this._updateQuickSuggest);
+    window.addEventListener("unload", () => {
+      this.urlbarExperimentFeature.off(this._updateQuickSuggest);
+    });
+    this._updateQuickSuggest(true);
   },
 
   /**
@@ -179,6 +197,7 @@ var gSearchPane = {
     let privateWindowCheckbox = document.getElementById(
       "showSearchSuggestionsPrivateWindows"
     );
+    let quickSuggestCheckbox = document.getElementById("showQuickSuggest");
 
     urlbarSuggests.disabled = !suggestsPref.value || permanentPB;
     privateWindowCheckbox.disabled = !suggestsPref.value;
@@ -202,15 +221,59 @@ var gSearchPane = {
       positionCheckbox.checked = Preferences.get(
         positionCheckbox.getAttribute("preference")
       ).value;
+      quickSuggestCheckbox.disabled = false;
+      quickSuggestCheckbox.checked = Preferences.get(
+        quickSuggestCheckbox.getAttribute("preference")
+      ).value;
     } else {
       positionCheckbox.disabled = true;
       positionCheckbox.checked = false;
+      quickSuggestCheckbox.disabled = true;
+      quickSuggestCheckbox.checked = false;
     }
 
     let permanentPBLabel = document.getElementById(
       "urlBarSuggestionPermanentPBLabel"
     );
     permanentPBLabel.hidden = urlbarSuggests.hidden || !permanentPB;
+  },
+
+  /**
+   * Shows or hides the Quick Suggest checkbox depending on whether the en-US
+   * Quick Suggest experiment is enabled.
+   *
+   * @param {boolean} [onStartup]
+   *   True when this is called from `.init`
+   */
+  _updateQuickSuggest(onStartup = false) {
+    let container = document.getElementById("showQuickSuggestContainer");
+    let desc = document.getElementById("searchSuggestionsDesc");
+
+    if (!this.urlbarExperimentFeature.getValue().quickSuggestEnabled) {
+      // The experiment is not enabled.  This is the default, so to avoid
+      // accidentally messing anything up, only modify the doc if we're being
+      // called due to a change in the experiment enabled status.
+      if (!onStartup) {
+        container.setAttribute("hidden", "true");
+        if (desc.dataset.l10nIdOriginal) {
+          desc.dataset.l10nId = desc.dataset.l10nIdOriginal;
+          delete desc.dataset.l10nIdOriginal;
+        }
+        document.l10n.translateElements([desc]);
+      }
+      return;
+    }
+
+    // The experiment is enabled.
+    document
+      .getElementById("showQuickSuggestLearnMore")
+      .setAttribute("href", UrlbarProviderQuickSuggest.helpUrl);
+    container.removeAttribute("hidden");
+    if (desc.dataset.l10nId) {
+      desc.dataset.l10nIdOriginal = desc.dataset.l10nId;
+      delete desc.dataset.l10nId;
+    }
+    desc.textContent = "Choose how search suggestions appear.";
   },
 
   _showAddEngineButton() {
@@ -366,27 +429,29 @@ var gSearchPane = {
     }
   },
 
-  observe(aEngine, aTopic, aVerb) {
-    if (aTopic == "browser-search-engine-modified") {
-      aEngine.QueryInterface(Ci.nsISearchEngine);
-      switch (aVerb) {
+  /**
+   * nsIObserver implementation.  We observe the following:
+   *
+   * * browser-search-engine-modified: Update the default engine UI and engine
+   *   tree view as appropriate when engine changes occur.
+   */
+  observe(subject, topic, data) {
+    if (topic == "browser-search-engine-modified") {
+      let engine = subject;
+      engine.QueryInterface(Ci.nsISearchEngine);
+      switch (data) {
         case "engine-added":
-          gEngineView._engineStore.addEngine(aEngine);
+          gEngineView._engineStore.addEngine(engine);
           gEngineView.rowCountChanged(gEngineView.lastEngineIndex, 1);
           gSearchPane.buildDefaultEngineDropDowns();
           break;
         case "engine-changed":
-          gEngineView._engineStore.reloadIcons();
-          // Only bother invalidating if the tree is valid. It might not be
-          // if we're here because we saved an engine keyword change when
-          // the input got blurred as a result of changing categories, which
-          // destroys the tree.
-          if (gEngineView.tree) {
-            gEngineView.invalidate();
-          }
+          gSearchPane.buildDefaultEngineDropDowns();
+          gEngineView._engineStore.updateEngine(engine);
+          gEngineView.invalidate();
           break;
         case "engine-removed":
-          gSearchPane.remove(aEngine);
+          gSearchPane.remove(engine);
           break;
         case "engine-default": {
           // If the user is going through the drop down using up/down keys, the
@@ -394,7 +459,7 @@ var gSearchPane = {
           // fired, so rebuilding the list unconditionally would get in the way.
           let selectedEngine = document.getElementById("defaultEngine")
             .selectedItem.engine;
-          if (selectedEngine.name != aEngine.name) {
+          if (selectedEngine.name != engine.name) {
             gSearchPane.buildDefaultEngineDropDowns();
           }
           break;
@@ -410,7 +475,7 @@ var gSearchPane = {
             const selectedEngine = document.getElementById(
               "defaultPrivateEngine"
             ).selectedItem.engine;
-            if (selectedEngine.name != aEngine.name) {
+            if (selectedEngine.name != engine.name) {
               gSearchPane.buildDefaultEngineDropDowns();
             }
           }
@@ -653,6 +718,18 @@ EngineStore.prototype = {
 
   addEngine(aEngine) {
     this._engines.push(this._cloneEngine(aEngine));
+  },
+
+  updateEngine(newEngine) {
+    let engineToUpdate = this._engines.findIndex(
+      e => e.originalEngine == newEngine
+    );
+    if (engineToUpdate == -1) {
+      console.error("Could not find engine to update");
+      return;
+    }
+
+    this.engines[engineToUpdate] = this._cloneEngine(newEngine);
   },
 
   moveEngine(aEngine, aNewIndex) {

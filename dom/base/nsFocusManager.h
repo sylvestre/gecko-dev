@@ -258,6 +258,8 @@ class nsFocusManager final : public nsIFocusManager,
    */
   void FireDelayedEvents(Document* aDocument);
 
+  void WasNuked(nsPIDOMWindowOuter* aWindow);
+
   /**
    * Indicate that a plugin wishes to take the focus. This is similar to a
    * normal focus except that the widget focus is not changed. Updating the
@@ -293,13 +295,10 @@ class nsFocusManager final : public nsIFocusManager,
    */
   void NotifyOfReFocus(nsIContent& aContent);
 
-  static bool sMouseFocusesFormControl;
-
   static void MarkUncollectableForCCGeneration(uint32_t aGeneration);
 
   struct BlurredElementInfo {
     const mozilla::OwningNonNull<mozilla::dom::Element> mElement;
-    const bool mHadRing;
 
     explicit BlurredElementInfo(mozilla::dom::Element&);
     ~BlurredElementInfo();
@@ -361,8 +360,12 @@ class nsFocusManager final : public nsIFocusManager,
    * start at the active top-level window and navigate down the currently
    * focused elements for each frame in the tree to get to aBrowsingContext.
    */
+  bool AdjustInProcessWindowFocus(
+      mozilla::dom::BrowsingContext* aBrowsingContext, bool aCheckPermission,
+      bool aIsVisible, uint64_t aActionId);
   void AdjustWindowFocus(mozilla::dom::BrowsingContext* aBrowsingContext,
-                         bool aCheckPermission, bool aIsVisible);
+                         bool aCheckPermission, bool aIsVisible,
+                         uint64_t aActionId);
 
   /**
    * Returns true if aWindow is visible.
@@ -745,12 +748,15 @@ class nsFocusManager final : public nsIFocusManager,
   // to be an explicit argument instead of just passing in the window and asking
   // it whether it should show focus rings: in the losing focus case that
   // information could be wrong.
-  static void NotifyFocusStateChange(
-      mozilla::dom::Element* aElement, mozilla::dom::Element* aElementToFocus,
-      bool aWindowShouldShowFocusRing, int32_t aFlags, bool aGettingFocus,
-      const mozilla::Maybe<BlurredElementInfo>& = mozilla::Nothing());
+  //
+  // aShouldShowFocusRing is only relevant if aGettingFocus is true.
+  static void NotifyFocusStateChange(mozilla::dom::Element* aElement,
+                                     mozilla::dom::Element* aElementToFocus,
+                                     int32_t aFlags, bool aGettingFocus,
+                                     bool aShouldShowFocusRing);
 
-  void SetFocusedWindowInternal(nsPIDOMWindowOuter* aWindow);
+  void SetFocusedWindowInternal(nsPIDOMWindowOuter* aWindow,
+                                bool aSyncBrowsingContext = true);
 
   bool TryDocumentNavigation(nsIContent* aCurrentContent,
                              bool* aCheckSubDocument,
@@ -805,25 +811,26 @@ class nsFocusManager final : public nsIFocusManager,
   // Receives notification of another process setting the top-level Web
   // content as being in the frontmost tab with focus in Web content.
   void SetActiveBrowsingContextFromOtherProcess(
-      mozilla::dom::BrowsingContext* aContext);
+      mozilla::dom::BrowsingContext* aContext, uint64_t aActionId);
 
   // Content-only
   // Receives notification that another process determined that focus
   // moved to chrome so a particular BrowsingContext is no longer the
   // "active" one.
   void UnsetActiveBrowsingContextFromOtherProcess(
-      mozilla::dom::BrowsingContext* aContext);
+      mozilla::dom::BrowsingContext* aContext, uint64_t aActionId);
 
   // Content-only
   // Receives a notification from parent that this content process's
   // attempt to set the active browsing context was late and the
-  // prevailing browsing context is instead the first argument of
-  // this method call. This should be ignored if the second argument
+  // prevailing browsing context is instead the second argument of
+  // this method call. This should be ignored if the first argument
   // doesn't match the latest action id associated with setting the
   // active browsing context in this process, because in that case,
   // this revision is late.
-  void ReviseActiveBrowsingContext(mozilla::dom::BrowsingContext* aContext,
-                                   uint64_t aActionId);
+  void ReviseActiveBrowsingContext(uint64_t aOldActionId,
+                                   mozilla::dom::BrowsingContext* aContext,
+                                   uint64_t aNewActionId);
 
   // Chrome-only
   // Sets the chrome process notion of what content believes to be
@@ -839,6 +846,8 @@ class nsFocusManager final : public nsIFocusManager,
   // the top-level BrowsingContext in the frontmost tab when focus
   // is in Web content.
   mozilla::dom::BrowsingContext* GetActiveBrowsingContextInChrome();
+
+  uint64_t GetActionIdForActiveBrowsingContextInChrome() const;
 
   static uint64_t GenerateFocusActionId();
 
@@ -870,6 +879,8 @@ class nsFocusManager final : public nsIFocusManager,
   // else has updated mActiveBrowsingContextInContent before the revision
   // arrives.
   uint64_t mActionIdForActiveBrowsingContextInContent;
+
+  uint64_t mActionIdForActiveBrowsingContextInChrome;
 
   // Whether or not mActiveBrowsingContextInContent was set from another process
   // or from this process.

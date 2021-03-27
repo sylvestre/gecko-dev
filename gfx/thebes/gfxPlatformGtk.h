@@ -92,6 +92,8 @@ class gfxPlatformGtk final : public gfxPlatform {
   }
 
  protected:
+  void InitX11EGLConfig();
+  void InitDmabufConfig();
   void InitPlatformGPUProcessPrefs() override;
   bool CheckVariationFontSupport() override;
 

@@ -47,6 +47,7 @@ UNIFIED_SOURCES += [
     "TestMP3Demuxer.cpp",
     "TestMP4Demuxer.cpp",
     "TestMuxer.cpp",
+    "TestOggWriter.cpp",
     "TestOpusParser.cpp",
     "TestRust.cpp",
     "TestTimeUnit.cpp",
@@ -64,6 +65,11 @@ if CONFIG["MOZ_WEBM_ENCODER"]:
     ]
     LOCAL_INCLUDES += [
         "/gfx/2d/",
+    ]
+
+if CONFIG["MOZ_WEBRTC"]:
+    UNIFIED_SOURCES += [
+        "TestAudioInputProcessing.cpp",
     ]
 
 if CONFIG["OS_TARGET"] != "Android":

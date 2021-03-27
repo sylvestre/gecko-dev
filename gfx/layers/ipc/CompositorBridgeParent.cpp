@@ -69,6 +69,8 @@
 #include "mozilla/mozalloc.h"                          // for operator new, etc
 #include "mozilla/PerfStats.h"
 #include "mozilla/PodOperations.h"
+#include "mozilla/ProfilerLabels.h"
+#include "mozilla/ProfilerMarkers.h"
 #include "mozilla/Telemetry.h"
 #ifdef MOZ_WIDGET_GTK
 #  include "basic/X11BasicCompositor.h"  // for X11BasicCompositor
@@ -84,7 +86,6 @@
 #  include "mozilla/widget/WinCompositorWidget.h"
 #  include "mozilla/WindowsVersion.h"
 #endif
-#include "GeckoProfiler.h"
 #include "mozilla/ipc/ProtocolTypes.h"
 #include "mozilla/Unused.h"
 #include "mozilla/Hal.h"
@@ -422,6 +423,11 @@ LayersId CompositorBridgeParent::RootLayerTreeId() {
 }
 
 CompositorBridgeParent::~CompositorBridgeParent() {
+  MOZ_DIAGNOSTIC_ASSERT(
+      !mCanSend,
+      "ActorDestroy or RecvWillClose should have been called first.");
+  MOZ_DIAGNOSTIC_ASSERT(mRefCnt == 0,
+                        "ActorDealloc should have been called first.");
   nsTArray<PTextureParent*> textures;
   ManagedPTextureParent(textures);
   // We expect all textures to be destroyed by now.
@@ -429,6 +435,10 @@ CompositorBridgeParent::~CompositorBridgeParent() {
   for (unsigned int i = 0; i < textures.Length(); ++i) {
     RefPtr<TextureHost> tex = TextureHost::AsTextureHost(textures[i]);
     tex->DeallocateDeviceData();
+  }
+  // Check if WebRender/Compositor was shutdown.
+  if (mWrBridge || mCompositor) {
+    gfxCriticalNote << "CompositorBridgeParent destroyed without shutdown";
   }
 }
 
@@ -1761,9 +1771,16 @@ PWebRenderBridgeParent* CompositorBridgeParent::AllocPWebRenderBridgeParent(
   MOZ_ASSERT(mWidget);
 
 #ifdef XP_WIN
-  if (mWidget && (DeviceManagerDx::Get()->CanUseDComp() ||
-                  gfxVars::UseWebRenderFlipSequentialWin())) {
-    mWidget->AsWindows()->EnsureCompositorWindow();
+  if (mWidget && mWidget->AsWindows()) {
+    const auto options = mWidget->GetCompositorOptions();
+    if (!options.UseSoftwareWebRender() &&
+        (DeviceManagerDx::Get()->CanUseDComp() ||
+         gfxVars::UseWebRenderFlipSequentialWin())) {
+      mWidget->AsWindows()->EnsureCompositorWindow();
+    } else if (options.UseSoftwareWebRender() &&
+               mWidget->AsWindows()->GetCompositorHwnd()) {
+      mWidget->AsWindows()->DestroyCompositorWindow();
+    }
   }
 #endif
 
@@ -1794,7 +1811,7 @@ PWebRenderBridgeParent* CompositorBridgeParent::AllocPWebRenderBridgeParent(
     return mWrBridge;
   }
 
-  wr::TransactionBuilder txn;
+  wr::TransactionBuilder txn(api);
   txn.SetRootPipeline(aPipelineId);
   api->SendTransaction(txn);
 
@@ -2274,12 +2291,16 @@ void CompositorBridgeParent::NotifyPipelineRendered(
   RefPtr<UiCompositorControllerParent> uiController =
       UiCompositorControllerParent::GetFromRootLayerTreeId(mRootLayerTreeID);
 
-  TransactionId transactionId = wrBridge->FlushTransactionIdsForEpoch(
+  Maybe<TransactionId> transactionId = wrBridge->FlushTransactionIdsForEpoch(
       aEpoch, aCompositeStartId, aCompositeStart, aRenderStart, aCompositeEnd,
       uiController, aStats, &stats);
+  if (!transactionId) {
+    MOZ_ASSERT(stats.IsEmpty());
+    return;
+  }
 
   LayersId layersId = isRoot ? LayersId{0} : wrBridge->GetLayersId();
-  Unused << compBridge->SendDidComposite(layersId, transactionId,
+  Unused << compBridge->SendDidComposite(layersId, *transactionId,
                                          aCompositeStart, aCompositeEnd);
 
   if (!stats.IsEmpty()) {

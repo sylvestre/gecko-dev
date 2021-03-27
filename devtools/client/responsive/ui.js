@@ -11,23 +11,13 @@ const {
   getOrientation,
 } = require("devtools/client/responsive/utils/orientation");
 const Constants = require("devtools/client/responsive/constants");
-const { TargetList } = require("devtools/shared/resources/target-list");
 const {
   ResourceWatcher,
 } = require("devtools/shared/resources/resource-watcher");
+const {
+  CommandsFactory,
+} = require("devtools/shared/commands/commands-factory");
 
-loader.lazyRequireGetter(
-  this,
-  "DevToolsClient",
-  "devtools/client/devtools-client",
-  true
-);
-loader.lazyRequireGetter(
-  this,
-  "DevToolsServer",
-  "devtools/server/devtools-server",
-  true
-);
 loader.lazyRequireGetter(
   this,
   "throttlingProfiles",
@@ -227,32 +217,23 @@ class ResponsiveUI {
     this.resizeHandleY = resizeHandleY;
     this.resizeHandleY.addEventListener("mousedown", this.onResizeStart);
 
-    // Setup a ResizeObserver that sets the width of the toolbar to the width of the
-    // .browserStack.
-    this.resizeToolbarObserver = new this.browserWindow.ResizeObserver(
-      entries => {
-        for (const entry of entries) {
-          const { width } = entry.contentRect;
+    // Setup a ResizeObserver that stores the width and height of the
+    // .browserStack size as properties. These set properties are then used
+    // to out-of-grid elements that are affected by RDM.
+    this.resizeToolbarObserver = new this.browserWindow.ResizeObserver(() => {
+      const style = this.browserWindow.getComputedStyle(this.browserStackEl);
 
-          this.rdmFrame.style.setProperty("width", `${width}px`);
-
-          // If the device modal/selector is opened, resize the toolbar height to
-          // the size of the stack.
-          if (this.browserStackEl.classList.contains("device-modal-opened")) {
-            const style = this.browserWindow.getComputedStyle(
-              this.browserStackEl
-            );
-            this.rdmFrame.style.height = style.height;
-          } else {
-            // If the toolbar needs extra space for the UA input, then set a class that
-            // will accomodate its height. We should also make sure to keep the width
-            // value we're toggling against in sync with the media-query in
-            // devtools/client/responsive/index.css
-            this.rdmFrame.classList.toggle("accomodate-ua", width < 520);
-          }
-        }
-      }
-    );
+      this.browserStackEl.style.setProperty("--rdm-stack-width", style.width);
+      this.browserStackEl.style.setProperty("--rdm-stack-height", style.height);
+      // If the toolbar needs extra space for the UA input, then set a class that
+      // will accomodate its height. We should also make sure to keep the width
+      // value we're toggling against in sync with the media-query in
+      // devtools/client/responsive/index.css
+      this.rdmFrame.classList.toggle(
+        "accomodate-ua",
+        parseFloat(style.width) < 520
+      );
+    });
 
     this.resizeToolbarObserver.observe(this.browserStackEl);
   }
@@ -325,6 +306,8 @@ class ResponsiveUI {
     this.browserStackEl.style.removeProperty("--rdm-width");
     this.browserStackEl.style.removeProperty("--rdm-height");
     this.browserStackEl.style.removeProperty("--rdm-zoom");
+    this.browserStackEl.style.removeProperty("--rdm-stack-height");
+    this.browserStackEl.style.removeProperty("--rdm-stack-width");
 
     // Ensure the tab is reloaded if required when exiting RDM so that no emulated
     // settings are left in a customized state.
@@ -372,37 +355,25 @@ class ResponsiveUI {
     this.resizeHandleY = null;
     this.resizeToolbarObserver = null;
 
-    // Close the devtools client used to speak with responsive emulation actor.
+    // Destroying the commands will close the devtools client used to speak with responsive emulation actor.
     // The actor handles clearing any overrides itself, so it's not necessary to clear
     // anything on shutdown client side.
-    const clientClosed = this.client.close();
+    const commandsDestroyed = this.commands.destroy();
     if (!isTabContentDestroying) {
-      await clientClosed;
+      await commandsDestroyed;
     }
-    this.client = this.responsiveFront = null;
+    this.commands = this.responsiveFront = null;
     this.destroyed = true;
 
     return true;
   }
 
   async connectToServer() {
-    // The client being instantiated here is separate from the toolbox. It is being used
-    // separately and has a life cycle that doesn't correspond to the toolbox.
-    DevToolsServer.init();
-    DevToolsServer.registerAllActors();
-    this.client = new DevToolsClient(DevToolsServer.connectPipe());
-    await this.client.connect();
-
-    // Pass a proper `tab` filter option to getTab in order to create a
-    // "local" TabDescriptor, which handles target switching autonomously with
-    // its corresponding target-list.
-    const descriptor = await this.client.mainRoot.getTab({ tab: this.tab });
-    const targetFront = await descriptor.getTarget();
-
-    this.targetList = new TargetList(this.client.mainRoot, targetFront);
+    this.commands = await CommandsFactory.forTab(this.tab);
+    this.targetList = this.commands.targetCommand;
     this.resourceWatcher = new ResourceWatcher(this.targetList);
 
-    this.targetList.startListening();
+    await this.targetList.startListening();
 
     await this.targetList.watchTargets(
       [this.targetList.TYPES.FRAME],
@@ -737,10 +708,7 @@ class ResponsiveUI {
   onUpdateDeviceModal(event) {
     if (event.data.isOpen) {
       this.browserStackEl.classList.add("device-modal-opened");
-      const style = this.browserWindow.getComputedStyle(this.browserStackEl);
-      this.rdmFrame.style.height = style.height;
     } else {
-      this.rdmFrame.style.removeProperty("height");
       this.browserStackEl.classList.remove("device-modal-opened");
     }
   }

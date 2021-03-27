@@ -289,6 +289,12 @@ class EditorBase : public nsIEditor,
   Element* GetRoot() const { return mRootElement; }
 
   /**
+   * Likewise, but gets the text control element instead of the root for
+   * plaintext editors.
+   */
+  Element* GetExposedRoot() const;
+
+  /**
    * Set or unset TextInputListener.  If setting non-nullptr when the editor
    * already has a TextInputListener, this will crash in debug build.
    */
@@ -1862,12 +1868,6 @@ class EditorBase : public nsIEditor,
   virtual Element* GetEditorRoot() const;
 
   /**
-   * Likewise, but gets the text control element instead of the root for
-   * plaintext editors.
-   */
-  Element* GetExposedRoot() const;
-
-  /**
    * Whether the editor is active on the DOM window.  Note that when this
    * returns true but GetFocusedContent() returns null, it means that this
    * editor was focused when the DOM window was active.
@@ -2083,6 +2083,13 @@ class EditorBase : public nsIEditor,
       // canceled or not.  Although it's DOM specific code, let's return
       // DOM_SUCCESS_DOM_NO_OPERATION here.
       case NS_ERROR_EDITOR_ACTION_CANCELED:
+        return NS_SUCCESS_DOM_NO_OPERATION;
+      // If there is no selection range or editable selection ranges, editor
+      // needs to stop handling it.  However, editor shouldn't return error for
+      // the callers to avoid throwing exception.  However, they may want to
+      // check whether it works or not.  Therefore, we should return
+      // NS_SUCCESS_DOM_NO_OPERATION instead.
+      case NS_ERROR_EDITOR_NO_EDITABLE_RANGE:
         return NS_SUCCESS_DOM_NO_OPERATION;
       default:
         return aRv;

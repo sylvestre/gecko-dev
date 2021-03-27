@@ -20,6 +20,8 @@ use webrender::{CompositorSurfaceTransform, Transaction, api::*, euclid::point2}
 use webrender::api::units::*;
 #[cfg(target_os = "windows")]
 use compositor_windows as compositor;
+#[cfg(target_os = "linux")]
+use compositor_wayland as compositor;
 use std::{env, f32, process};
 
 // A very hacky integration with DirectComposite. It proxies calls from the compositor
@@ -154,11 +156,14 @@ impl webrender::Compositor for DirectCompositeInterface {
     }
 
     fn deinit(&mut self) {
-        todo!()
+        compositor::deinit(self.window);
     }
 
     fn get_capabilities(&self) -> webrender::CompositorCapabilities {
-        webrender::CompositorCapabilities { virtual_surface_size: 1024 * 1024 }
+        webrender::CompositorCapabilities {
+            virtual_surface_size: 1024 * 1024,
+            ..Default::default()
+        }
     }
 
     fn invalidate_tile(
@@ -236,7 +241,10 @@ fn push_rotated_rect(
         spatial_id,
         TransformStyle::Flat,
         PropertyBinding::Value(transform),
-        ReferenceFrameKind::Transform,
+        ReferenceFrameKind::Transform {
+            is_2d_scale_translation: false,
+            should_snap: false,
+        },
     );
     builder.push_rect(
         &CommonItemProperties::new(

@@ -1399,6 +1399,17 @@
     "n_buckets": 50,
     "description": "Time(ms) spent on reading family names from all fonts"
   },
+  "FONTLIST_BUNDLEDFONTS_ACTIVATE": {
+    "record_in_processes": ["main", "content"],
+    "products": ["firefox", "fennec"],
+    "expires_in_version": "never",
+    "alert_emails": ["gfx-telemetry-alerts@mozilla.com"],
+    "bug_numbers": [1696162],
+    "kind": "exponential",
+    "high": 30000,
+    "n_buckets": 50,
+    "description": "Time(ms) spent activating additional fonts bundled with the product"
+  },
   "DWRITEFONT_DELAYEDINITFONTLIST_TOTAL": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec"],
@@ -1702,6 +1713,19 @@
     "n_buckets": 50,
     "description": "Time between receiving a keypress event on the event loop and compositing its result onto the screen (ms)",
     "bug_numbers": [1506537, 1580077]
+  },
+  "MOUSEUP_FOLLOWED_BY_CLICK_PRESENT_LATENCY": {
+    "record_in_processes": [ "main", "gpu" ],
+    "products": ["firefox", "geckoview_streaming"],
+    "alert_emails": [ "perf-telemetry-alerts@mozilla.com", "sefeng@mozilla.com" ],
+    "expires_in_version": "never",
+    "kind": "exponential",
+    "releaseChannelCollection": "opt-out",
+    "low": 1,
+    "high": 200000,
+    "n_buckets": 50,
+    "description": "Time between receiving a mouseup which follow by a mouseclick on the event loop and compositing its result onto the screen (ms)",
+    "bug_numbers": [1698643]
   },
   "SCROLL_PRESENT_LATENCY": {
     "record_in_processes": ["main", "gpu"],
@@ -2194,6 +2218,18 @@
     "bug_numbers": [1675503],
     "keyed": true,
     "description": "The time between navigationStart and the first contentful paint of a foreground http or https root content document, in milliseconds. The contentful paint timestamp is taken during display list building and does not include rasterization or compositing of that paint. This is collected only on page load where the main document uses or suppports HTTP3"
+  },
+  "HTTPS_RR_OPEN_TO_FIRST_SENT": {
+    "alert_emails": ["necko@mozilla.com", "kershaw@mozilla.com"],
+    "record_in_processes": ["main", "content"],
+    "products": ["firefox"],
+    "bug_numbers": [1697480],
+    "expires_in_version": "never",
+    "kind": "exponential",
+    "high": 30000,
+    "n_buckets": 50,
+    "keyed": true,
+    "description": "HTTP channel(keys: uses_https_rr_page, uses_https_rr_sub, no_https_rr_page, no_https_rr_sub): Open -> first byte of request sent (ms)"
   },
   "HTTP_PROXY_TYPE": {
     "record_in_processes": ["main", "content"],
@@ -3138,14 +3174,14 @@
     "releaseChannelCollection": "opt-out",
     "alert_emails": ["necko@mozilla.com", "ddamjanovic@mozilla.com"]
   },
-  "HTTP_CHANNEL_ONSTART_SUCCESS_TRR" : {
+  "HTTP_CHANNEL_ONSTART_SUCCESS_TRR2" : {
     "record_in_processes": ["main"],
     "products": ["firefox", "fennec"],
     "expires_in_version": "never",
     "kind": "boolean",
     "keyed": true,
-    "description": "Successfully started HTTP channels when TRR is enabled; Keyed by TRR auto-detected",
-    "bug_numbers": [1640867],
+    "description": "Successfully started HTTP channels when TRR is enabled; Keyed by TRR domain",
+    "bug_numbers": [1640867, 1646452],
     "releaseChannelCollection": "opt-out",
     "alert_emails": ["necko@mozilla.com", "vgosu@mozilla.com"]
   },
@@ -3157,6 +3193,15 @@
     "keyed": true,
     "description": "Successfully started HTTP channels when HTTPS RR is used; Keyed by echConfig is used or not",
     "bug_numbers": [1682552],
+    "alert_emails": ["necko@mozilla.com", "kershaw@mozilla.com"]
+  },
+  "HTTP_CHANNEL_ONSTART_SUCCESS_ODOH" : {
+    "record_in_processes": ["main"],
+    "products": ["firefox"],
+    "expires_in_version": "never",
+    "kind": "boolean",
+    "description": "Successfully started HTTP channels when ODoH is enabled",
+    "bug_numbers": [1689987],
     "alert_emails": ["necko@mozilla.com", "kershaw@mozilla.com"]
   },
   "HTTP_CONNECTION_ENTRY_CACHE_HIT_1" : {
@@ -3363,6 +3408,18 @@
     "n_buckets": 100,
     "description": "Time from submission to dispatch of HTTP/3 transaction (ms)"
   },
+  "TRANSACTION_WAIT_TIME_HTTPS_RR": {
+    "record_in_processes": ["main", "socket"],
+    "products": ["firefox"],
+    "alert_emails": ["necko@mozilla.com", "kershaw@mozilla.com"],
+    "bug_numbers": [1697480],
+    "expires_in_version": "never",
+    "kind": "exponential",
+    "high": 5000,
+    "n_buckets": 100,
+    "keyed": true,
+    "description": "Time from submission to dispatch of transaction when HTTPS RR is used (ms)"
+  },
   "TRANSACTION_WAIT_TIME_HTTP2_SUP_HTTP3": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox"],
@@ -3386,11 +3443,11 @@
     "n_values": 3,
     "description": "Does a response has a h3(1), other quic(2) or non(0) alt-protocol advertisement."
   },
-  "HTTP3_CONNECTION_CLOSE_CODE": {
-    "record_in_processes": ["main", "content"],
+  "HTTP3_CONNECTION_CLOSE_CODE_3": {
+    "record_in_processes": ["main", "socket"],
     "products": ["firefox"],
-    "alert_emails": ["necko@mozilla.com", "ddamjanovic@mozilla.com"],
-    "bug_numbers": [1605099, 1688091],
+    "alert_emails": ["necko@mozilla.com", "ddamjanovic@mozilla.com", "kershaw@mozilla.com"],
+    "bug_numbers": [1605099, 1688091, 1693738, 1695785],
     "expires_in_version": "never",
     "releaseChannelCollection": "opt-out",
     "kind": "enumerated",
@@ -4186,7 +4243,7 @@
     "n_buckets": 50,
     "description": "Time for a successful DNS resolution (msec)"
   },
-  "DNS_TRR_LOOKUP_TIME2": {
+  "DNS_TRR_LOOKUP_TIME3": {
     "record_in_processes": ["main"],
     "products": ["firefox", "fennec"],
     "expires_in_version": "never",
@@ -4194,10 +4251,10 @@
     "high": 60000,
     "keyed": true,
     "releaseChannelCollection": "opt-out",
-    "alert_emails": ["necko@mozilla.com"],
-    "bug_numbers": [1434852, 1640867],
+    "alert_emails": ["necko@mozilla.com", "vgosu@mozilla.com"],
+    "bug_numbers": [1434852, 1640867, 1646452],
     "n_buckets": 50,
-    "description": "Time for a completed TRR resolution (msec); Keyed by TRR auto-detected"
+    "description": "Time for a completed TRR resolution (msec); Keyed by TRR domain"
   },
   "DNS_TRR_PROCESSING_TIME": {
     "record_in_processes": ["main"],
@@ -4210,6 +4267,17 @@
     "bug_numbers": [1608114],
     "n_buckets": 50,
     "description": "Time from the last received byte of the response until we have notified the consumer with a DNS record (msec)"
+  },
+  "DNS_TRR_HTTP_VERSION": {
+    "record_in_processes": ["main"],
+    "products": ["firefox"],
+    "expires_in_version": "never",
+    "kind": "categorical",
+    "labels": ["h_1", "h_2", "h_3"],
+    "releaseChannelCollection": "opt-out",
+    "alert_emails": ["nhnt11@mozilla.com", "necko@mozilla.com"],
+    "bug_numbers": [1460314],
+    "description": "HTTP version used by DoH endpoint"
   },
   "DNS_NATIVE_LOOKUP_TIME": {
     "record_in_processes": ["main"],
@@ -4281,48 +4349,48 @@
     "releaseChannelCollection": "opt-out",
     "description": "When in TRR-first mode if DNS succeeded, it lists the reason we may have skipped TRR"
   },
-  "DNS_TRR_FIRST3": {
+  "DNS_TRR_FIRST4": {
     "record_in_processes": ["main"],
     "products": ["firefox", "fennec"],
-    "alert_emails": ["necko@mozilla.com"],
+    "alert_emails": ["necko@mozilla.com", "vgosu@mozilla.com"],
     "expires_in_version": "never",
     "kind": "categorical",
     "keyed": true,
     "labels": ["TRR", "NativeAfterTRR", "Native", "BothFailed"],
-    "bug_numbers": [1497252, 1640867],
+    "bug_numbers": [1497252, 1640867, 1646452],
     "releaseChannelCollection": "opt-out",
-    "description": "TRR-first mode distribution. 0=Worked, 1=fell back fine after TRR fail, 2=native worked, 3=both failed; Keyed by TRR auto-detected"
+    "description": "TRR-first mode distribution. 0=Worked, 1=fell back fine after TRR fail, 2=native worked, 3=both failed; Keyed by TRR domain"
   },
-  "DNS_TRR_DISABLED2": {
+  "DNS_TRR_DISABLED3": {
     "record_in_processes": ["main"],
     "products": ["firefox", "fennec"],
     "expires_in_version": "never",
     "kind": "boolean",
     "keyed": true,
-    "description": "Resolve success rate when in TRR-first and called TRR-disabled (fall-back mode); Keyed by TRR auto-detected",
-    "bug_numbers": [1472659, 1640867],
+    "description": "Resolve success rate when in TRR-first and called TRR-disabled (fall-back mode); Keyed by TRR domain",
+    "bug_numbers": [1472659, 1640867, 1646452],
     "releaseChannelCollection": "opt-out",
-    "alert_emails": ["necko@mozilla.com"]
+    "alert_emails": ["necko@mozilla.com", "vgosu@mozilla.com"]
   },
-  "DNS_TRR_BLACKLISTED2": {
+  "DNS_TRR_BLACKLISTED3": {
     "record_in_processes": ["main"],
     "products": ["firefox", "fennec"],
     "expires_in_version": "never",
     "kind": "boolean",
     "keyed": true,
-    "description": "DNS check for TRR was blocked by blacklist; Keyed by TRR auto-detected",
-    "bug_numbers": [1434852, 1640867],
-    "alert_emails": ["necko@mozilla.com"]
+    "description": "DNS check for TRR was blocked by blacklist; Keyed by TRR domain",
+    "bug_numbers": [1434852, 1640867, 1646452],
+    "alert_emails": ["necko@mozilla.com", "vgosu@mozilla.com"]
   },
-  "DNS_TRR_NS_VERFIFIED2": {
+  "DNS_TRR_NS_VERFIFIED3": {
     "record_in_processes": ["main"],
     "products": ["firefox", "fennec"],
     "expires_in_version": "never",
     "kind": "boolean",
     "keyed": true,
-    "description": "TRR managed to verify NS entry; Keyed by TRR auto-detected",
-    "bug_numbers": [1453825, 1640867],
-    "alert_emails": ["necko@mozilla.com"]
+    "description": "TRR managed to verify NS entry; Keyed by TRR domain",
+    "bug_numbers": [1453825, 1640867, 1646452],
+    "alert_emails": ["necko@mozilla.com", "vgosu@mozilla.com"]
   },
   "DNS_TRR_REQUEST_PER_CONN": {
     "record_in_processes": ["main", "content"],
@@ -4335,17 +4403,17 @@
     "bug_numbers": [1470853],
     "description": "Number of DOH requests per connection"
   },
-  "DNS_TRR_SUCCESS2": {
+  "DNS_TRR_SUCCESS3": {
     "record_in_processes": ["main"],
     "products": ["firefox", "fennec"],
     "expires_in_version": "never",
     "kind": "categorical",
     "keyed": true,
     "labels": ["Fine", "Timeout", "Bad"],
-    "description": "How often TRR (Trusted Recursive Resolver) requests are fine, time-out or error. Keyed by TRR auto-detected",
-    "bug_numbers": [1497438, 1640867],
+    "description": "How often TRR (Trusted Recursive Resolver) requests are fine, time-out or error. Keyed by TRR domain",
+    "bug_numbers": [1497438, 1640867, 1646452],
     "releaseChannelCollection": "opt-out",
-    "alert_emails": ["necko@mozilla.com"]
+    "alert_emails": ["necko@mozilla.com", "vgosu@mozilla.com"]
   },
   "DNS_LOOKUP_ALGORITHM": {
     "record_in_processes": ["main"],
@@ -4357,18 +4425,18 @@
     "bug_numbers": [1434852],
     "description": "DNS: lookup algorithm"
   },
-  "DNS_LOOKUP_DISPOSITION2": {
+  "DNS_LOOKUP_DISPOSITION3": {
     "record_in_processes": ["main"],
     "products": ["firefox", "fennec"],
-    "alert_emails": ["necko@mozilla.com"],
+    "alert_emails": ["necko@mozilla.com", "vgosu@mozilla.com"],
     "expires_in_version": "never",
     "kind": "categorical",
     "keyed": true,
     "labels": ["trrOK", "trrFail", "trrAOK", "trrAFail",
 	       "trrAAAAOK", "trrAAAAFail", "osOK", "osFail"],
-    "bug_numbers": [1434852, 1640867],
+    "bug_numbers": [1434852, 1640867, 1646452],
     "releaseChannelCollection": "opt-out",
-    "description": "DNS: lookup algorithm; Keyed by TRR auto-detected"
+    "description": "DNS: lookup algorithm; Keyed by TRR domain"
   },
   "DNS_RENEWAL_TIME": {
     "record_in_processes": ["main"],
@@ -5595,7 +5663,7 @@
     "record_in_processes": ["main"],
     "products": ["firefox", "fennec"],
     "alert_emails": ["dothayer@mozilla.com", "plawless@mozilla.com"],
-    "expires_in_version": "88",
+    "expires_in_version": "100",
     "kind": "categorical",
     "labels": ["HitMemory", "HitDisk", "Miss"],
     "bug_numbers": [1364235],
@@ -5606,7 +5674,7 @@
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec"],
     "alert_emails": ["dothayer@mozilla.com", "plawless@mozilla.com"],
-    "expires_in_version": "88",
+    "expires_in_version": "100",
     "kind": "categorical",
     "labels": ["Hit", "HitChild", "Miss"],
     "bug_numbers": [1364235],
@@ -5617,7 +5685,7 @@
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec"],
     "alert_emails": ["dothayer@mozilla.com", "plawless@mozilla.com"],
-    "expires_in_version": "88",
+    "expires_in_version": "100",
     "kind": "exponential",
     "high": 10000,
     "n_buckets": 20,
@@ -7438,7 +7506,7 @@
     "record_in_processes": ["main"],
     "products": ["firefox"],
     "alert_emails": ["mconley@mozilla.com", "dothayer@mozilla.com"],
-    "expires_in_version": "88",
+    "expires_in_version": "never",
     "kind": "exponential",
     "high": 1000,
     "n_buckets": 20,
@@ -7450,7 +7518,7 @@
     "record_in_processes": ["main"],
     "products": ["firefox"],
     "alert_emails": ["mconley@mozilla.com", "dothayer@mozilla.com"],
-    "expires_in_version": "88",
+    "expires_in_version": "never",
     "kind": "exponential",
     "low": 1000,
     "high": 64000,
@@ -7464,7 +7532,7 @@
     "products": ["firefox"],
     "alert_emails": ["dothayer@mozilla.com"],
     "bug_numbers": [1442068],
-    "expires_in_version": "88",
+    "expires_in_version": "never",
     "kind": "categorical",
     "labels": ["none", "preActions", "postActions", "onLoadTimeout", "onLayersReady", "onSizeModeOrOcc", "onEndSwapDocShells"],
     "releaseChannelCollection": "opt-out",
@@ -7708,6 +7776,18 @@
     "alert_emails": ["tdsmith@mozilla.com", "perf-telemetry-alerts@mozilla.com", "product-metrics-telemetry-alerts@mozilla.com"],
     "releaseChannelCollection": "opt-out"
   },
+  "FX_LAZYLOAD_IMAGE_PAGE_LOAD_MS": {
+    "record_in_processes": ["main"],
+    "products": ["firefox"],
+    "expires_in_version": "never",
+    "kind": "linear",
+    "high": 10000,
+    "n_buckets": 100,
+    "description": "Firefox: Time taken to load a page that has at least one `loading='lazy'` image. (This metric includes both loads and reloads)",
+    "bug_numbers": [1692350],
+    "alert_emails": ["sefeng@mozilla.com", "perf-telemetry-alerts@mozilla.com"],
+    "releaseChannelCollection": "opt-out"
+  },
   "FX_PAGE_RELOAD_NORMAL_MS": {
     "record_in_processes": ["main"],
     "products": ["firefox", "fennec"],
@@ -7860,6 +7940,18 @@
     "keyed": true,
     "description": "How long it took to import logins (passwords) from another browser, keyed by the name of the browser. The time for users to unlock Keychain on macOS is included in this time."
   },
+  "PWMGR_IMPORT_LOGINS_FROM_FILE_MS": {
+    "record_in_processes": ["main"],
+    "products": ["firefox"],
+    "bug_numbers": [1688653],
+    "alert_emails": ["sfoster@mozilla.com", "passwords-dev@mozilla.org"],
+    "expires_in_version": "99",
+    "kind": "exponential",
+    "n_buckets": 70,
+    "high": 100000,
+    "releaseChannelCollection": "opt-out",
+    "description": "How long it took to import logins (passwords) from a CSV/TSV file. The time for users to unlock Keychain on macOS is included in this time."
+  },
   "FX_MIGRATION_BOOKMARKS_JANK_MS": {
     "record_in_processes": ["main"],
     "products": ["firefox"],
@@ -7898,6 +7990,18 @@
     "releaseChannelCollection": "opt-out",
     "keyed": true,
     "description": "Accumulated timer delay (variance between when the timer was expected to fire and when it actually fired) in milliseconds as an indicator for decreased main-thread responsiveness while importing logins / passwords from another browser, keyed by the name of the browser (see gAvailableMigratorKeys in MigrationUtils.jsm). The import is happening on a background thread and should ideally not affect the UI noticeably. The time with the blocking Keychain dialog on macOS can skew this data."
+  },
+  "PWMGR_IMPORT_LOGINS_FROM_FILE_JANK_MS": {
+    "record_in_processes": ["main"],
+    "products": ["firefox"],
+    "bug_numbers": [1338522, 1584261, 1643431, 1678204],
+    "alert_emails": ["sfoster@mozilla.com", "passwords-dev@mozilla.org"],
+    "expires_in_version": "99",
+    "kind": "exponential",
+    "n_buckets": 20,
+    "high": 60000,
+    "releaseChannelCollection": "opt-out",
+    "description": "Accumulated timer delay (variance between when the timer was expected to fire and when it actually fired) in milliseconds as an indicator for decreased main-thread responsiveness while importing logins / passwords from a CSV/TSV file. The import is happening on a background thread and should ideally not affect the UI noticeably. The time with the blocking Keychain dialog on macOS can skew this data."
   },
   "FX_MIGRATION_BOOKMARKS_ROOTS": {
     "record_in_processes": ["main"],
@@ -7949,6 +8053,17 @@
     "releaseChannelCollection": "opt-out",
     "keyed": true,
     "description": "How many logins (passwords) we imported from another browser, keyed by the name of the browser."
+  },
+  "PWMGR_IMPORT_LOGINS_FROM_FILE_CATEGORICAL": {
+    "record_in_processes": ["main"],
+    "products": ["firefox"],
+    "bug_numbers": [1688653],
+    "alert_emails": ["sfoster@mozilla.com", "passwords-dev@mozilla.org"],
+    "expires_in_version": "99",
+    "kind": "categorical",
+    "labels": ["added", "modified", "error", "no_change"],
+    "releaseChannelCollection": "opt-out",
+    "description": "Results of login import from a CSV/TSV file, by category"
   },
   "FX_STARTUP_MIGRATION_BROWSER_COUNT": {
     "record_in_processes": ["main"],
@@ -9287,7 +9402,7 @@
     "low": 1,
     "high": 2147483646,
     "n_buckets": 10,
-    "bug_numbers": [1288745],
+    "bug_numbers": [1288745, 1685406],
     "description": "a testing histogram; not meant to be touched"
   },
   "TELEMETRY_TEST_LINEAR": {
@@ -9299,7 +9414,7 @@
     "low": 1,
     "high": 2147483646,
     "n_buckets": 10,
-    "bug_numbers": [1288745],
+    "bug_numbers": [1288745, 1685406],
     "description": "a testing histogram; not meant to be touched"
   },
   "TELEMETRY_TEST_BOOLEAN": {
@@ -9821,11 +9936,11 @@
   "REGION_LOCATION_SERVICES_DIFFERENCE": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox"],
-    "expires_in_version": "88",
+    "expires_in_version": "92",
     "kind": "exponential",
     "n_buckets": 20,
     "high": 12742000,
-    "bug_numbers": [1637402, 1664723, 1666977],
+    "bug_numbers": [1637402, 1664723, 1666977, 1689263],
     "alert_emails": ["dharvey@mozilla.com"],
     "releaseChannelCollection": "opt-out",
     "description": "The distance(m) between the the result of 2 services that detect the users location"
@@ -9889,10 +10004,10 @@
   "PDF_VIEWER_DOCUMENT_VERSION_2": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox"],
-    "expires_in_version": "88",
+    "expires_in_version": "92",
     "alert_emails": ["bdahl@mozilla.com"],
     "releaseChannelCollection": "opt-out",
-    "bug_numbers": [1566882, 1666979],
+    "bug_numbers": [1566882, 1666979, 1689264],
     "kind": "categorical",
     "labels": ["other", "v1_0", "v1_1", "v1_2", "v1_3", "v1_4", "v1_5", "v1_6", "v1_7", "v1_8", "v1_9", "v2_0", "v2_1", "v2_2", "v2_3"],
     "description": "The PDF document version (1.1, 1.2, etc.)"
@@ -9900,10 +10015,10 @@
   "PDF_VIEWER_DOCUMENT_GENERATOR_2": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox"],
-    "expires_in_version": "88",
+    "expires_in_version": "92",
     "alert_emails": ["bdahl@mozilla.com"],
     "releaseChannelCollection": "opt-out",
-    "bug_numbers": [1566882, 1666979],
+    "bug_numbers": [1566882, 1666979, 1689264],
     "kind": "categorical",
     "labels": ["acrobat_distiller", "acrobat_pdfwriter", "adobe_livecycle", "adobe_pdf_library", "adobe_photoshop", "ghostscript", "tcpdf", "cairo", "dvipdfm", "dvips", "pdftex", "pdfkit", "itext", "prince", "quarkxpress", "mac_os_x", "microsoft", "openoffice", "oracle", "luradocument", "pdf_xchange", "antenna_house", "aspose_cells", "fpdf", "other"],
     "description": "The PDF document generator"
@@ -9911,10 +10026,10 @@
   "PDF_VIEWER_DOCUMENT_SIZE_KB": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox"],
-    "expires_in_version": "88",
+    "expires_in_version": "92",
     "alert_emails": ["bdahl@mozilla.com"],
     "releaseChannelCollection": "opt-out",
-    "bug_numbers": [1566882, 1666979],
+    "bug_numbers": [1566882, 1666979, 1689264],
     "kind": "exponential",
     "low": 2,
     "high": 65536,
@@ -9924,10 +10039,10 @@
   "PDF_VIEWER_FONT_TYPES_2": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox"],
-    "expires_in_version": "88",
+    "expires_in_version": "92",
     "alert_emails": ["bdahl@mozilla.com"],
     "releaseChannelCollection": "opt-out",
-    "bug_numbers": [1566882, 1666979],
+    "bug_numbers": [1566882, 1666979, 1689264],
     "kind": "categorical",
     "labels": ["UNKNOWN", "TYPE1", "TYPE1C", "CIDFONTTYPE0", "CIDFONTTYPE0C", "TRUETYPE", "CIDFONTTYPE2", "TYPE3", "OPENTYPE", "TYPE0", "MMTYPE1"],
     "description": "The PDF document font types used"
@@ -9935,10 +10050,10 @@
   "PDF_VIEWER_EMBED_2": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox"],
-    "expires_in_version": "88",
+    "expires_in_version": "92",
     "alert_emails": ["bdahl@mozilla.com"],
     "releaseChannelCollection": "opt-out",
-    "bug_numbers": [1566882, 1666979],
+    "bug_numbers": [1566882, 1666979, 1689264],
     "kind": "categorical",
     "labels": ["object_embed", "iframe"],
     "description": "A PDF document was embedded using OBJECT/EMBED and or an IFRAME"
@@ -9946,10 +10061,10 @@
   "PDF_VIEWER_FORM_2": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox"],
-    "expires_in_version": "88",
+    "expires_in_version": "92",
     "alert_emails": ["bdahl@mozilla.com"],
     "releaseChannelCollection": "opt-out",
-    "bug_numbers": [1566882, 1666979],
+    "bug_numbers": [1566882, 1666979, 1689264],
     "kind": "categorical",
     "labels": ["acroform", "xfa"],
     "description": "If a form was used, its type."
@@ -9957,10 +10072,10 @@
   "PDF_VIEWER_STREAM_TYPES_2": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox"],
-    "expires_in_version": "88",
+    "expires_in_version": "92",
     "alert_emails": ["bdahl@mozilla.com"],
     "releaseChannelCollection": "opt-out",
-    "bug_numbers": [1566882, 1666979],
+    "bug_numbers": [1566882, 1666979, 1689264],
     "kind": "categorical",
     "labels": ["UNKNOWN", "FLATE", "LZW", "DCT", "JPX", "JBIG", "A85", "AHX", "CCF", "RLX"],
     "description": "The PDF document compression stream types used"
@@ -9980,10 +10095,10 @@
   "PDF_VIEWER_FALLBACK_REASON": {
     "record_in_processes": ["content"],
     "products": ["firefox"],
-    "expires_in_version": "88",
+    "expires_in_version": "92",
     "alert_emails": ["bdahl@mozilla.com"],
     "releaseChannelCollection": "opt-out",
-    "bug_numbers": [1630844, 1666979],
+    "bug_numbers": [1630844, 1666979, 1689264],
     "kind": "categorical",
     "labels": ["unknown", "forms", "javaScript", "smask", "shadingPattern", "font", "errorTilingPattern", "errorExtGState", "errorXObject", "errorFontLoadType3", "errorFontState", "errorFontMissing", "errorFontTranslate", "errorColorSpace", "errorOperatorList", "errorFontToUnicode", "errorFontLoadNative", "errorFontGetPath"],
     "description": "The reason the fallback bar was shown."
@@ -9991,10 +10106,10 @@
   "PDF_VIEWER_FALLBACK_ERROR": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox"],
-    "expires_in_version": "88",
+    "expires_in_version": "92",
     "alert_emails": ["bdahl@mozilla.com"],
     "releaseChannelCollection": "opt-out",
-    "bug_numbers": [1643402, 1666979],
+    "bug_numbers": [1643402, 1666979, 1689264],
     "kind": "categorical",
     "labels": ["unknown", "forms", "javaScript", "smask", "shadingPattern", "font", "errorTilingPattern", "errorExtGState", "errorXObject", "errorFontLoadType3", "errorFontState", "errorFontMissing", "errorFontTranslate", "errorColorSpace", "errorOperatorList", "errorFontToUnicode", "errorFontLoadNative", "errorFontGetPath"],
     "description": "All errors that could trigger the fallback bar, even after the bar is shown."
@@ -10002,10 +10117,10 @@
   "PDF_VIEWER_TAGGED": {
     "record_in_processes": ["content"],
     "products": ["firefox"],
-    "expires_in_version": "88",
+    "expires_in_version": "92",
     "alert_emails": ["bdahl@mozilla.com"],
     "releaseChannelCollection": "opt-out",
-    "bug_numbers": [1673128, 1666979],
+    "bug_numbers": [1673128, 1666979, 1689264],
     "kind": "boolean",
     "description": "If a PDF is tagged."
   },
@@ -10124,7 +10239,7 @@
     "record_in_processes": ["main"],
     "products": ["firefox"],
     "alert_emails": ["jwatt@jwatt.org"],
-    "expires_in_version": "88",
+    "expires_in_version": "95",
     "description": "Milliseconds taken on the background thread only for print background tasks. Keys describe the task, usually the information being retrieved, current possible keys are: DefaultSettings, MarginsForPaper, Printers, NamedPrinter, NamedOrDefaultPrinter, SupportsDuplex, SupportsColor, SupportsCollation, PaperList.",
     "keyed": true,
     "kind": "exponential",
@@ -10137,7 +10252,7 @@
     "record_in_processes": ["main"],
     "products": ["firefox"],
     "alert_emails": ["jwatt@jwatt.org"],
-    "expires_in_version": "88",
+    "expires_in_version": "95",
     "description": "Milliseconds taken for print background tasks from spawning to background thread back to before resolving or rejecting on the main thread. See PRINT_BACKGROUND_TASK_TIME_MS for key description.",
     "keyed": true,
     "kind": "exponential",
@@ -10149,8 +10264,8 @@
   "PRINT_INIT_TO_PLATFORM_SENT_SETTINGS_MS" : {
     "record_in_processes": ["main"],
     "products": ["firefox"],
-    "alert_emails": ["jwatt@jwatt.org"],
-    "expires_in_version": "89",
+    "alert_emails": ["jwatt@jwatt.org", "emilio@mozilla.com"],
+    "expires_in_version": "92",
     "description": "Milliseconds taken from when a print is initiated (typically by the user) to when the platform code is sent the print settings to create the initial print preview document.",
     "kind": "exponential",
     "high": 10000,
@@ -10161,8 +10276,8 @@
   "PRINT_INIT_TO_PREVIEW_DOC_SHOWN_MS" : {
     "record_in_processes": ["main"],
     "products": ["firefox"],
-    "alert_emails": ["jwatt@jwatt.org"],
-    "expires_in_version": "89",
+    "alert_emails": ["jwatt@jwatt.org", "emilio@mozilla.com"],
+    "expires_in_version": "92",
     "description": "Milliseconds taken from when a print is initiated (typically by the user) to when the initial print preview document is shown.",
     "kind": "exponential",
     "high": 10000,
@@ -12600,7 +12715,20 @@
     "kind": "exponential",
     "high": 65,
     "n_buckets": 10,
-    "description": "Duration of shutdown phase quit-application, as measured by the shutdown terminator, in seconds of activity"
+    "bug_numbers": [1689953],
+    "alert_emails": ["dothayer@mozilla.com, jstutte@mozilla.com"],
+    "description": "Duration of shutdown phase quit-application, as measured by the shutdown terminator in ticks of 100ms"
+  },
+  "SHUTDOWN_PHASE_DURATION_TICKS_PROFILE_CHANGE_NET_TEARDOWN": {
+    "record_in_processes": ["main", "content"],
+    "products": ["firefox", "fennec", "thunderbird"],
+    "expires_in_version": "never",
+    "kind": "exponential",
+    "high": 65,
+    "n_buckets": 10,
+    "bug_numbers": [1689953],
+    "alert_emails": ["dothayer@mozilla.com, jstutte@mozilla.com"],
+    "description": "Duration of shutdown phase profile-change-net-teardown, as measured by the shutdown terminator in ticks of 100ms"
   },
   "SHUTDOWN_PHASE_DURATION_TICKS_PROFILE_CHANGE_TEARDOWN": {
     "record_in_processes": ["main", "content"],
@@ -12609,16 +12737,9 @@
     "kind": "exponential",
     "high": 65,
     "n_buckets": 10,
-    "description": "Duration of shutdown phase profile-change-teardown, as measured by the shutdown terminator, in seconds of activity"
-  },
-  "SHUTDOWN_PHASE_DURATION_TICKS_XPCOM_WILL_SHUTDOWN": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec", "thunderbird"],
-    "expires_in_version": "never",
-    "kind": "exponential",
-    "high": 65,
-    "n_buckets": 10,
-    "description": "Duration of shutdown phase xpcom-will-shutdown, as measured by the shutdown terminator, in seconds of activity"
+    "bug_numbers": [1689953],
+    "alert_emails": ["dothayer@mozilla.com, jstutte@mozilla.com"],
+    "description": "Duration of shutdown phase profile-change-teardown, as measured by the shutdown terminator in ticks of 100ms"
   },
   "SHUTDOWN_PHASE_DURATION_TICKS_PROFILE_BEFORE_CHANGE": {
     "record_in_processes": ["main", "content"],
@@ -12627,7 +12748,42 @@
     "kind": "exponential",
     "high": 65,
     "n_buckets": 10,
-    "description": "Duration of shutdown phase profile-before-change, as measured by the shutdown terminator, in seconds of activity"
+    "bug_numbers": [1689953],
+    "alert_emails": ["dothayer@mozilla.com, jstutte@mozilla.com"],
+    "description": "Duration of shutdown phase profile-before-change, as measured by the shutdown terminator in ticks of 100ms"
+  },
+  "SHUTDOWN_PHASE_DURATION_TICKS_PROFILE_BEFORE_CHANGE_QM": {
+    "record_in_processes": ["main", "content"],
+    "products": ["firefox", "fennec", "thunderbird"],
+    "expires_in_version": "never",
+    "kind": "exponential",
+    "high": 65,
+    "n_buckets": 10,
+    "bug_numbers": [1689953],
+    "alert_emails": ["dothayer@mozilla.com, jstutte@mozilla.com"],
+    "description": "Duration of shutdown phase profile-before-change-qm, as measured by the shutdown terminator in ticks of 100ms"
+  },
+  "SHUTDOWN_PHASE_DURATION_TICKS_XPCOM_WILL_SHUTDOWN": {
+    "record_in_processes": ["main", "content"],
+    "products": ["firefox", "fennec", "thunderbird"],
+    "expires_in_version": "never",
+    "kind": "exponential",
+    "high": 65,
+    "n_buckets": 10,
+    "bug_numbers": [1689953],
+    "alert_emails": ["dothayer@mozilla.com, jstutte@mozilla.com"],
+    "description": "Duration of shutdown phase xpcom-will-shutdown, as measured by the shutdown terminator in ticks of 100ms"
+  },
+  "SHUTDOWN_PHASE_DURATION_TICKS_XPCOM_SHUTDOWN": {
+    "record_in_processes": ["main", "content"],
+    "products": ["firefox", "fennec", "thunderbird"],
+    "expires_in_version": "never",
+    "kind": "exponential",
+    "high": 65,
+    "n_buckets": 10,
+    "bug_numbers": [1689953],
+    "alert_emails": ["dothayer@mozilla.com, jstutte@mozilla.com"],
+    "description": "Duration of shutdown phase xpcom-shutdown, as measured by the shutdown terminator in ticks of 100ms"
   },
   "TAP_TO_LOAD_ENABLED": {
     "record_in_processes": ["main", "content"],
@@ -14120,16 +14276,6 @@
     "releaseChannelCollection": "opt-out",
     "description": "Counts the number of times that about:tabcrashed was unable to find a crash dump."
   },
-  "FX_CONTENT_CRASH_PRESENTED": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["wmccloskey@mozilla.com"],
-    "bug_numbers": [1269961],
-    "expires_in_version": "never",
-    "kind": "count",
-    "releaseChannelCollection": "opt-out",
-    "description": "Counts the number of times that about:tabcrashed appeared and found a crash dump."
-  },
   "FX_CONTENT_CRASH_NOT_SUBMITTED": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec"],
@@ -15383,24 +15529,24 @@
     "record_in_processes": ["main"],
     "products": ["firefox", "fennec"],
     "alert_emails": ["seceng-telemetry@mozilla.com", "jjones@mozilla.com"],
-    "expires_in_version": "88",
+    "expires_in_version": "100",
     "releaseChannelCollection": "opt-out",
     "kind": "exponential",
     "high": 120000,
     "n_buckets": 100,
-    "bug_numbers": [1265472, 1558870, 1630155],
+    "bug_numbers": [1265472, 1558870, 1630155, 1689269],
     "description": "Time in milliseconds to complete a WebAuthn create credential."
   },
   "WEBAUTHN_GET_ASSERTION_MS": {
     "record_in_processes": ["main"],
     "products": ["firefox", "fennec"],
     "alert_emails": ["seceng-telemetry@mozilla.com", "jjones@mozilla.com"],
-    "expires_in_version": "88",
+    "expires_in_version": "100",
     "releaseChannelCollection": "opt-out",
     "kind": "exponential",
     "high": 120000,
     "n_buckets": 100,
-    "bug_numbers": [1265472, 1558870, 1630155],
+    "bug_numbers": [1265472, 1558870, 1630155, 1689269],
     "description": "Time in milliseconds to complete a WebAuthn get assertion."
   },
   "VIDEO_UNBLACKINGLISTING_DXVA_DRIVER_RUNTIME_STATUS": {
@@ -16053,37 +16199,37 @@
     "description": "Encountered a missing character that would have been supported by a user-installed font"
   },
   "COOKIE_PURGING_ORIGINS_PURGED": {
-    "expires_in_version": "88",
+    "expires_in_version": "never",
     "record_in_processes": ["main"],
     "products": ["firefox"],
     "kind": "exponential",
     "high": 500,
     "n_buckets": 30,
-    "bug_numbers": [1630053, 1656134],
+    "bug_numbers": [1630053, 1656134, 1689271],
     "releaseChannelCollection": "opt-out",
     "alert_emails": ["jhofmann@mozilla.com", "senglehardt@mozilla.com", "aedelstein@mozilla.com", "seceng-telemetry@mozilla.com"],
     "description": "The number of origins that were purged during one run of cookie purging."
   },
   "COOKIE_PURGING_TRACKERS_WITH_USER_INTERACTION": {
-    "expires_in_version": "88",
+    "expires_in_version": "never",
     "record_in_processes": ["main"],
     "products": ["firefox"],
     "kind": "exponential",
     "high": 500,
     "n_buckets": 30,
-    "bug_numbers": [1630053, 1656134],
+    "bug_numbers": [1630053, 1656134, 1689271],
     "releaseChannelCollection": "opt-out",
     "alert_emails": ["jhofmann@mozilla.com", "senglehardt@mozilla.com", "aedelstein@mozilla.com", "seceng-telemetry@mozilla.com"],
     "description": "The number of trackers that had user interaction at the time of purging."
   },
   "COOKIE_PURGING_TRACKERS_USER_INTERACTION_REMAINING_DAYS": {
-    "expires_in_version": "88",
+    "expires_in_version": "never",
     "record_in_processes": ["main"],
     "products": ["firefox"],
     "kind": "linear",
     "high": 100,
     "n_buckets": 60,
-    "bug_numbers": [1630053, 1656134],
+    "bug_numbers": [1630053, 1656134, 1689271],
     "releaseChannelCollection": "opt-out",
     "alert_emails": ["jhofmann@mozilla.com", "senglehardt@mozilla.com", "aedelstein@mozilla.com", "seceng-telemetry@mozilla.com"],
     "description": "The time remaining until expiration per user interaction permissions of trackers at the time of purging, in days (one record per tracker, not averaged)."
@@ -16092,8 +16238,8 @@
     "record_in_processes": ["main"],
     "products": ["firefox"],
     "alert_emails": ["jhofmann@mozilla.com", "senglehardt@mozilla.com", "aedelstein@mozilla.com", "seceng-telemetry@mozilla.com"],
-    "expires_in_version": "88",
-    "bug_numbers": [1630053, 1656134],
+    "expires_in_version": "never",
+    "bug_numbers": [1630053, 1656134, 1689271],
     "kind": "exponential",
     "high": 600000,
     "releaseChannelCollection": "opt-out",
@@ -16104,8 +16250,8 @@
     "record_in_processes": ["main"],
     "products": ["firefox"],
     "alert_emails": ["jhofmann@mozilla.com", "senglehardt@mozilla.com", "aedelstein@mozilla.com", "seceng-telemetry@mozilla.com"],
-    "expires_in_version": "88",
-    "bug_numbers": [1630053, 1656134],
+    "expires_in_version": "never",
+    "bug_numbers": [1630053, 1656134, 1689271],
     "kind": "linear",
     "high": 168,
     "releaseChannelCollection": "opt-out",
@@ -16425,5 +16571,49 @@
     "expires_in_version": "never",
     "kind": "boolean",
     "description": "Whether an HTTP request gets upgraded to HTTPS because HTTPS RR is presented"
+  },
+  "DNS_ODOH_LOOKUP_TIME": {
+    "record_in_processes": ["main", "socket"],
+    "products": ["firefox"],
+    "expires_in_version": "never",
+    "kind": "exponential",
+    "high": 60000,
+    "alert_emails": ["necko@mozilla.com", "kershaw@mozilla.com"],
+    "bug_numbers": [1689987],
+    "n_buckets": 50,
+    "description": "Time for a completed ODoH resolution (msec)"
+  },
+  "ODOH_SKIP_REASON_ODOH_FIRST": {
+    "record_in_processes": ["main", "socket"],
+    "products": ["firefox"],
+    "alert_emails": ["necko@mozilla.com", "kershaw@mozilla.com"],
+    "expires_in_version": "never",
+    "kind": "enumerated",
+    "n_values": 50,
+    "bug_numbers": [1689987],
+    "releaseChannelCollection": "opt-out",
+    "description": "When in ODoH-first mode, it lists the reason we may have skipped ODoH"
+  },
+  "HTTP_PAGE_DNS_ODOH_LOOKUP_TIME": {
+    "record_in_processes": ["main", "content"],
+    "products": ["firefox"],
+    "expires_in_version": "never",
+    "alert_emails": ["necko@mozilla.com", "kershaw@mozilla.com"],
+    "kind": "exponential",
+    "high": 30000,
+    "n_buckets": 50,
+    "description": "HTTP page channel: ODoH lookup time (ms)",
+    "bug_numbers": [1689987]
+  },
+  "HTTP_SUB_DNS_ODOH_LOOKUP_TIME": {
+    "record_in_processes": ["main", "content"],
+    "products": ["firefox"],
+    "expires_in_version": "never",
+    "kind": "exponential",
+    "high": 30000,
+    "n_buckets": 50,
+    "bug_numbers": [1689987],
+    "alert_emails": ["necko@mozilla.com", "kershaw@mozilla.com"],
+    "description": "HTTP subitem channel: ODoH lookup time (ms)"
   }
 }

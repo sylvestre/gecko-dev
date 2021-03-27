@@ -1,12 +1,12 @@
-commit df1961f16a7cdae0bcd9d6a0004b9fda1895a9ef
-Author: Yusuke Suzuki <ysuzuki@apple.com>
-Date:   Wed Jan 6 20:36:24 2021 -0800
+commit 31126581e7290f9233c29cefd93f66c6ac78f1c9
+Author: Frank Yung-Fong Tang <ftang@google.com>
+Date:   Mon Mar 8 19:31:26 2021 -0800
 
-    Fix formatRangeToParts/date-same-returns-single-date.js and add tests using practically-equal two dates
+    Change Intl.(ListFormat|DisplayNames|Segmenter) (#2952)
     
-    intl402/DateTimeFormat/prototype/formatRangeToParts/date-same-returns-single-date.js is using `formatRange` and `format`.
-    Fix this test to use `formatRangeToParts` and `formatToParts` since it is the intention of this test.
+    * Change Intl.(ListFormat|DisplayNames|Segmenter)
     
-    This patch adds additional tests to intl402/DateTimeFormat/prototype/formatRangeToParts/date-same-returns-single-date.js and
-    intl402/DateTimeFormat/prototype/formatRange/date-same-returns-single-date.js. The new test uses two dates that are practially-equal,
-    and ensures the implementation uses `format` or `formatToParts` by detecting they are practically-equal.
+    Sync from ToObject to GetOptionsObject which throw TypeError
+    while the option is not object
+    
+    * Add null and false to test

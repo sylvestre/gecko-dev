@@ -64,10 +64,10 @@ void main(void) {
     PrimitiveHeader ph = fetch_prim_header(ci.prim_header_index);
     PictureTask dest_task = fetch_picture_task(ci.render_task_index);
     Transform transform = fetch_transform(ph.transform_id);
-    ImageResource res = fetch_image_resource(ph.user_data.x);
+    ImageSource res = fetch_image_source(ph.user_data.x);
     ClipArea clip_area = fetch_clip_area(ph.user_data.w);
 
-    vec2 dest_origin = dest_task.common_data.task_rect.p0 -
+    vec2 dest_origin = dest_task.task_rect.p0 -
                        dest_task.content_origin;
 
     vec2 local_pos = bilerp(geometry.local[0], geometry.local[1],
@@ -89,7 +89,7 @@ void main(void) {
 
     gl_Position = uTransform * final_pos;
 
-    vec2 texture_size = vec2(textureSize(sColor0, 0));
+    vec2 texture_size = vec2(TEX_SIZE(sColor0));
     vec2 uv0 = res.uv_rect.p0;
     vec2 uv1 = res.uv_rect.p1;
 
@@ -121,14 +121,10 @@ void main(void) {
 
 #ifdef SWGL_DRAW_SPAN
 void swgl_drawSpanRGBA8() {
-    if (!swgl_isTextureLinear(sColor0)) {
-        return;
-    }
-
     float perspective_divisor = mix(swgl_forceScalar(gl_FragCoord.w), 1.0, vPerspective);
     vec2 uv = vUv * perspective_divisor;
 
-    swgl_commitTextureLinearRGBA8(sColor0, uv, vUvSampleBounds, 0.0);
+    swgl_commitTextureRGBA8(sColor0, uv, vUvSampleBounds);
 }
 #endif
 

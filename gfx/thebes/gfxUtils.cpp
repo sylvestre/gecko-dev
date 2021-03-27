@@ -14,6 +14,7 @@
 #include "gfxQuad.h"
 #include "imgIEncoder.h"
 #include "mozilla/Base64.h"
+#include "mozilla/Components.h"
 #include "mozilla/dom/ImageEncoder.h"
 #include "mozilla/dom/WorkerPrivate.h"
 #include "mozilla/dom/WorkerRunnable.h"
@@ -31,6 +32,7 @@
 #include "mozilla/layers/SynchronousTask.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/ProfilerLabels.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/ServoStyleConsts.h"
 #include "mozilla/StaticPrefs_gfx.h"
@@ -48,7 +50,6 @@
 #include "nsPresContext.h"
 #include "nsRegion.h"
 #include "nsServiceManagerUtils.h"
-#include "GeckoProfiler.h"
 #include "ImageContainer.h"
 #include "ImageRegion.h"
 #include "gfx2DGlue.h"
@@ -1127,9 +1128,8 @@ const float kIdentityNarrowYCbCrToRGB_RowMajor[16] = {
       return rec2020;
     case gfx::YUVColorSpace::Identity:
       return identity;
-    default:  // YUVColorSpace::UNKNOWN
-      MOZ_ASSERT(false, "unknown aYUVColorSpace");
-      return rec601;
+    default:
+      MOZ_CRASH("Bad YUVColorSpace");
   }
 }
 
@@ -1154,9 +1154,8 @@ const float kIdentityNarrowYCbCrToRGB_RowMajor[16] = {
       return rec2020;
     case YUVColorSpace::Identity:
       return identity;
-    default:  // YUVColorSpace::UNKNOWN
-      MOZ_ASSERT(false, "unknown aYUVColorSpace");
-      return rec601;
+    default:
+      MOZ_CRASH("Bad YUVColorSpace");
   }
 }
 
@@ -1184,9 +1183,8 @@ const float kIdentityNarrowYCbCrToRGB_RowMajor[16] = {
       return rec2020;
     case YUVColorSpace::Identity:
       return identity;
-    default:  // YUVColorSpace::UNKNOWN
-      MOZ_ASSERT(false, "unknown aYUVColorSpace");
-      return rec601;
+    default:
+      MOZ_CRASH("Bad YUVColorSpace");
   }
 }
 
@@ -1410,7 +1408,7 @@ void gfxUtils::RemoveShaderCacheFromDiskIfNecessary() {
     return;
   }
 
-  nsCOMPtr<nsIGfxInfo> gfxInfo = services::GetGfxInfo();
+  nsCOMPtr<nsIGfxInfo> gfxInfo = components::GfxInfo::Service();
 
   // Get current values
   nsCString buildID(mozilla::PlatformBuildID());

@@ -107,7 +107,6 @@
 #include "mozilla/Result.h"
 #include "mozilla/ResultExtensions.h"
 #include "mozilla/ScrollbarPreferences.h"
-#include "mozilla/Services.h"
 #include "mozilla/Span.h"
 #include "mozilla/StaticAnalysisFunctions.h"
 #include "mozilla/StaticPrefs_dom.h"
@@ -127,6 +126,7 @@
 #include "mozilla/Variant.h"
 #include "mozilla/ViewportUtils.h"
 #include "mozilla/dom/AncestorIterator.h"
+#include "mozilla/dom/AutoEntryScript.h"
 #include "mozilla/dom/AutocompleteInfoBinding.h"
 #include "mozilla/dom/AutoSuppressEventHandlingAndSuspend.h"
 #include "mozilla/dom/BindingDeclarations.h"
@@ -235,7 +235,7 @@
 #include "nsCycleCollectionNoteChild.h"
 #include "nsDOMMutationObserver.h"
 #include "nsDOMString.h"
-#include "nsDataHashtable.h"
+#include "nsTHashMap.h"
 #include "nsDebug.h"
 #include "nsDocShell.h"
 #include "nsDocShellCID.h"
@@ -422,9 +422,9 @@ nsNameSpaceManager* nsContentUtils::sNameSpaceManager;
 nsIIOService* nsContentUtils::sIOService;
 nsIUUIDGenerator* nsContentUtils::sUUIDGenerator;
 nsIConsoleService* nsContentUtils::sConsoleService;
-nsDataHashtable<nsRefPtrHashKey<nsAtom>, EventNameMapping>*
+nsTHashMap<nsRefPtrHashKey<nsAtom>, EventNameMapping>*
     nsContentUtils::sAtomEventTable = nullptr;
-nsDataHashtable<nsStringHashKey, EventNameMapping>*
+nsTHashMap<nsStringHashKey, EventNameMapping>*
     nsContentUtils::sStringEventTable = nullptr;
 nsTArray<RefPtr<nsAtom>>* nsContentUtils::sUserDefinedEvents = nullptr;
 nsIStringBundleService* nsContentUtils::sStringBundleService;
@@ -870,7 +870,7 @@ void nsContentUtils::GetModifierSeparatorText(nsAString& text) {
 void nsContentUtils::InitializeModifierStrings() {
   // load the display strings for the keyboard accelerators
   nsCOMPtr<nsIStringBundleService> bundleService =
-      mozilla::services::GetStringBundleService();
+      mozilla::components::StringBundle::Service();
   nsCOMPtr<nsIStringBundle> bundle;
   DebugOnly<nsresult> rv = NS_OK;
   if (bundleService) {
@@ -956,20 +956,19 @@ bool nsContentUtils::InitializeEventTable() {
 #undef EVENT
       {nullptr}};
 
-  sAtomEventTable =
-      new nsDataHashtable<nsRefPtrHashKey<nsAtom>, EventNameMapping>(
-          ArrayLength(eventArray));
-  sStringEventTable = new nsDataHashtable<nsStringHashKey, EventNameMapping>(
+  sAtomEventTable = new nsTHashMap<nsRefPtrHashKey<nsAtom>, EventNameMapping>(
+      ArrayLength(eventArray));
+  sStringEventTable = new nsTHashMap<nsStringHashKey, EventNameMapping>(
       ArrayLength(eventArray));
   sUserDefinedEvents = new nsTArray<RefPtr<nsAtom>>(64);
 
   // Subtract one from the length because of the trailing null
   for (uint32_t i = 0; i < ArrayLength(eventArray) - 1; ++i) {
-    MOZ_ASSERT(!sAtomEventTable->Lookup(eventArray[i].mAtom),
+    MOZ_ASSERT(!sAtomEventTable->Contains(eventArray[i].mAtom),
                "Double-defining event name; fix your EventNameList.h");
-    sAtomEventTable->Put(eventArray[i].mAtom, eventArray[i]);
+    sAtomEventTable->InsertOrUpdate(eventArray[i].mAtom, eventArray[i]);
     if (ShouldAddEventToStringEventTable(eventArray[i])) {
-      sStringEventTable->Put(
+      sStringEventTable->InsertOrUpdate(
           Substring(nsDependentAtomString(eventArray[i].mAtom), 2),
           eventArray[i]);
     }
@@ -992,8 +991,9 @@ void nsContentUtils::InitializeTouchEventTable() {
         {nullptr}};
     // Subtract one from the length because of the trailing null
     for (uint32_t i = 0; i < ArrayLength(touchEventArray) - 1; ++i) {
-      sAtomEventTable->Put(touchEventArray[i].mAtom, touchEventArray[i]);
-      sStringEventTable->Put(
+      sAtomEventTable->InsertOrUpdate(touchEventArray[i].mAtom,
+                                      touchEventArray[i]);
+      sStringEventTable->InsertOrUpdate(
           Substring(nsDependentAtomString(touchEventArray[i].mAtom), 2),
           touchEventArray[i]);
     }
@@ -2292,22 +2292,6 @@ bool nsContentUtils::LookupBindingMember(
     JSContext* aCx, nsIContent* aContent, JS::Handle<jsid> aId,
     JS::MutableHandle<JS::PropertyDescriptor> aDesc) {
   return true;
-}
-
-// static
-nsINode* nsContentUtils::GetCrossDocParentNode(nsINode* aChild) {
-  MOZ_ASSERT(aChild, "The child is null!");
-
-  nsINode* parent = aChild->GetParentNode();
-  if (parent && parent->IsContent() && aChild->IsContent()) {
-    parent = aChild->AsContent()->GetFlattenedTreeParent();
-  }
-
-  if (parent || !aChild->IsDocument()) {
-    return parent;
-  }
-
-  return aChild->AsDocument()->GetEmbedderElement();
 }
 
 nsINode* nsContentUtils::GetNearestInProcessCrossDocParentNode(
@@ -3657,7 +3641,8 @@ static bool TestSitePerm(nsIPrincipal* aPrincipal, const nsACString& aType,
     return aPerm != nsIPermissionManager::ALLOW_ACTION;
   }
 
-  nsCOMPtr<nsIPermissionManager> permMgr = services::GetPermissionManager();
+  nsCOMPtr<nsIPermissionManager> permMgr =
+      components::PermissionManager::Service();
   NS_ENSURE_TRUE(permMgr, false);
 
   uint32_t perm;
@@ -4091,7 +4076,7 @@ nsAtom* nsContentUtils::GetEventMessageAndAtom(
   // sAtomEventTable instead.
   mapping.mMaybeSpecialSVGorSMILEvent =
       GetEventMessage(atom) != eUnidentifiedEvent;
-  sStringEventTable->Put(aName, mapping);
+  sStringEventTable->InsertOrUpdate(aName, mapping);
   return mapping.mAtom;
 }
 
@@ -4616,13 +4601,21 @@ void nsContentUtils::MaybeFireNodeRemoved(nsINode* aChild, nsINode* aParent) {
     // that is a know case when we'd normally fire a mutation event, but can't
     // make that safe and so we suppress it at this time. Ideally this should
     // go away eventually.
-    if (!(aChild->IsContent() &&
-          aChild->AsContent()->IsInNativeAnonymousSubtree()) &&
+    if (!aChild->IsInNativeAnonymousSubtree() &&
         !sDOMNodeRemovedSuppressCount) {
       NS_ERROR("Want to fire DOMNodeRemoved event, but it's not safe");
       WarnScriptWasIgnored(aChild->OwnerDoc());
     }
     return;
+  }
+
+  {
+    Document* doc = aParent->OwnerDoc();
+    if (MOZ_UNLIKELY(doc->DevToolsWatchingDOMMutations()) &&
+        aChild->IsInComposedDoc() && !aChild->ChromeOnlyAccess()) {
+      DispatchChromeEvent(doc, aChild, u"devtoolschildremoved"_ns,
+                          CanBubble::eNo, Cancelable::eNo);
+    }
   }
 
   if (HasMutationListeners(aChild, NS_EVENT_BITS_MUTATION_NODEREMOVED,
@@ -4724,7 +4717,7 @@ void nsContentUtils::AddEntryToDOMArenaTable(nsINode* aNode,
         new nsRefPtrHashtable<nsPtrHashKey<const nsINode>, dom::DOMArena>();
   }
   aNode->SetFlags(NODE_KEEPS_DOMARENA);
-  sDOMArenaHashtable->Put(aNode, RefPtr<DOMArena>(aDOMArena));
+  sDOMArenaHashtable->InsertOrUpdate(aNode, RefPtr<DOMArena>(aDOMArena));
 }
 
 already_AddRefed<DOMArena> nsContentUtils::TakeEntryFromDOMArenaTable(
@@ -8879,7 +8872,7 @@ static inline bool ShouldEscape(nsIContent* aParent) {
       nsGkAtoms::style,     nsGkAtoms::script,  nsGkAtoms::xmp,
       nsGkAtoms::iframe,    nsGkAtoms::noembed, nsGkAtoms::noframes,
       nsGkAtoms::plaintext, nsGkAtoms::noscript};
-  static mozilla::BloomFilter<12, nsAtom> sFilter;
+  static mozilla::BitBloomFilter<12, nsAtom> sFilter;
   static bool sInitialized = false;
   if (!sInitialized) {
     sInitialized = true;
@@ -9051,62 +9044,6 @@ void nsContentUtils::SetScrollbarsVisibility(nsIDocShell* aDocShell,
   }
   auto pref = aVisible ? ScrollbarPreference::Auto : ScrollbarPreference::Never;
   nsDocShell::Cast(aDocShell)->SetScrollbarPreference(pref);
-}
-
-/* static */
-void nsContentUtils::GetPresentationURL(nsIDocShell* aDocShell,
-                                        nsAString& aPresentationUrl) {
-  MOZ_ASSERT(aDocShell);
-
-  // Simulate receiver context for web platform test
-  if (StaticPrefs::dom_presentation_testing_simulate_receiver()) {
-    RefPtr<Document> doc;
-
-    nsCOMPtr<nsPIDOMWindowOuter> docShellWin =
-        do_QueryInterface(aDocShell->GetScriptGlobalObject());
-    if (docShellWin) {
-      doc = docShellWin->GetExtantDoc();
-    }
-
-    if (NS_WARN_IF(!doc)) {
-      return;
-    }
-
-    nsCOMPtr<nsIURI> uri = doc->GetDocumentURI();
-    if (NS_WARN_IF(!uri)) {
-      return;
-    }
-
-    nsAutoCString uriStr;
-    uri->GetSpec(uriStr);
-    CopyUTF8toUTF16(uriStr, aPresentationUrl);
-    return;
-  }
-
-  if (XRE_IsContentProcess()) {
-    nsCOMPtr<nsIDocShellTreeItem> sameTypeRoot;
-    aDocShell->GetInProcessSameTypeRootTreeItem(getter_AddRefs(sameTypeRoot));
-    nsCOMPtr<nsIDocShellTreeItem> root;
-    aDocShell->GetInProcessRootTreeItem(getter_AddRefs(root));
-    if (sameTypeRoot.get() == root.get()) {
-      // presentation URL is stored in BrowserChild for the top most
-      // <iframe mozbrowser> in content process.
-      BrowserChild* browserChild = BrowserChild::GetFrom(aDocShell);
-      if (browserChild) {
-        aPresentationUrl = browserChild->PresentationURL();
-      }
-      return;
-    }
-  }
-
-  nsCOMPtr<nsILoadContext> loadContext(do_QueryInterface(aDocShell));
-  RefPtr<Element> topFrameElt;
-  loadContext->GetTopFrameElement(getter_AddRefs(topFrameElt));
-  if (!topFrameElt) {
-    return;
-  }
-
-  topFrameElt->GetAttr(nsGkAtoms::mozpresentation, aPresentationUrl);
 }
 
 /* static */
@@ -9957,6 +9894,12 @@ uint64_t nsContentUtils::GenerateProcessSpecificId(uint64_t aId) {
   return (processBits << kIdBits) | bits;
 }
 
+/* static */
+std::tuple<uint64_t, uint64_t> nsContentUtils::SplitProcessSpecificId(
+    uint64_t aId) {
+  return {aId >> kIdBits, aId & ((uint64_t(1) << kIdBits) - 1)};
+}
+
 // Next process-local Tab ID.
 static uint64_t gNextTabId = 0;
 
@@ -10019,6 +9962,7 @@ bool nsContentUtils::IsMessageInputEvent(const IPC::Message& aMsg) {
     switch (aMsg.type()) {
       case mozilla::dom::PBrowser::Msg_RealMouseMoveEvent__ID:
       case mozilla::dom::PBrowser::Msg_RealMouseButtonEvent__ID:
+      case mozilla::dom::PBrowser::Msg_RealMouseEnterExitWidgetEvent__ID:
       case mozilla::dom::PBrowser::Msg_RealKeyEvent__ID:
       case mozilla::dom::PBrowser::Msg_MouseWheelEvent__ID:
       case mozilla::dom::PBrowser::Msg_RealTouchEvent__ID:
@@ -10039,6 +9983,7 @@ bool nsContentUtils::IsMessageCriticalInputEvent(const IPC::Message& aMsg) {
     switch (aMsg.type()) {
       case mozilla::dom::PBrowser::Msg_RealMouseButtonEvent__ID:
       case mozilla::dom::PBrowser::Msg_RealKeyEvent__ID:
+      case mozilla::dom::PBrowser::Msg_MouseWheelEvent__ID:
       case mozilla::dom::PBrowser::Msg_RealTouchEvent__ID:
       case mozilla::dom::PBrowser::Msg_RealDragEvent__ID:
         return true;
@@ -10323,20 +10268,9 @@ nsGlobalWindowInner* nsContentUtils::CallerInnerWindow() {
     AutoJSAPI jsapi;
     MOZ_ALWAYS_TRUE(jsapi.Init(scope));
     JSContext* cx = jsapi.cx();
-
-    JS::Rooted<JSObject*> scopeProto(cx);
-    bool ok = JS_GetPrototype(cx, scope, &scopeProto);
-    NS_ENSURE_TRUE(ok, nullptr);
-    if (scopeProto && xpc::IsSandboxPrototypeProxy(scopeProto) &&
-        // Our current Realm on aCx is the sandbox.  Using that for the
-        // CheckedUnwrapDynamic call makes sense: if the sandbox can unwrap the
-        // window, we can use it.  And we do want CheckedUnwrapDynamic, because
-        // the whole point is to unwrap windows.
-        (scopeProto = js::CheckedUnwrapDynamic(
-             scopeProto, cx, /* stopAtWindowProxy = */ false))) {
-      global = xpc::NativeGlobal(scopeProto);
-      NS_ENSURE_TRUE(global, nullptr);
-    }
+    // Our current Realm on aCx is the sandbox.  Using that for unwrapping
+    // makes sense: if the sandbox can unwrap the window, we can use it.
+    return xpc::SandboxWindowOrNull(scope, cx);
   }
 
   // The calling window must be holding a reference, so we can return a weak

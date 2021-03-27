@@ -14,6 +14,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.AbstractSequentialList;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
@@ -317,7 +318,7 @@ public class GeckoSession {
                     final int previousHistorySize = mStateCache.size();
                     mStateCache.updateSessionState(update);
 
-                    ProgressDelegate progressDelegate = getProgressDelegate();
+                    final ProgressDelegate progressDelegate = getProgressDelegate();
                     if (progressDelegate != null) {
                         final SessionState state = new SessionState(mStateCache);
                         if (!state.isEmpty()) {
@@ -410,7 +411,7 @@ public class GeckoSession {
 
                     try {
                         delegate.onWebAppManifest(GeckoSession.this, fixupWebAppManifest(manifest.toJSONObject()));
-                    } catch (JSONException e) {
+                    } catch (final JSONException e) {
                         Log.e(LOGTAG, "Failed to convert web app manifest to JSON", e);
                     }
                 } else if ("GeckoView:FirstContentfulPaint".equals(event)) {
@@ -466,8 +467,11 @@ public class GeckoSession {
                 Log.d(LOGTAG, "handleMessage " + event + " uri=" + message.getString("uri"));
                 if ("GeckoView:LocationChange".equals(event)) {
                     if (message.getBoolean("isTopLevel")) {
+                        final GeckoBundle[] perms = message.getBundleArray("permissions");
+                        final List<PermissionDelegate.ContentPermission> permList =
+                            PermissionDelegate.ContentPermission.fromBundleArray(perms);
                         delegate.onLocationChange(GeckoSession.this,
-                                                  message.getString("uri"));
+                                                  message.getString("uri"), permList);
                     }
                     delegate.onCanGoBack(GeckoSession.this,
                                          message.getBoolean("canGoBack"));
@@ -574,7 +578,7 @@ public class GeckoSession {
                                          final EventCallback eventCallback) {
                 Log.d(LOGTAG, "handleMessage " + event + " uri=" + message.getString("uri"));
 
-                GeckoResult<SlowScriptResponse> result = delegate.onSlowScript(GeckoSession.this,
+                final GeckoResult<SlowScriptResponse> result = delegate.onSlowScript(GeckoSession.this,
                         message.getString("scriptFileName"));
                 if (result != null) {
                     final int mReportId = message.getInt("hangId");
@@ -738,8 +742,8 @@ public class GeckoSession {
                             GeckoSession.this, message.getString("uri"),
                             type, new PermissionCallback(typeString, callback));
                 } else if ("GeckoView:MediaPermission".equals(event)) {
-                    GeckoBundle[] videoBundles = message.getBundleArray("video");
-                    GeckoBundle[] audioBundles = message.getBundleArray("audio");
+                    final GeckoBundle[] videoBundles = message.getBundleArray("video");
+                    final GeckoBundle[] audioBundles = message.getBundleArray("audio");
                     PermissionDelegate.MediaSource[] videos = null;
                     PermissionDelegate.MediaSource[] audios = null;
 
@@ -1118,7 +1122,7 @@ public class GeckoSession {
                 // Don't handle any load request if we can't get the session for some reason.
                 return GeckoResult.fromValue(false);
             }
-            GeckoResult<Boolean> res = new GeckoResult<>();
+            final GeckoResult<Boolean> res = new GeckoResult<>();
 
             ThreadUtils.postToUiThread(new Runnable() {
                 @Override
@@ -1160,11 +1164,11 @@ public class GeckoSession {
 
         @WrapForJNI(calledFrom = "ui")
         private void passExternalWebResponse(final WebResponse response) {
-            GeckoSession session = mOwner.get();
+            final GeckoSession session = mOwner.get();
             if (session == null) {
                 return;
             }
-            ContentDelegate delegate = session.getContentDelegate();
+            final ContentDelegate delegate = session.getContentDelegate();
             if (delegate != null) {
                 delegate.onExternalResponse(session, response);
             }
@@ -1678,7 +1682,7 @@ public class GeckoSession {
         @NonNull
         public Loader additionalHeaders(final @NonNull Map<String, String> headers) {
             final GeckoBundle bundle = new GeckoBundle(headers.size());
-            for (Map.Entry<String, String> entry : headers.entrySet()) {
+            for (final Map.Entry<String, String> entry : headers.entrySet()) {
                 if (entry.getKey() == null) {
                     // Ignore null keys
                     continue;
@@ -1793,7 +1797,7 @@ public class GeckoSession {
     private GeckoResult<AllowOrDeny> shouldLoadUri(final NavigationDelegate.LoadRequest request) {
         final NavigationDelegate delegate = mNavigationHandler.getDelegate();
         if (delegate == null) {
-            return GeckoResult.fromValue(AllowOrDeny.ALLOW);
+            return GeckoResult.allow();
         }
 
         final GeckoResult<AllowOrDeny> result = new GeckoResult<>();
@@ -2205,15 +2209,26 @@ public class GeckoSession {
          * {@link #toString()}.
          *
          * @param value The serialized SessionState in String form.
-         * @return A new SessionState instance.
-         * @throws JSONException if the value is not a valid json
+         * @return A new SessionState instance if input is valid; otherwise null.
          */
-        public static @NonNull SessionState fromString(final @NonNull String value) throws JSONException {
-            return new SessionState(GeckoBundle.fromJSONObject(new JSONObject(value)));
+        public static @Nullable SessionState fromString(final @Nullable String value) {
+            final GeckoBundle bundleState;
+            try {
+                bundleState = GeckoBundle.fromJSONObject(new JSONObject(value));
+            } catch (final Exception e) {
+                Log.e(LOGTAG, "String does not represent valid session state.");
+                return null;
+            }
+
+            if (bundleState == null) {
+                return null;
+            }
+
+            return new SessionState(bundleState);
         }
 
         @Override
-        public String toString() {
+        public @Nullable String toString() {
             if (mState == null) {
                 Log.w(LOGTAG, "Can't convert SessionState with null state to string");
                 return null;
@@ -2222,7 +2237,7 @@ public class GeckoSession {
             String res;
             try {
                 res = mState.toJSONObject().toString();
-            } catch (JSONException e) {
+            } catch (final JSONException e) {
                 Log.e(LOGTAG, "Could not convert session state to string.");
                 res = null;
             }
@@ -2249,7 +2264,7 @@ public class GeckoSession {
 
             try {
                 mState = GeckoBundle.fromJSONObject(new JSONObject(source.readString()));
-            } catch (JSONException e) {
+            } catch (final JSONException e) {
                 Log.e(LOGTAG, "Could not convert string to session state.");
                 mState = null;
             }
@@ -2266,7 +2281,7 @@ public class GeckoSession {
                 GeckoBundle res;
                 try {
                     res = GeckoBundle.fromJSONObject(new JSONObject(source.readString()));
-                } catch (JSONException e) {
+                } catch (final JSONException e) {
                     Log.e(LOGTAG, "Could not convert parcel to session state.");
                     res = null;
                 }
@@ -2576,7 +2591,12 @@ public class GeckoSession {
      * Set the media callback handler.
      * This will replace the current handler.
      * @param delegate An implementation of MediaDelegate.
+     *
+     * @deprecated This API has been replaced by the
+     *             {@link org.mozilla.geckoview.MediaSession MediaSession} API
+     *             and will be removed in GeckoView 91.
      */
+    @Deprecated @DeprecationSchedule(version = 91, id = "media-element")
     @AnyThread
     public void setMediaDelegate(final @Nullable MediaDelegate delegate) {
         mMediaHandler.setDelegate(delegate, this);
@@ -2585,7 +2605,12 @@ public class GeckoSession {
     /**
      * Get the Media callback handler.
      * @return The current Media callback handler.
+     *
+     * @deprecated This API has been replaced by the
+     *             {@link org.mozilla.geckoview.MediaSession MediaSession} API
+     *             and will be removed in GeckoView 91.
      */
+    @Deprecated @DeprecationSchedule(version = 91, id = "media-element")
     @AnyThread
     public @Nullable MediaDelegate getMediaDelegate() {
         return mMediaHandler.getDelegate();
@@ -2690,8 +2715,8 @@ public class GeckoSession {
                     return;
                 }
 
-                GeckoBundle[] choiceBundles = message.getBundleArray("choices");
-                PromptDelegate.ChoicePrompt.Choice choices[];
+                final GeckoBundle[] choiceBundles = message.getBundleArray("choices");
+                final PromptDelegate.ChoicePrompt.Choice[] choices;
                 if (choiceBundles == null || choiceBundles.length == 0) {
                     choices = new PromptDelegate.ChoicePrompt.Choice[0];
                 } else {
@@ -2749,8 +2774,8 @@ public class GeckoSession {
                     return;
                 }
 
-                String[] mimeTypes = message.getStringArray("mimeTypes");
-                int capture = message.getInt("capture");
+                final String[] mimeTypes = message.getStringArray("mimeTypes");
+                final int capture = message.getInt("capture");
                 final PromptDelegate.FilePrompt prompt =
                     new PromptDelegate.FilePrompt(title, intMode, capture, mimeTypes);
                 res = delegate.onFilePrompt(session, prompt);
@@ -2934,7 +2959,7 @@ public class GeckoSession {
                         final byte[] certBytes = Base64.decode(certString, Base64.NO_WRAP);
                         decodedCert = (X509Certificate) factory.generateCertificate(new ByteArrayInputStream(certBytes));
                     }
-                } catch (CertificateException e) {
+                } catch (final CertificateException e) {
                     Log.e(LOGTAG, "Failed to decode certificate", e);
                 }
 
@@ -2962,7 +2987,7 @@ public class GeckoSession {
         * @param url The resource being loaded.
         */
         @UiThread
-        default void onPageStart(@NonNull GeckoSession session, @NonNull String url) {}
+        default void onPageStart(@NonNull final GeckoSession session, @NonNull final String url) {}
 
         /**
         * A View has finished loading content from the network.
@@ -2970,7 +2995,7 @@ public class GeckoSession {
         * @param success Whether the page loaded successfully or an error occurred.
         */
         @UiThread
-        default void onPageStop(@NonNull GeckoSession session, boolean success) {}
+        default void onPageStop(@NonNull final GeckoSession session, final boolean success) {}
 
         /**
          * Page loading has progressed.
@@ -2978,7 +3003,7 @@ public class GeckoSession {
          * @param progress Current page load progress value [0, 100].
          */
         @UiThread
-        default void onProgressChange(@NonNull GeckoSession session, int progress) {}
+        default void onProgressChange(@NonNull final GeckoSession session, final int progress) {}
 
         /**
         * The security status has been updated.
@@ -2986,8 +3011,8 @@ public class GeckoSession {
         * @param securityInfo The new security information.
         */
         @UiThread
-        default void onSecurityChange(@NonNull GeckoSession session,
-                                      @NonNull SecurityInformation securityInfo) {}
+        default void onSecurityChange(@NonNull final GeckoSession session,
+                                      @NonNull final SecurityInformation securityInfo) {}
 
         /**
         * The browser session state has changed. This can happen in response to
@@ -2997,8 +3022,8 @@ public class GeckoSession {
         * @param sessionState SessionState representing the latest browser state.
         */
         @UiThread
-        default void onSessionStateChange(@NonNull GeckoSession session,
-                                          @NonNull SessionState sessionState) {}
+        default void onSessionStateChange(@NonNull final GeckoSession session,
+                                          @NonNull final SessionState sessionState) {}
     }
 
     /**
@@ -3057,7 +3082,7 @@ public class GeckoSession {
         * @param title The title sent from the content.
         */
         @UiThread
-        default void onTitleChange(@NonNull GeckoSession session, @Nullable String title) {}
+        default void onTitleChange(@NonNull final GeckoSession session, @Nullable final String title) {}
 
         /**
         * A page has requested focus. Note that window.focus() in content will not result
@@ -3065,14 +3090,14 @@ public class GeckoSession {
         * @param session The GeckoSession that initiated the callback.
         */
         @UiThread
-        default void onFocusRequest(@NonNull GeckoSession session) {}
+        default void onFocusRequest(@NonNull final GeckoSession session) {}
 
         /**
         * A page has requested to close
         * @param session The GeckoSession that initiated the callback.
         */
         @UiThread
-        default void onCloseRequest(@NonNull GeckoSession session) {}
+        default void onCloseRequest(@NonNull final GeckoSession session) {}
 
         /**
          * A page has entered or exited full screen mode. Typically, the implementation
@@ -3083,7 +3108,7 @@ public class GeckoSession {
          * @param fullScreen True if the page is in full screen mode.
          */
         @UiThread
-        default void onFullScreen(@NonNull GeckoSession session, boolean fullScreen) {}
+        default void onFullScreen(@NonNull final GeckoSession session, final boolean fullScreen) {}
 
         /**
          * A viewport-fit was discovered in the content or updated after the content.
@@ -3093,7 +3118,7 @@ public class GeckoSession {
          * @see <a href="https://drafts.csswg.org/css-round-display/#viewport-fit-descriptor">4.1. The viewport-fit descriptor</a>
          */
         @UiThread
-        default void onMetaViewportFitChange(@NonNull GeckoSession session, @NonNull String viewportFit) {}
+        default void onMetaViewportFitChange(@NonNull final GeckoSession session, @NonNull final String viewportFit) {}
 
         /**
          * Element details for onContextMenu callbacks.
@@ -3181,9 +3206,9 @@ public class GeckoSession {
          * @param element The details for the pressed element.
          */
         @UiThread
-        default void onContextMenu(@NonNull GeckoSession session,
-                                   int screenX, int screenY,
-                                   @NonNull ContextElement element) {}
+        default void onContextMenu(@NonNull final GeckoSession session,
+                                   final int screenX, final int screenY,
+                                   @NonNull final ContextElement element) {}
 
         /**
          * This is fired when there is a response that cannot be handled
@@ -3192,8 +3217,8 @@ public class GeckoSession {
          * @param response the external WebResponse.
          */
         @UiThread
-        default void onExternalResponse(@NonNull GeckoSession session,
-                                        @NonNull WebResponse response) {}
+        default void onExternalResponse(@NonNull final GeckoSession session,
+                                        @NonNull final WebResponse response) {}
 
         /**
          * The content process hosting this GeckoSession has crashed. The
@@ -3205,7 +3230,7 @@ public class GeckoSession {
          * @param session The GeckoSession for which the content process has crashed.
          */
         @UiThread
-        default void onCrash(@NonNull GeckoSession session) {}
+        default void onCrash(@NonNull final GeckoSession session) {}
 
         /**
          * The content process hosting this GeckoSession has been killed. The
@@ -3217,7 +3242,7 @@ public class GeckoSession {
          * @param session The GeckoSession for which the content process has been killed.
          */
         @UiThread
-        default void onKill(@NonNull GeckoSession session) {}
+        default void onKill(@NonNull final GeckoSession session) {}
 
 
         /**
@@ -3227,7 +3252,7 @@ public class GeckoSession {
          * @param session The GeckoSession that had a first paint event.
          */
         @UiThread
-        default void onFirstComposite(@NonNull GeckoSession session) {}
+        default void onFirstComposite(@NonNull final GeckoSession session) {}
 
         /**
          * Notification that the first content paint has occurred.
@@ -3242,7 +3267,7 @@ public class GeckoSession {
          * @param session The GeckoSession that had a first paint event.
          */
         @UiThread
-        default void onFirstContentfulPaint(@NonNull GeckoSession session) {}
+        default void onFirstContentfulPaint(@NonNull final GeckoSession session) {}
 
         /**
          * Notification that the paint status has been reset.
@@ -3257,7 +3282,7 @@ public class GeckoSession {
          * @param session The GeckoSession that had the paint status reset event.
          */
         @UiThread
-        default void onPaintStatusReset(@NonNull GeckoSession session) {}
+        default void onPaintStatusReset(@NonNull final GeckoSession session) {}
 
         /**
          * This is fired when the loaded document has a valid Web App Manifest present.
@@ -3270,7 +3295,7 @@ public class GeckoSession {
          * @see <a href="https://www.w3.org/TR/appmanifest/">Web App Manifest specification</a>
          */
         @UiThread
-        default void onWebAppManifest(@NonNull GeckoSession session, @NonNull JSONObject manifest) {}
+        default void onWebAppManifest(@NonNull final GeckoSession session, @NonNull final JSONObject manifest) {}
 
         /**
          * A script has exceeded it's execution timeout value
@@ -3281,8 +3306,8 @@ public class GeckoSession {
          *         Continue will pause notifications for a period of time before resuming.
          */
         @UiThread
-        default @Nullable GeckoResult<SlowScriptResponse> onSlowScript(@NonNull GeckoSession geckoSession,
-                                                                       @NonNull String scriptFileName) {
+        default @Nullable GeckoResult<SlowScriptResponse> onSlowScript(@NonNull final GeckoSession geckoSession,
+                                                                       @NonNull final String scriptFileName) {
             return null;
         }
     }
@@ -3551,8 +3576,8 @@ public class GeckoSession {
          *                  actions. May be used multiple times to perform multiple actions at once.
          */
         @UiThread
-        default void onShowActionRequest(@NonNull GeckoSession session,
-                                         @NonNull Selection selection) {}
+        default void onShowActionRequest(@NonNull final GeckoSession session,
+                                         @NonNull final Selection selection) {}
 
         /**
          * Actions are no longer available due to the user clearing the selection.
@@ -3586,8 +3611,8 @@ public class GeckoSession {
          * {@link #HIDE_REASON_NO_SELECTION HIDE_REASON_*} constants.
          */
         @UiThread
-        default void onHideAction(@NonNull GeckoSession session,
-                                  @SelectionActionDelegateHideReason int reason) {}
+        default void onHideAction(@NonNull final GeckoSession session,
+                                  @SelectionActionDelegateHideReason final int reason) {}
     }
 
     @Retention(RetentionPolicy.SOURCE)
@@ -3624,7 +3649,19 @@ public class GeckoSession {
         * @param url The resource being loaded.
         */
         @UiThread
-        default void onLocationChange(@NonNull GeckoSession session, @Nullable String url) {}
+        @DeprecationSchedule(id = "location-permissions", version = 92)
+        default void onLocationChange(@NonNull final GeckoSession session, @Nullable final String url) {}
+
+        /**
+        * A view has started loading content from the network.
+        * @param session The GeckoSession that initiated the callback.
+        * @param url The resource being loaded.
+        * @param perms The permissions currently associated with this url.
+        */
+        @UiThread
+        default void onLocationChange(@NonNull GeckoSession session, @Nullable String url, final @NonNull List<PermissionDelegate.ContentPermission> perms) {
+            session.getNavigationDelegate().onLocationChange(session, url);
+        }
 
         /**
         * The view's ability to go back has changed.
@@ -3632,7 +3669,7 @@ public class GeckoSession {
         * @param canGoBack The new value for the ability.
         */
         @UiThread
-        default void onCanGoBack(@NonNull GeckoSession session, boolean canGoBack) {}
+        default void onCanGoBack(@NonNull final GeckoSession session, final boolean canGoBack) {}
 
         /**
         * The view's ability to go forward has changed.
@@ -3640,7 +3677,7 @@ public class GeckoSession {
         * @param canGoForward The new value for the ability.
         */
         @UiThread
-        default void onCanGoForward(@NonNull GeckoSession session, boolean canGoForward) {}
+        default void onCanGoForward(@NonNull final GeckoSession session, final boolean canGoForward) {}
 
         public static final int TARGET_WINDOW_NONE = 0;
         public static final int TARGET_WINDOW_CURRENT = 1;
@@ -3763,8 +3800,8 @@ public class GeckoSession {
          *         {@link AllowOrDeny#ALLOW ALLOW} (unhandled).
          */
         @UiThread
-        default @Nullable GeckoResult<AllowOrDeny> onLoadRequest(@NonNull GeckoSession session,
-                                                                 @NonNull LoadRequest request) {
+        default @Nullable GeckoResult<AllowOrDeny> onLoadRequest(@NonNull final GeckoSession session,
+                                                                 @NonNull final LoadRequest request) {
             return null;
         }
 
@@ -3781,8 +3818,8 @@ public class GeckoSession {
          *         {@link AllowOrDeny#ALLOW ALLOW} (unhandled).
          */
         @UiThread
-        default @Nullable GeckoResult<AllowOrDeny> onSubframeLoadRequest(@NonNull GeckoSession session,
-                                                                         @NonNull LoadRequest request) {
+        default @Nullable GeckoResult<AllowOrDeny> onSubframeLoadRequest(@NonNull final GeckoSession session,
+                                                                         @NonNull final LoadRequest request) {
             return null;
         }
 
@@ -3801,8 +3838,8 @@ public class GeckoSession {
          *        to the returned object, to prevent it from being garbage collected.
         */
         @UiThread
-        default @Nullable GeckoResult<GeckoSession> onNewSession(@NonNull GeckoSession session,
-                                                                 @NonNull String uri) {
+        default @Nullable GeckoResult<GeckoSession> onNewSession(@NonNull final GeckoSession session,
+                                                                 @NonNull final String uri) {
             return null;
         }
 
@@ -3820,9 +3857,9 @@ public class GeckoSession {
          * @see <a href="https://searchfox.org/mozilla-central/source/dom/webidl/NetErrorInfo.webidl">NetErrorInfo IDL</a>
          */
         @UiThread
-        default @Nullable GeckoResult<String> onLoadError(@NonNull GeckoSession session,
-                                                          @Nullable String uri,
-                                                          @NonNull WebRequestError error) {
+        default @Nullable GeckoResult<String> onLoadError(@NonNull final GeckoSession session,
+                                                          @Nullable final String uri,
+                                                          @NonNull final WebRequestError error) {
             return null;
         }
     }
@@ -4300,7 +4337,7 @@ public class GeckoSession {
                     selected = choice.getBoolean("selected");
                     separator = choice.getBoolean("separator");
 
-                    GeckoBundle[] choices = choice.getBundleArray("items");
+                    final GeckoBundle[] choices = choice.getBundleArray("items");
                     if (choices == null) {
                         items = null;
                     } else {
@@ -5144,7 +5181,7 @@ public class GeckoSession {
         * @param scrollY The new vertical scroll position in pixels.
         */
         @UiThread
-        default void onScrollChanged(@NonNull GeckoSession session, int scrollX, int scrollY) {}
+        default void onScrollChanged(@NonNull final GeckoSession session, final int scrollX, final int scrollY) {}
     }
 
     /**
@@ -5345,6 +5382,110 @@ public class GeckoSession {
         int PERMISSION_MEDIA_KEY_SYSTEM_ACCESS = 6;
 
         /**
+         * Represents a content permission -- including the type of permission,
+         * the present value of the permission, the URL the permission pertains to,
+         * and other information.
+         */
+        class ContentPermission {
+            @Retention(RetentionPolicy.SOURCE)
+            @IntDef({VALUE_PROMPT, VALUE_DENY, VALUE_ALLOW})
+            /* package */ @interface Value {}
+
+            /**
+             * The corresponding permission is currently set to default/prompt behavior.
+             */
+            final public static int VALUE_PROMPT = 3;
+
+            /**
+             * The corresponding permission is currently set to deny.
+             */
+            final public static int VALUE_DENY = 2;
+
+            /**
+             * The corresponding permission is currently set to allow.
+             */
+            final public static int VALUE_ALLOW = 1;
+
+            /**
+             * The URI associated with this content permission.
+             */
+            final public @NonNull String uri;
+
+            /**
+             * A boolean indicating whether this content permission is associated with
+             * private browsing.
+             */
+            final public boolean privateMode;
+
+            /**
+             * The type of this permission; one of {@link #PERMISSION_GEOLOCATION PERMISSION_*}.
+             */
+            final public int permission;
+
+            /**
+             * The value of the permission; one of {@link #VALUE_PROMPT VALUE_}.
+             */
+            final public @Value int value;
+
+            final private String mPrincipal;
+
+            protected ContentPermission() {
+                this.uri = "";
+                this.privateMode = false;
+                this.permission = PERMISSION_GEOLOCATION;
+                this.value = VALUE_ALLOW;
+                this.mPrincipal = "";
+            }
+
+            private ContentPermission(final @NonNull GeckoBundle bundle) {
+                this.uri = bundle.getString("uri");
+                this.mPrincipal = bundle.getString("principal");
+                this.privateMode = bundle.getBoolean("privateMode");
+
+                final String permission = bundle.getString("type");
+                this.permission = convertType(permission);
+
+                this.value = bundle.getInt("value");
+            }
+
+            private static int convertType(final @NonNull String type) {
+                if ("geolocation".equals(type)) {
+                    return PERMISSION_GEOLOCATION;
+                } else if ("desktop-notification".equals(type)) {
+                    return PERMISSION_DESKTOP_NOTIFICATION;
+                } else if ("persistent-storage".equals(type)) {
+                    return PERMISSION_PERSISTENT_STORAGE;
+                } else if ("xr".equals(type)) {
+                    return PERMISSION_XR;
+                } else if ("autoplay-media-inaudible".equals(type)) {
+                    return PERMISSION_AUTOPLAY_INAUDIBLE;
+                } else if ("autoplay-media-audible".equals(type)) {
+                    return PERMISSION_AUTOPLAY_AUDIBLE;
+                } else if ("media-key-system-access".equals(type)) {
+                    return PERMISSION_MEDIA_KEY_SYSTEM_ACCESS;
+                } else {
+                    return -1;
+                }
+            }
+
+            /* package */ static @NonNull ArrayList<ContentPermission> fromBundleArray(final @NonNull GeckoBundle[] bundleArray) {
+                final ArrayList<ContentPermission> res = new ArrayList<ContentPermission>();
+                if (bundleArray == null) {
+                    return res;
+                }
+
+                for (final GeckoBundle bundle : bundleArray) {
+                    final ContentPermission temp = new ContentPermission(bundle);
+                    if (temp.permission == -1 || temp.value < 1 || temp.value > 3) {
+                        continue;
+                    }
+                    res.add(temp);
+                }
+                return res;
+            }
+        }
+
+        /**
          * Callback interface for notifying the result of a permission request.
          */
         interface Callback {
@@ -5375,9 +5516,9 @@ public class GeckoSession {
          * @param callback Callback interface.
          */
         @UiThread
-        default void onAndroidPermissionsRequest(@NonNull GeckoSession session,
-                                                 @Nullable String[] permissions,
-                                                 @NonNull Callback callback) {
+        default void onAndroidPermissionsRequest(@NonNull final GeckoSession session,
+                                                 @Nullable final String[] permissions,
+                                                 @NonNull final Callback callback) {
             callback.reject();
         }
 
@@ -5399,8 +5540,8 @@ public class GeckoSession {
          * @param callback Callback interface.
          */
         @UiThread
-        default void onContentPermissionRequest(@NonNull GeckoSession session, @Nullable String uri,
-                                                @Permission int type, @NonNull Callback callback) {
+        default void onContentPermissionRequest(@NonNull final GeckoSession session, @Nullable final String uri,
+                                                @Permission final int type, @NonNull final Callback callback) {
             callback.reject();
         }
 
@@ -5584,9 +5725,9 @@ public class GeckoSession {
          * @param callback Callback interface.
          */
         @UiThread
-        default void onMediaPermissionRequest(@NonNull GeckoSession session, @NonNull String uri,
-                                              @Nullable MediaSource[] video, @Nullable MediaSource[] audio,
-                                              @NonNull MediaCallback callback) {
+        default void onMediaPermissionRequest(@NonNull final GeckoSession session, @NonNull final String uri,
+                                              @Nullable final MediaSource[] video, @Nullable final MediaSource[] audio,
+                                              @NonNull final MediaCallback callback) {
             callback.reject();
         }
     }
@@ -5632,7 +5773,7 @@ public class GeckoSession {
          * @param reason Reason for the reset.
          */
         @UiThread
-        default void restartInput(@NonNull GeckoSession session, @RestartReason int reason) {}
+        default void restartInput(@NonNull final GeckoSession session, @RestartReason final int reason) {}
 
         /**
          * Display the soft input. May be called consecutively, even if the soft input is
@@ -5642,7 +5783,7 @@ public class GeckoSession {
          * @see #hideSoftInput
          * */
         @UiThread
-        default void showSoftInput(@NonNull GeckoSession session) {}
+        default void showSoftInput(@NonNull final GeckoSession session) {}
 
         /**
          * Hide the soft input. May be called consecutively, even if the soft input is
@@ -5652,7 +5793,7 @@ public class GeckoSession {
          * @see #showSoftInput
          * */
         @UiThread
-        default void hideSoftInput(@NonNull GeckoSession session) {}
+        default void hideSoftInput(@NonNull final GeckoSession session) {}
 
         /**
          * Update the soft input on the current selection. This method is <i>not</i> called
@@ -5665,8 +5806,8 @@ public class GeckoSession {
          * @param compositionEnd Composition end offset, or -1 if there is no composition.
          */
         @UiThread
-        default void updateSelection(@NonNull GeckoSession session, int selStart, int selEnd,
-                                     int compositionStart, int compositionEnd) {}
+        default void updateSelection(@NonNull final GeckoSession session, final int selStart, final int selEnd,
+                                     final int compositionStart, final int compositionEnd) {}
 
         /**
          * Update the soft input on the current extracted text, as requested through
@@ -5678,9 +5819,9 @@ public class GeckoSession {
          * @param text The extracted text.
          */
         @UiThread
-        default void updateExtractedText(@NonNull GeckoSession session,
-                                         @NonNull ExtractedTextRequest request,
-                                         @NonNull ExtractedText text) {}
+        default void updateExtractedText(@NonNull final GeckoSession session,
+                                         @NonNull final ExtractedTextRequest request,
+                                         @NonNull final ExtractedText text) {}
 
         /**
          * Update the cursor-anchor information as requested through
@@ -5691,8 +5832,8 @@ public class GeckoSession {
          * @param info Cursor-anchor information.
          */
         @UiThread
-        default void updateCursorAnchorInfo(@NonNull GeckoSession session,
-                                            @NonNull CursorAnchorInfo info) {}
+        default void updateCursorAnchorInfo(@NonNull final GeckoSession session,
+                                            @NonNull final CursorAnchorInfo info) {}
     }
 
     @Retention(RetentionPolicy.SOURCE)
@@ -5834,7 +5975,7 @@ public class GeckoSession {
                 if (mController != null) {
                     mController.onFirstPaint();
                 }
-                ContentDelegate delegate = mContentHandler.getDelegate();
+                final ContentDelegate delegate = mContentHandler.getDelegate();
                 if (delegate != null) {
                     delegate.onFirstComposite(this);
                 }
@@ -5963,7 +6104,12 @@ public class GeckoSession {
 
     /**
      * GeckoSession applications implement this interface to handle media events.
+     *
+     * @deprecated This API has been replaced by the
+     *             {@link org.mozilla.geckoview.MediaSession MediaSession} API
+     *             and will be removed in GeckoView 91.
      */
+    @Deprecated @DeprecationSchedule(version = 91, id = "media-element")
     public interface MediaDelegate {
 
         class RecordingDevice {
@@ -6046,17 +6192,27 @@ public class GeckoSession {
          * An HTMLMediaElement has been created.
          * @param session Session instance.
          * @param element The media element that was just created.
+         *
+         * @deprecated This API has been replaced by the
+         *             {@link org.mozilla.geckoview.MediaSession MediaSession} API
+         *             and will be removed in GeckoView 91.
          */
+        @Deprecated @DeprecationSchedule(version = 91, id = "media-element")
         @UiThread
-        default void onMediaAdd(@NonNull GeckoSession session, @NonNull MediaElement element) {}
+        default void onMediaAdd(@NonNull final GeckoSession session, @NonNull final MediaElement element) {}
 
         /**
          * An HTMLMediaElement has been unloaded.
          * @param session Session instance.
          * @param element The media element that was unloaded.
+         *
+         * @deprecated This API has been replaced by the
+         *             {@link org.mozilla.geckoview.MediaSession MediaSession} API
+         *             and will be removed in GeckoView 91.
          */
+        @Deprecated @DeprecationSchedule(version = 91, id = "media-element")
         @UiThread
-        default void onMediaRemove(@NonNull GeckoSession session, @NonNull MediaElement element) {}
+        default void onMediaRemove(@NonNull final GeckoSession session, @NonNull final MediaElement element) {}
 
         /**
          * A recording device has changed state.
@@ -6066,7 +6222,7 @@ public class GeckoSession {
          * @param devices The list of active devices and their recording state.
          */
         @UiThread
-        default void onRecordingStatusChanged(@NonNull GeckoSession session, @NonNull RecordingDevice[] devices) {}
+        default void onRecordingStatusChanged(@NonNull final GeckoSession session, @NonNull final RecordingDevice[] devices) {}
     }
 
     /**
@@ -6148,10 +6304,10 @@ public class GeckoSession {
          *         ({@code true}) or unvisited ({@code false}).
          */
         @UiThread
-        default @Nullable GeckoResult<Boolean> onVisited(@NonNull GeckoSession session,
-                                                         @NonNull String url,
-                                                         @Nullable String lastVisitedURL,
-                                                         @VisitFlags int flags) {
+        default @Nullable GeckoResult<Boolean> onVisited(@NonNull final GeckoSession session,
+                                                         @NonNull final String url,
+                                                         @Nullable final String lastVisitedURL,
+                                                         @VisitFlags final int flags) {
             return null;
         }
 
@@ -6167,14 +6323,14 @@ public class GeckoSession {
          *         ({@code true}) or unvisited ({@code false}).
          */
         @UiThread
-        default @Nullable GeckoResult<boolean[]> getVisited(@NonNull GeckoSession session,
-                                                            @NonNull String[] urls) {
+        default @Nullable GeckoResult<boolean[]> getVisited(@NonNull final GeckoSession session,
+                                                            @NonNull final String[] urls) {
             return null;
         }
 
         @UiThread
         @SuppressWarnings("checkstyle:javadocmethod")
-        default void onHistoryStateChange(@NonNull GeckoSession session, @NonNull HistoryList historyList) {}
+        default void onHistoryStateChange(@NonNull final GeckoSession session, @NonNull final HistoryList historyList) {}
     }
 
     @Retention(RetentionPolicy.SOURCE)
@@ -6258,7 +6414,7 @@ public class GeckoSession {
         try {
             fixupManifestColor(manifest, "theme_color");
             fixupManifestColor(manifest, "background_color");
-        } catch (JSONException e) {
+        } catch (final JSONException e) {
             Log.w(LOGTAG, "Failed to fixup web app manifest", e);
         }
 

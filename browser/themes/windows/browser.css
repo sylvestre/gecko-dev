@@ -5,6 +5,7 @@
 @namespace html url("http://www.w3.org/1999/xhtml");
 
 %include ../shared/browser.inc.css
+%include ../shared/browser-custom-colors.inc.css
 %filter substitution
 %define glassShadowColor hsla(240,5%,5%,0.3)
 
@@ -14,22 +15,20 @@
   --toolbar-non-lwt-bgimage: linear-gradient(rgba(255,255,255,.15), rgba(255,255,255,.15));
 
   --toolbarbutton-vertical-text-padding: calc(var(--toolbarbutton-inner-padding) - 1px);
-  --toolbarbutton-border-radius: 2px;
+  --toolbarbutton-border-radius: 4px;
   --toolbarbutton-icon-fill-opacity: 1;
 
   --panel-separator-color: ThreeDLightShadow;
-  --arrowpanel-dimmed: hsla(0,0%,80%,.35);
-  --arrowpanel-dimmed-further: hsla(0,0%,80%,.5);
-  --arrowpanel-dimmed-even-further: hsla(0,0%,80%,.8);
-
-  --urlbar-separator-color: ThreeDLightShadow;
 
   --chrome-content-separator-color: ThreeDShadow;
-}
-
-#navigator-toolbox {
   --tabs-border-color: threedshadow;
 }
+
+@supports not -moz-bool-pref("browser.proton.enabled") {
+:root {
+  --toolbarbutton-border-radius: 2px;
+}
+} /* END !proton */
 
 #tabbrowser-tabs {
   --tab-line-color: highlight;
@@ -50,9 +49,11 @@
     --toolbar-field-non-lwt-bgcolor: #f0f0f4;
   }
 
+  @supports not -moz-bool-pref("browser.proton.tabs.enabled") {
   #navigator-toolbox {
     --tabs-border-color: rgba(0,0,0,.3);
   }
+  } /* END !proton */
 
   #tabbrowser-tabs {
     --tab-line-color: #0a84ff;
@@ -67,15 +68,13 @@
 
 :root[lwt-popup-brighttext] {
   --panel-separator-color: rgba(249,249,250,.1);
-
-  --arrowpanel-dimmed: rgba(249,249,250,.1);
-  --arrowpanel-dimmed-further: rgba(249,249,250,.15);
-  --arrowpanel-dimmed-even-further: rgba(249,249,250,.2);
 }
 
+@supports not -moz-bool-pref("browser.proton.tabs.enabled") {
 #navigator-toolbox:-moz-lwtheme {
   --tabs-border-color: rgba(0,0,0,.3);
 }
+} /* END !proton */
 
 #menubar-items {
   -moz-box-orient: vertical; /* for flex hack */
@@ -141,6 +140,18 @@
   color: var(--toolbar-color);
 }
 
+@supports -moz-bool-pref("browser.proton.tabs.enabled") {
+/* Add a fog for background tabs to be visible on Windows 7 glass window background */
+@media (-moz-os-version: windows-win7) {
+  @media (-moz-windows-default-theme) {
+    #TabsToolbar:not(:-moz-lwtheme) {
+      background-image: radial-gradient(ellipse at bottom, rgba(255,255,255,0.8), rgba(255,255,255,0.5) 80%, transparent);
+    }
+  }
+}
+} /*** END proton ***/
+
+@supports not -moz-bool-pref("browser.proton.tabs.enabled") {
 /*
  * Windows 7 draws the chrome background color as the tab background
  * instead of in the tabs toolbar.
@@ -186,6 +197,7 @@
     }
   }
 }
+} /*** END !proton ***/
 
 @media (-moz-windows-compositor: 0),
        (-moz-windows-default-theme: 0) {
@@ -520,6 +532,14 @@ menuitem.bookmark-item {
 
 %include ../shared/urlbar-searchbar.inc.css
 
+@media not (prefers-contrast) {
+  @supports -moz-bool-pref("browser.proton.urlbar.enabled") {
+  :root:not(:-moz-lwtheme) #urlbar:not([focused="true"]) {
+    --urlbar-box-bgcolor: white;
+  }
+  } /*** END proton ***/
+}
+
 #urlbar,
 #searchbar {
   font-size: 1.15em;
@@ -551,14 +571,8 @@ menuitem.bookmark-item {
 
 %include ../shared/urlbarView.inc.css
 
-:root {
-  --urlbar-popup-url-color: hsl(210, 77%, 47%);
-  --urlbar-popup-action-color: hsl(178, 100%, 28%);
-}
-
 @media (-moz-windows-default-theme: 0) {
   :root:not(:-moz-lwtheme) {
-    --urlbar-popup-url-color: -moz-nativehyperlinktext;
     --urlbar-popup-action-color: -moz-nativehyperlinktext;
 
     --urlbarView-button-text: buttontext;
@@ -572,6 +586,12 @@ menuitem.bookmark-item {
     --urlbarView-primary-button-background-active: highlight;
   }
 }
+
+@supports not -moz-bool-pref("browser.proton.urlbar.enabled") {
+:root:not(:-moz-lwtheme) {
+  --urlbar-popup-url-color: -moz-nativehyperlinktext;
+}
+} /*** END !proton ***/
 
 /* Autocomplete */
 

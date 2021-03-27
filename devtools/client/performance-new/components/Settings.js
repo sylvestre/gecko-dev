@@ -316,7 +316,9 @@ class Settings extends PureComponent {
           threadColumns.map(this._renderThreadsColumns)
         ),
         div(
-          { className: "perf-settings-all-threads" },
+          {
+            className: "perf-settings-checkbox-label perf-settings-all-threads",
+          },
           label(
             {
               className: "toggle-container-with-text",
@@ -387,36 +389,36 @@ class Settings extends PureComponent {
           : "perf-settings-checkbox-label-disabled";
         return label(
           {
-            className: `perf-settings-checkbox-label perf-settings-feature-label ${extraClassName}`,
+            className: `perf-settings-checkbox-label perf-toggle-label ${extraClassName}`,
             key: value,
           },
+          input({
+            id: `perf-settings-feature-checkbox-${value}`,
+            type: "checkbox",
+            value,
+            checked: isSupported && this.props.features.includes(value),
+            onChange: this._handleFeaturesCheckboxChange,
+            disabled: !isSupported,
+          }),
           div(
-            { className: "toggle-container-with-text" },
-            input({
-              id: `perf-settings-feature-checkbox-${value}`,
-              type: "checkbox",
-              value,
-              checked: isSupported && this.props.features.includes(value),
-              onChange: this._handleFeaturesCheckboxChange,
-              disabled: !isSupported,
-            }),
+            { className: "perf-settings-feature-text" },
             div(
-              { className: "perf-settings-feature-name" },
+              { className: "perf-toggle-text-label" },
               !isSupported && featureDescription.experimental
                 ? // Note when unsupported features are experimental.
                   `${name} (Experimental)`
                 : name
+            ),
+            div(
+              { className: "perf-toggle-description" },
+              title,
+              !isSupported && disabledReason
+                ? div(
+                    { className: "perf-settings-feature-disabled-reason" },
+                    disabledReason
+                  )
+                : null
             )
-          ),
-          div(
-            { className: "perf-settings-feature-title" },
-            title,
-            !isSupported && disabledReason
-              ? div(
-                  { className: "perf-settings-feature-disabled-reason" },
-                  disabledReason
-                )
-              : null
           )
         );
       })

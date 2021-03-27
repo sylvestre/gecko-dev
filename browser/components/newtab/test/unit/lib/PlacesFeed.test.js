@@ -616,7 +616,7 @@ describe("PlacesFeed", () => {
           to: "ActivityStream:Content",
           toTarget: {},
         },
-        type: "HIDE_SEARCH",
+        type: "DISABLE_SEARCH",
       });
     });
     it("should properly handle handoff with text data passed in", () => {
@@ -626,10 +626,7 @@ describe("PlacesFeed", () => {
         meta: { fromTarget: {} },
       });
       assert.calledOnce(fakeUrlBar.search);
-      assert.calledWith(fakeUrlBar.search, "@google foo", {
-        searchEngine: global.Services.search.defaultEngine,
-        searchModeEntry: "handoff",
-      });
+      assert.calledWith(fakeUrlBar.search, "foo");
       assert.notCalled(fakeUrlBar.focus);
       assert.notCalled(fakeUrlBar.setHiddenFocus);
 
@@ -654,10 +651,7 @@ describe("PlacesFeed", () => {
         meta: { fromTarget: {} },
       });
       assert.calledOnce(fakeUrlBar.search);
-      assert.calledWith(fakeUrlBar.search, "@bing foo", {
-        searchEngine: global.Services.search.defaultPrivateEngine,
-        searchModeEntry: "handoff",
-      });
+      assert.calledWith(fakeUrlBar.search, "foo");
       assert.notCalled(fakeUrlBar.focus);
       assert.notCalled(fakeUrlBar.setHiddenFocus);
 
@@ -682,10 +676,7 @@ describe("PlacesFeed", () => {
         meta: { fromTarget: {} },
       });
       assert.calledOnce(fakeUrlBar.search);
-      assert.calledWithExactly(fakeUrlBar.search, "@google foo", {
-        searchEngine: global.Services.search.defaultEngine,
-        searchModeEntry: "handoff",
-      });
+      assert.calledWithExactly(fakeUrlBar.search, "foo");
       assert.notCalled(fakeUrlBar.focus);
 
       // Now call ESC keydown.
@@ -699,19 +690,6 @@ describe("PlacesFeed", () => {
           toTarget: {},
         },
         type: "SHOW_SEARCH",
-      });
-    });
-    it("should properly handle no defined search alias", () => {
-      global.Services.search.defaultEngine.aliases = [];
-      feed.handoffSearchToAwesomebar({
-        _target: { browser: { ownerGlobal: { gURLBar: fakeUrlBar } } },
-        data: { text: "foo" },
-        meta: { fromTarget: {} },
-      });
-      assert.calledOnce(fakeUrlBar.search);
-      assert.calledWithExactly(fakeUrlBar.search, "foo", {
-        searchEngine: global.Services.search.defaultEngine,
-        searchModeEntry: "handoff",
       });
     });
   });
@@ -819,7 +797,7 @@ describe("PlacesFeed", () => {
     });
 
     describe("#page-removed", () => {
-      it("should dispatch a PLACES_LINK_DELETED action with the right url", async () => {
+      it("should dispatch a PLACES_LINKS_DELETED action with the right url", async () => {
         const args = [
           {
             type: "page-removed",
@@ -829,8 +807,8 @@ describe("PlacesFeed", () => {
         ];
         await observer.handlePlacesEvent(args);
         assert.calledWith(dispatch, {
-          type: at.PLACES_LINK_DELETED,
-          data: { url: "foo.com" },
+          type: at.PLACES_LINKS_DELETED,
+          data: { urls: ["foo.com"] },
         });
       });
     });
@@ -1114,8 +1092,6 @@ describe("PlacesFeed", () => {
     });
     describe("Other empty methods (to keep code coverage happy)", () => {
       it("should have a various empty functions for xpconnect happiness", () => {
-        observer.onBeginUpdateBatch();
-        observer.onEndUpdateBatch();
         observer.onItemMoved();
         observer.onItemChanged();
       });

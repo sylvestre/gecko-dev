@@ -67,9 +67,6 @@ loader.lazyRequireGetter(
   true
 );
 
-// This import to chrome code is forbidden according to the inspector specific
-// eslintrc. TODO: Fix in Bug 1591091.
-// eslint-disable-next-line mozilla/reject-some-requires
 loader.lazyImporter(
   this,
   "DeferredTask",
@@ -142,10 +139,11 @@ const TELEMETRY_SCALAR_NODE_SELECTION_COUNT =
  *      Fired when the stylesheet source links have been updated (when switching
  *      to source-mapped files)
  */
-function Inspector(toolbox) {
+function Inspector(toolbox, commands) {
   EventEmitter.decorate(this);
 
   this._toolbox = toolbox;
+  this._commands = commands;
   this.panelDoc = window.document;
   this.panelWin = window;
   this.panelWin.inspector = this;
@@ -205,21 +203,6 @@ Inspector.prototype = {
       r => (this._resolveMarkupViewInitialized = r)
     );
 
-    // If the server-side stylesheet watcher is enabled, we should start to watch
-    // stylesheet resources before instanciating the inspector front since pageStyle
-    // actor should refer the watcher.
-    if (
-      this.toolbox.resourceWatcher.hasResourceWatcherSupport(
-        this.toolbox.resourceWatcher.TYPES.STYLESHEET
-      )
-    ) {
-      this._isServerSideStyleSheetWatcherEnabled = true;
-      await this.toolbox.resourceWatcher.watchResources(
-        [this.toolbox.resourceWatcher.TYPES.STYLESHEET],
-        { onAvailable: this.onResourceAvailable }
-      );
-    }
-
     await this.toolbox.targetList.watchTargets(
       [this.toolbox.targetList.TYPES.FRAME],
       this._onTargetAvailable,
@@ -273,15 +256,14 @@ Inspector.prototype = {
   async initInspectorFront(targetFront) {
     this.inspectorFront = await targetFront.getFront("inspector");
     this.walker = this.inspectorFront.walker;
-
-    // PageStyle front need the resource watcher when the server-side stylesheet watcher is enabled.
-    if (this._isServerSideStyleSheetWatcherEnabled) {
-      this.inspectorFront.pageStyle.resourceWatcher = this.toolbox.resourceWatcher;
-    }
   },
 
   get toolbox() {
     return this._toolbox;
+  },
+
+  get commands() {
+    return this._commands;
   },
 
   /**
@@ -1000,12 +982,6 @@ Inspector.prototype = {
         );
         panel = new LayoutView(this, this.panelWin);
         break;
-      case "newruleview":
-        const RulesView = this.browserRequire(
-          "devtools/client/inspector/rules/new-rules"
-        );
-        panel = new RulesView(this, this.panelWin);
-        break;
       case "ruleview":
         const {
           RuleViewTool,
@@ -1101,15 +1077,6 @@ Inspector.prototype = {
       id: "animationinspector",
       title: INSPECTOR_L10N.getStr("inspector.sidebar.animationInspectorTitle"),
     });
-
-    if (
-      Services.prefs.getBoolPref("devtools.inspector.new-rulesview.enabled")
-    ) {
-      sidebarPanels.push({
-        id: "newruleview",
-        title: INSPECTOR_L10N.getStr("inspector.sidebar.ruleViewTitle"),
-      });
-    }
 
     for (const { id, title } of sidebarPanels) {
       // The Computed panel is not a React-based panel. We pick its element container from
@@ -1312,7 +1279,11 @@ Inspector.prototype = {
   onResourceAvailable: function(resources) {
     for (const resource of resources) {
       if (
-        resource.resourceType === this.toolbox.resourceWatcher.TYPES.ROOT_NODE
+        resource.resourceType ===
+          this.toolbox.resourceWatcher.TYPES.ROOT_NODE &&
+        // It might happen that the ROOT_NODE resource (which is a Front) is already
+        // destroyed, and in such case we want to ignore it.
+        !resource.isDestroyed()
       ) {
         const rootNodeFront = resource;
         const isTopLevelTarget = !!resource.targetFront.isTopLevel;

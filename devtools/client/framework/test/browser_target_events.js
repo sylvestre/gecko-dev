@@ -5,8 +5,7 @@ add_task(async function() {
   gBrowser.selectedTab = BrowserTestUtils.addTab(gBrowser);
   await BrowserTestUtils.browserLoaded(gBrowser.selectedBrowser);
 
-  const target = await TargetFactory.forTab(gBrowser.selectedTab);
-  await target.attach();
+  const target = await createAndAttachTargetForTab(gBrowser.selectedTab);
   is(target.localTab, gBrowser.selectedTab, "Target linked to the right tab.");
 
   const willNavigate = once(target, "will-navigate");
@@ -19,8 +18,8 @@ add_task(async function() {
   await navigate;
   ok(true, "navigate event received");
 
-  const close = once(target, "close");
+  const onTargetDestroyed = once(target, "target-destroyed");
   gBrowser.removeCurrentTab();
-  await close;
-  ok(true, "close event received");
+  await onTargetDestroyed;
+  ok(true, "target destroyed received");
 });

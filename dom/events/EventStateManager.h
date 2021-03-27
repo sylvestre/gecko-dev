@@ -178,7 +178,7 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
 
   /**
    * Register accesskey on the given element. When accesskey is activated then
-   * the element will be notified via nsIContent::PerformAccesskey() method.
+   * the element will be notified via Element::PerformAccesskey() method.
    *
    * @param  aElement  the given element
    * @param  aKey      accesskey
@@ -521,8 +521,8 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
   /**
    * Walk EMS to look for access key and execute found access key when aExecute
    * is true.
-   * If there is registered content for the accesskey given by the key event
-   * and modifier mask then call content.PerformAccesskey(), otherwise call
+   * If there is registered element for the accesskey given by the key event
+   * and modifier mask then call element.PerformAccesskey(), otherwise call
    * WalkESMTreeToHandleAccessKey() recursively, on descendant docshells first,
    * then on the ancestor (with |aBubbledFrom| set to the docshell associated
    * with |this|), until something matches.
@@ -573,7 +573,7 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
   // DocShell Focus Traversal Methods
   //---------------------------------------------
 
-  nsIContent* GetFocusedContent();
+  dom::Element* GetFocusedElement();
   bool IsShellVisible(nsIDocShell* aShell);
 
   // These functions are for mousewheel and pixel scrolling
@@ -1105,9 +1105,9 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
   static void UpdateAncestorState(nsIContent* aStartNode,
                                   nsIContent* aStopBefore, EventStates aState,
                                   bool aAddState);
-  static void ResetLastOverForContent(const uint32_t& aIdx,
-                                      RefPtr<OverOutElementsWrapper>& aChunk,
-                                      nsIContent* aClosure);
+  static void ResetLastOverForContent(
+      const uint32_t& aIdx, const RefPtr<OverOutElementsWrapper>& aChunk,
+      nsIContent* aClosure);
 
   /**
    * Update the attribute mLastRefPoint of the mouse event. It should be
@@ -1188,6 +1188,9 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
   uint32_t mMClickCount;
   uint32_t mRClickCount;
 
+  bool mShouldAlwaysUseLineDeltas : 1;
+  bool mShouldAlwaysUseLineDeltasInitialized : 1;
+
   bool mInTouchDrag;
 
   bool m_haveShutdown;
@@ -1196,10 +1199,13 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
   nsRefPtrHashtable<nsUint32HashKey, OverOutElementsWrapper>
       mPointersEnterLeaveHelper;
 
+  // Array for accesskey support
+  nsCOMArray<dom::Element> mAccessKeys;
+
+  bool ShouldAlwaysUseLineDeltas();
+
  public:
   static nsresult UpdateUserActivityTimer(void);
-  // Array for accesskey support
-  nsCOMArray<nsIContent> mAccessKeys;
 
   static bool sNormalLMouseEventInProcess;
   static int16_t sCurrentMouseBtn;

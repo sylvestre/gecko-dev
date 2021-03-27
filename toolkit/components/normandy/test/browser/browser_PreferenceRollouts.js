@@ -9,6 +9,11 @@ const { TelemetryEnvironment } = ChromeUtils.import(
 const { PreferenceRollouts } = ChromeUtils.import(
   "resource://normandy/lib/PreferenceRollouts.jsm"
 );
+const {
+  NormandyTestUtils: {
+    factories: { preferenceRolloutFactory },
+  },
+} = ChromeUtils.import("resource://testing-common/NormandyTestUtils.jsm");
 
 decorate_task(
   PreferenceRollouts.withTestMock(),
@@ -172,9 +177,9 @@ decorate_task(
 
 // recordOriginalValue should graduate a study when all of its preferences are built-in
 decorate_task(
+  withSendEventSpy(),
   PreferenceRollouts.withTestMock(),
-  withSendEventSpy,
-  async function testRecordOriginalValuesGraduates(sendEventStub) {
+  async function testRecordOriginalValuesGraduates({ sendEventSpy }) {
     await PreferenceRollouts.add({
       slug: "test-rollout",
       state: PreferenceRollouts.STATE_ACTIVE,
@@ -197,7 +202,7 @@ decorate_task(
       "rollouts should remain active when only one pref matches the built-in default"
     );
 
-    sendEventStub.assertEvents([]);
+    sendEventSpy.assertEvents([]);
 
     // both prefs is enough
     await PreferenceRollouts.recordOriginalValues({
@@ -211,7 +216,7 @@ decorate_task(
       "rollouts should graduate when all prefs matches the built-in defaults"
     );
 
-    sendEventStub.assertEvents([
+    sendEventSpy.assertEvents([
       [
         "graduate",
         "preference_rollout",
@@ -224,9 +229,9 @@ decorate_task(
 
 // init should mark active rollouts in telemetry
 decorate_task(
-  PreferenceRollouts.withTestMock(),
   withStub(TelemetryEnvironment, "setExperimentActive"),
-  async function testInitTelemetry(setExperimentActiveStub) {
+  PreferenceRollouts.withTestMock(),
+  async function testInitTelemetry({ setExperimentActiveStub }) {
     await PreferenceRollouts.add({
       slug: "test-rollout-active-1",
       state: PreferenceRollouts.STATE_ACTIVE,
@@ -272,18 +277,21 @@ decorate_task(
 // init should graduate rollouts in the graduation set
 decorate_task(
   withStub(TelemetryEnvironment, "setExperimentActive"),
-  withSendEventSpy,
+  withSendEventSpy(),
   PreferenceRollouts.withTestMock({
     graduationSet: new Set(["test-rollout"]),
     rollouts: [
-      {
+      preferenceRolloutFactory({
         slug: "test-rollout",
         state: PreferenceRollouts.STATE_ACTIVE,
         enrollmentId: "test-enrollment-id",
-      },
+      }),
     ],
   }),
-  async function testInitGraduationSet(setExperimentActiveStub, sendEventStub) {
+  async function testInitGraduationSet({
+    setExperimentActiveStub,
+    sendEventSpy,
+  }) {
     await PreferenceRollouts.init();
     const newRollout = await PreferenceRollouts.get("test-rollout");
     Assert.equal(
@@ -296,7 +304,7 @@ decorate_task(
       [],
       "setExperimentActive should not be called"
     );
-    sendEventStub.assertEvents([
+    sendEventSpy.assertEvents([
       [
         "graduate",
         "preference_rollout",
@@ -305,4 +313,4 @@ decorate_task(
       ],
     ]);
   }
-).only();
+);

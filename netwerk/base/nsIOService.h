@@ -16,7 +16,6 @@
 #include "nsIChannelEventSink.h"
 #include "nsCategoryCache.h"
 #include "nsISpeculativeConnect.h"
-#include "nsDataHashtable.h"
 #include "nsWeakReference.h"
 #include "mozilla/Atomics.h"
 #include "mozilla/Attributes.h"
@@ -24,6 +23,7 @@
 #include "prtime.h"
 #include "nsICaptivePortalService.h"
 #include "nsIObserverService.h"
+#include "nsTHashSet.h"
 #include "nsWeakReference.h"
 
 #define NS_N(x) (sizeof(x) / sizeof(*x))
@@ -250,10 +250,10 @@ class nsIOService final : public nsIIOService,
   nsTArray<std::function<void()>> mPendingEvents;
 
   // The observer notifications need to be forwarded to socket process.
-  nsTHashtable<nsCStringHashKey> mObserverTopicForSocketProcess;
+  nsTHashSet<nsCString> mObserverTopicForSocketProcess;
   // Some noticications (e.g., NS_XPCOM_SHUTDOWN_OBSERVER_ID) are triggered in
   // socket process, so we should not send the notifications again.
-  nsTHashtable<nsCStringHashKey> mSocketProcessTopicBlackList;
+  nsTHashSet<nsCString> mSocketProcessTopicBlackList;
 
   nsCOMPtr<nsIObserverService> mObserverService;
 

@@ -272,11 +272,7 @@ nsPreflightCache::CacheEntry* nsPreflightCache::GetEntry(
 
   // This is a new entry, allocate and insert into the table now so that any
   // failures don't cause items to be removed from a full cache.
-  CacheEntry* newEntry = new CacheEntry(key);
-  if (!newEntry) {
-    NS_WARNING("Failed to allocate new cache entry!");
-    return nullptr;
-  }
+  auto newEntry = MakeUnique<CacheEntry>(key);
 
   NS_ASSERTION(mTable.Count() <= PREFLIGHT_CACHE_SIZE,
                "Something is borked, too many entries in the cache!");
@@ -310,10 +306,10 @@ nsPreflightCache::CacheEntry* nsPreflightCache::GetEntry(
     }
   }
 
-  mTable.Put(key, newEntry);
-  mList.insertFront(newEntry);
+  auto* newEntryWeakRef = mTable.InsertOrUpdate(key, std::move(newEntry)).get();
+  mList.insertFront(newEntryWeakRef);
 
-  return newEntry;
+  return newEntryWeakRef;
 }
 
 void nsPreflightCache::RemoveEntries(
@@ -968,6 +964,9 @@ nsresult nsCORSListenerProxy::UpdateChannel(nsIChannel* aChannel,
     NS_ENSURE_SUCCESS(rv, rv);
 
     flags |= nsIRequest::LOAD_ANONYMOUS;
+    if (StaticPrefs::network_cors_preflight_allow_client_cert()) {
+      flags |= nsIRequest::LOAD_ANONYMOUS_ALLOW_CLIENT_CERT;
+    }
     rv = http->SetLoadFlags(flags);
     NS_ENSURE_SUCCESS(rv, rv);
   }
@@ -1466,6 +1465,10 @@ nsresult nsCORSListenerProxy::StartCORSPreflight(
   // check won't be safe any more.
   loadFlags |=
       nsIChannel::LOAD_BYPASS_SERVICE_WORKER | nsIRequest::LOAD_ANONYMOUS;
+
+  if (StaticPrefs::network_cors_preflight_allow_client_cert()) {
+    loadFlags |= nsIRequest::LOAD_ANONYMOUS_ALLOW_CLIENT_CERT;
+  }
 
   nsCOMPtr<nsIChannel> preflightChannel;
   rv = NS_NewChannelInternal(getter_AddRefs(preflightChannel), uri, loadInfo,

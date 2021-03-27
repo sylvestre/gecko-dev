@@ -58,6 +58,7 @@ nsDocShellLoadState::nsDocShellLoadState(
   mInternalLoadFlags = aLoadState.InternalLoadFlags();
   mFirstParty = aLoadState.FirstParty();
   mHasValidUserGestureActivation = aLoadState.HasValidUserGestureActivation();
+  mAllowFocusMove = aLoadState.AllowFocusMove();
   mTypeHint = aLoadState.TypeHint();
   mFileName = aLoadState.FileName();
   mIsFromProcessingFrameAttributes =
@@ -78,6 +79,7 @@ nsDocShellLoadState::nsDocShellLoadState(
   mHeadersStream = aLoadState.HeadersStream();
   mSrcdocData = aLoadState.SrcdocData();
   mChannelInitialized = aLoadState.ChannelInitialized();
+  mIsMetaRefresh = aLoadState.IsMetaRefresh();
   if (aLoadState.loadingSessionHistoryInfo().isSome()) {
     mLoadingSessionHistoryInfo = MakeUnique<LoadingSessionHistoryInfo>(
         aLoadState.loadingSessionHistoryInfo().ref());
@@ -116,6 +118,7 @@ nsDocShellLoadState::nsDocShellLoadState(const nsDocShellLoadState& aOther)
       mInternalLoadFlags(aOther.mInternalLoadFlags),
       mFirstParty(aOther.mFirstParty),
       mHasValidUserGestureActivation(aOther.mHasValidUserGestureActivation),
+      mAllowFocusMove(aOther.mAllowFocusMove),
       mTypeHint(aOther.mTypeHint),
       mFileName(aOther.mFileName),
       mIsFromProcessingFrameAttributes(aOther.mIsFromProcessingFrameAttributes),
@@ -123,7 +126,8 @@ nsDocShellLoadState::nsDocShellLoadState(const nsDocShellLoadState& aOther)
       mOriginalURIString(aOther.mOriginalURIString),
       mCancelContentJSEpoch(aOther.mCancelContentJSEpoch),
       mLoadIdentifier(aOther.mLoadIdentifier),
-      mChannelInitialized(aOther.mChannelInitialized) {
+      mChannelInitialized(aOther.mChannelInitialized),
+      mIsMetaRefresh(aOther.mIsMetaRefresh) {
   if (aOther.mLoadingSessionHistoryInfo) {
     mLoadingSessionHistoryInfo = MakeUnique<LoadingSessionHistoryInfo>(
         *aOther.mLoadingSessionHistoryInfo);
@@ -149,11 +153,13 @@ nsDocShellLoadState::nsDocShellLoadState(nsIURI* aURI, uint64_t aLoadIdentifier)
       mInternalLoadFlags(0),
       mFirstParty(false),
       mHasValidUserGestureActivation(false),
+      mAllowFocusMove(false),
       mTypeHint(VoidCString()),
       mFileName(VoidString()),
       mIsFromProcessingFrameAttributes(false),
       mLoadIdentifier(aLoadIdentifier),
-      mChannelInitialized(false) {
+      mChannelInitialized(false),
+      mIsMetaRefresh(false) {
   MOZ_ASSERT(aURI, "Cannot create a LoadState with a null URI!");
 }
 
@@ -947,6 +953,7 @@ DocShellLoadStateInit nsDocShellLoadState::Serialize() {
   loadState.InternalLoadFlags() = mInternalLoadFlags;
   loadState.FirstParty() = mFirstParty;
   loadState.HasValidUserGestureActivation() = mHasValidUserGestureActivation;
+  loadState.AllowFocusMove() = mAllowFocusMove;
   loadState.TypeHint() = mTypeHint;
   loadState.FileName() = mFileName;
   loadState.IsFromProcessingFrameAttributes() =
@@ -969,6 +976,7 @@ DocShellLoadStateInit nsDocShellLoadState::Serialize() {
   loadState.ResultPrincipalURI() = mResultPrincipalURI;
   loadState.LoadIdentifier() = mLoadIdentifier;
   loadState.ChannelInitialized() = mChannelInitialized;
+  loadState.IsMetaRefresh() = mIsMetaRefresh;
   if (mLoadingSessionHistoryInfo) {
     loadState.loadingSessionHistoryInfo().emplace(*mLoadingSessionHistoryInfo);
   }

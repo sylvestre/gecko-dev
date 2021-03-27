@@ -14,7 +14,6 @@ varying vec2 v_uv;
 // sampling artifacts.
 flat varying vec4 v_uv_sample_bounds;
 
-// Layer index to sample.
 // Flag to allow perspective interpolation of UV.
 flat varying float v_perspective;
 
@@ -33,11 +32,11 @@ void brush_vs(
     int brush_flags,
     vec4 unused
 ) {
-    ImageResource res = fetch_image_resource(prim_user_data.x);
+    ImageSource res = fetch_image_source(prim_user_data.x);
     vec2 uv0 = res.uv_rect.p0;
     vec2 uv1 = res.uv_rect.p1;
 
-    vec2 texture_size = vec2(textureSize(sColor0, 0).xy);
+    vec2 texture_size = vec2(TEX_SIZE(sColor0).xy);
     vec2 f = (vi.local_pos - local_rect.p0) / local_rect.size;
     f = get_image_quad_uv(prim_user_data.x, f);
     vec2 uv = mix(uv0, uv1, f);
@@ -77,7 +76,7 @@ void swgl_drawSpanRGBA8() {
     float perspective_divisor = mix(swgl_forceScalar(gl_FragCoord.w), 1.0, v_perspective);
     vec2 uv = v_uv * perspective_divisor;
 
-    swgl_commitTextureLinearColorRGBA8(sColor0, uv, v_uv_sample_bounds, v_opacity, 0.0);
+    swgl_commitTextureLinearColorRGBA8(sColor0, uv, v_uv_sample_bounds, v_opacity);
 }
 #endif
 

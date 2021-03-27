@@ -994,7 +994,9 @@ uint32_t ModuleObject::dfsAncestorIndex() const {
 }
 
 JSObject* ModuleObject::topLevelCapability() const {
-  return &getReservedSlot(TopLevelCapabilitySlot).toObject();
+  Value capability = getReservedSlot(TopLevelCapabilitySlot);
+  MOZ_RELEASE_ASSERT(capability.isObject());
+  return &capability.toObject();
 }
 
 PromiseObject* ModuleObject::createTopLevelCapability(
@@ -1029,6 +1031,16 @@ uint32_t ModuleObject::pendingAsyncDependencies() const {
 
 void ModuleObject::setPendingAsyncDependencies(uint32_t newValue) {
   return setReservedSlot(PendingAsyncDependenciesSlot, NumberValue(newValue));
+}
+
+void ModuleObject::setCycleRoot(ModuleObject* cycleRoot) {
+  return setReservedSlot(CycleRootSlot, ObjectValue(*cycleRoot));
+}
+
+ModuleObject* ModuleObject::getCycleRoot() const {
+  Value cycleRoot = getReservedSlot(CycleRootSlot);
+  MOZ_RELEASE_ASSERT(cycleRoot.isObject());
+  return &cycleRoot.toObject().as<ModuleObject>();
 }
 
 bool ModuleObject::hasTopLevelCapability() const {
@@ -1960,36 +1972,6 @@ JSObject* js::CallModuleResolveHook(JSContext* cx,
   return result;
 }
 
-// https://tc39.es/proposal-top-level-await/#sec-getasynccycleroot
-ModuleObject* js::GetAsyncCycleRoot(ModuleObject* module) {
-  // Step 1.
-  MOZ_ASSERT(module->status() == MODULE_STATUS_EVALUATED);
-
-  // Step 2.
-  if (module->asyncParentModules()->empty()) {
-    return module;
-  }
-
-  // Step 3.
-  ModuleObject* currentModule = module;
-  while (currentModule->dfsIndex() > currentModule->dfsAncestorIndex()) {
-    MOZ_ASSERT(!currentModule->asyncParentModules()->empty());
-    ModuleObject* nextCycleModule = &currentModule->asyncParentModules()
-                                         ->get(0)
-                                         .toObject()
-                                         .as<ModuleObject>();
-    MOZ_ASSERT(nextCycleModule->dfsAncestorIndex() <=
-               currentModule->dfsAncestorIndex());
-    currentModule = nextCycleModule;
-  }
-
-  // Step 4.
-  MOZ_ASSERT(currentModule->dfsIndex() == currentModule->dfsAncestorIndex());
-
-  // Step 5.
-  return currentModule;
-}
-
 bool js::AsyncModuleExecutionFulfilledHandler(JSContext* cx, unsigned argc,
                                               Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
@@ -2044,16 +2026,12 @@ void js::AsyncModuleExecutionFulfilled(JSContext* cx,
   for (uint32_t i = 0; i < length; i++) {
     m = &module->asyncParentModules()->get(i).toObject().as<ModuleObject>();
 
-    if (module->dfsIndex() != module->dfsAncestorIndex()) {
-      MOZ_ASSERT(m->dfsAncestorIndex() <= module->dfsAncestorIndex());
-    }
-
     m->setPendingAsyncDependencies(m->pendingAsyncDependencies() - 1);
 
     if (m->pendingAsyncDependencies() == 0 && !m->hadEvaluationError()) {
       MOZ_ASSERT(m->isAsyncEvaluating());
 
-      cycleRoot = GetAsyncCycleRoot(m);
+      cycleRoot = m->getCycleRoot();
 
       if (cycleRoot->hadEvaluationError()) {
         return;
@@ -2078,7 +2056,7 @@ void js::AsyncModuleExecutionFulfilled(JSContext* cx,
 
   // Step 6.
   if (module->hasTopLevelCapability()) {
-    MOZ_ASSERT(module->dfsIndex() == module->dfsAncestorIndex());
+    MOZ_ASSERT(module->getCycleRoot() == module);
     ModuleObject::topLevelCapabilityResolve(cx, module);
   }
 
@@ -2089,7 +2067,8 @@ void js::AsyncModuleExecutionFulfilled(JSContext* cx,
 void js::AsyncModuleExecutionRejected(JSContext* cx, HandleModuleObject module,
                                       HandleValue error) {
   // Step 1.
-  MOZ_ASSERT(module->status() == MODULE_STATUS_EVALUATED);
+  MOZ_ASSERT(module->status() == MODULE_STATUS_EVALUATED ||
+             module->status() == MODULE_STATUS_EVALUATED_ERROR);
 
   // Step 2.
   if (!module->isAsyncEvaluating()) {
@@ -2112,15 +2091,12 @@ void js::AsyncModuleExecutionRejected(JSContext* cx, HandleModuleObject module,
   for (uint32_t i = 0; i < length; i++) {
     parent =
         &module->asyncParentModules()->get(i).toObject().as<ModuleObject>();
-    if (module->dfsIndex() != module->dfsAncestorIndex()) {
-      MOZ_ASSERT(parent->dfsAncestorIndex() == module->dfsAncestorIndex());
-    }
     AsyncModuleExecutionRejected(cx, parent, error);
   }
 
   // Step 7.
   if (module->hasTopLevelCapability()) {
-    MOZ_ASSERT(module->dfsIndex() == module->dfsAncestorIndex());
+    MOZ_ASSERT(module->getCycleRoot() == module);
     ModuleObject::topLevelCapabilityReject(cx, module, error);
   }
 
@@ -2258,8 +2234,10 @@ static bool OnResolvedDynamicModule(JSContext* cx, unsigned argc, Value* vp) {
     return RejectPromiseWithPendingError(cx, promise);
   }
 
-  MOZ_ASSERT(module->topLevelCapability()->as<PromiseObject>().state() ==
-             JS::PromiseState::Fulfilled);
+  MOZ_ASSERT(module->getCycleRoot()
+                 ->topLevelCapability()
+                 ->as<PromiseObject>()
+                 .state() == JS::PromiseState::Fulfilled);
 
   RootedObject ns(cx, ModuleObject::GetOrCreateModuleNamespace(cx, module));
   if (!ns) {
@@ -2427,10 +2405,10 @@ XDRResult js::XDRExportEntries(XDRState<mode>* xdr,
                                            importName, localName, lineNumber,
                                            columnNumber));
       if (!expObj) {
-        return xdr->fail(JS::TranscodeResult_Throw);
+        return xdr->fail(JS::TranscodeResult::Throw);
       }
       if (!expVec.append(expObj)) {
-        return xdr->fail(JS::TranscodeResult_Throw);
+        return xdr->fail(JS::TranscodeResult::Throw);
       }
     }
   }
@@ -2438,7 +2416,7 @@ XDRResult js::XDRExportEntries(XDRState<mode>* xdr,
   if (mode == XDR_DECODE) {
     RootedArrayObject expArr(cx, js::CreateArray(cx, expVec));
     if (!expArr) {
-      return xdr->fail(JS::TranscodeResult_Throw);
+      return xdr->fail(JS::TranscodeResult::Throw);
     }
     vec.set(expArr);
   }
@@ -2467,7 +2445,7 @@ XDRResult js::XDRRequestedModuleObject(
     reqObj.set(RequestedModuleObject::create(cx, moduleSpecifier, lineNumber,
                                              columnNumber));
     if (!reqObj) {
-      return xdr->fail(JS::TranscodeResult_Throw);
+      return xdr->fail(JS::TranscodeResult::Throw);
     }
   }
 
@@ -2501,7 +2479,7 @@ XDRResult js::XDRImportEntryObject(XDRState<mode>* xdr,
     impObj.set(ImportEntryObject::create(cx, moduleRequest, importName,
                                          localName, lineNumber, columnNumber));
     if (!impObj) {
-      return xdr->fail(JS::TranscodeResult_Throw);
+      return xdr->fail(JS::TranscodeResult::Throw);
     }
   }
 
@@ -2556,7 +2534,7 @@ XDRResult js::XDRModuleObject(XDRState<mode>* xdr,
     enclosingScope.set(&cx->global()->emptyGlobalScope());
     module.set(ModuleObject::create(cx));
     if (!module) {
-      return xdr->fail(JS::TranscodeResult_Throw);
+      return xdr->fail(JS::TranscodeResult::Throw);
     }
   }
 
@@ -2571,7 +2549,7 @@ XDRResult js::XDRModuleObject(XDRState<mode>* xdr,
   /* Environment Slot */
   if (mode == XDR_DECODE) {
     if (!ModuleObject::createEnvironment(cx, module)) {
-      return xdr->fail(JS::TranscodeResult_Throw);
+      return xdr->fail(JS::TranscodeResult::Throw);
     }
   }
 
@@ -2592,14 +2570,14 @@ XDRResult js::XDRModuleObject(XDRState<mode>* xdr,
     MOZ_TRY(XDRRequestedModuleObject(xdr, &reqObj));
     if (mode == XDR_DECODE) {
       if (!reqVec.append(reqObj)) {
-        return xdr->fail(JS::TranscodeResult_Throw);
+        return xdr->fail(JS::TranscodeResult::Throw);
       }
     }
   }
   if (mode == XDR_DECODE) {
     RootedArrayObject reqArr(cx, js::CreateArray(cx, reqVec));
     if (!reqArr) {
-      return xdr->fail(JS::TranscodeResult_Throw);
+      return xdr->fail(JS::TranscodeResult::Throw);
     }
     requestedModules.set(reqArr);
   }
@@ -2618,7 +2596,7 @@ XDRResult js::XDRModuleObject(XDRState<mode>* xdr,
     MOZ_TRY(XDRImportEntryObject(xdr, &impObj));
     if (mode == XDR_DECODE) {
       if (!impVec.append(impObj)) {
-        return xdr->fail(JS::TranscodeResult_Throw);
+        return xdr->fail(JS::TranscodeResult::Throw);
       }
     }
   }
@@ -2626,7 +2604,7 @@ XDRResult js::XDRModuleObject(XDRState<mode>* xdr,
   if (mode == XDR_DECODE) {
     RootedArrayObject impArr(cx, js::CreateArray(cx, impVec));
     if (!impArr) {
-      return xdr->fail(JS::TranscodeResult_Throw);
+      return xdr->fail(JS::TranscodeResult::Throw);
     }
     importEntries.set(impArr);
   }
@@ -2651,7 +2629,7 @@ XDRResult js::XDRModuleObject(XDRState<mode>* xdr,
     if (mode == XDR_DECODE) {
       if (!GetFunctionDeclarations(module.get())->append(funIndex)) {
         ReportOutOfMemory(cx);
-        return xdr->fail(JS::TranscodeResult_Throw);
+        return xdr->fail(JS::TranscodeResult::Throw);
       }
     }
   }
@@ -2675,7 +2653,7 @@ XDRResult js::XDRModuleObject(XDRState<mode>* xdr,
   if (mode == XDR_DECODE) {
     Rooted<ListObject*> asyncParentModulesList(cx, ListObject::create(cx));
     if (!asyncParentModulesList) {
-      return xdr->fail(JS::TranscodeResult_Throw);
+      return xdr->fail(JS::TranscodeResult::Throw);
     }
 
     module->initAsyncSlots(cx, isAsyncModule == 1, asyncParentModulesList);

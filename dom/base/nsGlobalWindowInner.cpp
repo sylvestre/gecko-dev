@@ -71,7 +71,7 @@
 #include "mozilla/ScopeExit.h"
 #include "mozilla/ScrollOrigin.h"
 #include "mozilla/ScrollTypes.h"
-#include "mozilla/Services.h"
+#include "mozilla/Components.h"
 #include "mozilla/SizeOfState.h"
 #include "mozilla/Span.h"
 #include "mozilla/SpinEventLoopUntil.h"
@@ -86,6 +86,7 @@
 #include "mozilla/UniquePtr.h"
 #include "mozilla/Unused.h"
 #include "mozilla/dom/AudioContext.h"
+#include "mozilla/dom/AutoEntryScript.h"
 #include "mozilla/dom/BarProps.h"
 #include "mozilla/dom/BindingDeclarations.h"
 #include "mozilla/dom/BindingUtils.h"
@@ -1007,12 +1008,12 @@ nsGlobalWindowInner::nsGlobalWindowInner(nsGlobalWindowOuter* aOuterWindow,
 
   // Add ourselves to the inner windows list.
   MOZ_ASSERT(sInnerWindowsById, "Inner Windows hash table must be created!");
-  MOZ_ASSERT(!sInnerWindowsById->Get(mWindowID),
+  MOZ_ASSERT(!sInnerWindowsById->Contains(mWindowID),
              "This window shouldn't be in the hash table yet!");
   // We seem to see crashes in release builds because of null
   // |sInnerWindowsById|.
   if (sInnerWindowsById) {
-    sInnerWindowsById->Put(mWindowID, this);
+    sInnerWindowsById->InsertOrUpdate(mWindowID, this);
   }
 }
 
@@ -1309,10 +1310,8 @@ void nsGlobalWindowInner::FreeInnerObjects() {
   mSpeechSynthesis = nullptr;
 #endif
 
-#ifdef MOZ_GLEAN
   mGlean = nullptr;
   mGleanPings = nullptr;
-#endif
 
   mParentTarget = nullptr;
 
@@ -1404,10 +1403,8 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(nsGlobalWindowInner)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mSpeechSynthesis)
 #endif
 
-#ifdef MOZ_GLEAN
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mGlean)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mGleanPings)
-#endif
 
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mOuterWindow)
 
@@ -1454,6 +1451,8 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(nsGlobalWindowInner)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mChromeEventHandler)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mParentTarget)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFocusedElement)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBrowsingContext)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWindowGlobalChild)
 
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMenubar)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mToolbar)
@@ -1502,10 +1501,8 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(nsGlobalWindowInner)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mSpeechSynthesis)
 #endif
 
-#ifdef MOZ_GLEAN
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mGlean)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mGleanPings)
-#endif
 
   if (tmp->mOuterWindow) {
     nsGlobalWindowOuter::Cast(tmp->mOuterWindow)->MaybeClearInnerWindow(tmp);
@@ -1557,6 +1554,12 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(nsGlobalWindowInner)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mChromeEventHandler)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mParentTarget)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mFocusedElement)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mBrowsingContext)
+
+  MOZ_DIAGNOSTIC_ASSERT(
+      !tmp->mWindowGlobalChild || tmp->mWindowGlobalChild->IsClosed(),
+      "How are we unlinking a window before its actor has been destroyed?");
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mWindowGlobalChild)
 
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mMenubar)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mToolbar)
@@ -1684,7 +1687,7 @@ void nsGlobalWindowInner::UpdateShortcutsPermission() {
 uint32_t nsGlobalWindowInner::GetShortcutsPermission(nsIPrincipal* aPrincipal) {
   uint32_t perm = nsIPermissionManager::DENY_ACTION;
   nsCOMPtr<nsIPermissionManager> permMgr =
-      mozilla::services::GetPermissionManager();
+      mozilla::components::PermissionManager::Service();
   if (aPrincipal && permMgr) {
     permMgr->TestExactPermissionFromPrincipal(aPrincipal, "shortcuts"_ns,
                                               &perm);
@@ -2419,11 +2422,13 @@ bool nsPIDOMWindowInner::IsSecureContext() const {
   return nsGlobalWindowInner::Cast(this)->IsSecureContext();
 }
 
-void nsPIDOMWindowInner::Suspend() {
-  nsGlobalWindowInner::Cast(this)->Suspend();
+void nsPIDOMWindowInner::Suspend(bool aIncludeSubWindows) {
+  nsGlobalWindowInner::Cast(this)->Suspend(aIncludeSubWindows);
 }
 
-void nsPIDOMWindowInner::Resume() { nsGlobalWindowInner::Cast(this)->Resume(); }
+void nsPIDOMWindowInner::Resume(bool aIncludeSubWindows) {
+  nsGlobalWindowInner::Cast(this)->Resume(aIncludeSubWindows);
+}
 
 void nsPIDOMWindowInner::SyncStateFromParentWindow() {
   nsGlobalWindowInner::Cast(this)->SyncStateFromParentWindow();
@@ -2748,16 +2753,13 @@ bool nsPIDOMWindowInner::HasOpenWebSockets() const {
 }
 
 bool nsPIDOMWindowInner::IsCurrentInnerWindow() const {
-  auto* bc = GetBrowsingContext();
-  MOZ_ASSERT(bc);
-
-  if (bc->IsDiscarded()) {
+  if (!mBrowsingContext || mBrowsingContext->IsDiscarded()) {
     // If our BrowsingContext has been discarded, we consider ourselves
     // still-current if we were current at the time it was discarded.
     return mOuterWindow && WasCurrentInnerWindow();
   }
 
-  nsPIDOMWindowOuter* outer = bc->GetDOMWindow();
+  nsPIDOMWindowOuter* outer = mBrowsingContext->GetDOMWindow();
   return outer && outer->GetCurrentInnerWindow() == this;
 }
 
@@ -2824,7 +2826,6 @@ bool nsGlobalWindowInner::HasActiveSpeechSynthesis() {
 
 #endif
 
-#ifdef MOZ_GLEAN
 mozilla::glean::Glean* nsGlobalWindowInner::Glean() {
   if (!mGlean) {
     mGlean = new mozilla::glean::Glean();
@@ -2840,7 +2841,6 @@ mozilla::glean::GleanPings* nsGlobalWindowInner::GleanPings() {
 
   return mGleanPings;
 }
-#endif
 
 Nullable<WindowProxyHolder> nsGlobalWindowInner::GetParent(
     ErrorResult& aError) {
@@ -4355,6 +4355,7 @@ void nsGlobalWindowInner::SetFocusedElement(Element* aElement,
   if (mFocusedElement != aElement) {
     UpdateCanvasFocus(false, aElement);
     mFocusedElement = aElement;
+    // TODO: Maybe this should be set on refocus too?
     mFocusMethod = aFocusMethod & FOCUSMETHOD_MASK;
   }
 
@@ -4362,11 +4363,22 @@ void nsGlobalWindowInner::SetFocusedElement(Element* aElement,
     // if a node was focused by a keypress, turn on focus rings for the
     // window.
     if (mFocusMethod & nsIFocusManager::FLAG_BYKEY) {
+      mUnknownFocusMethodShouldShowOutline = true;
       mFocusByKeyOccurred = true;
+    } else if (nsFocusManager::GetFocusMoveActionCause(mFocusMethod) !=
+               widget::InputContextAction::CAUSE_UNKNOWN) {
+      mUnknownFocusMethodShouldShowOutline = false;
+    } else if (aFocusMethod & nsIFocusManager::FLAG_NOSHOWRING) {
+      // If we get focused via script, and script has explicitly opted out of
+      // outlines via FLAG_NOSHOWRING, we don't want to make a refocus start
+      // showing outlines.
+      mUnknownFocusMethodShouldShowOutline = false;
     }
   }
 
-  if (aNeedsFocus) mNeedsFocus = aNeedsFocus;
+  if (aNeedsFocus) {
+    mNeedsFocus = aNeedsFocus;
+  }
 }
 
 uint32_t nsGlobalWindowInner::GetFocusMethod() { return mFocusMethod; }
@@ -5434,7 +5446,7 @@ already_AddRefed<StorageEvent> nsGlobalWindowInner::CloneStorageEvent(
   return event.forget();
 }
 
-void nsGlobalWindowInner::Suspend() {
+void nsGlobalWindowInner::Suspend(bool aIncludeSubWindows) {
   MOZ_ASSERT(NS_IsMainThread());
 
   // We can only safely suspend windows that are the current inner window.  If
@@ -5450,9 +5462,12 @@ void nsGlobalWindowInner::Suspend() {
     return;
   }
 
-  // All children are also suspended.  This ensure mSuspendDepth is
-  // set properly and the timers are properly canceled for each child.
-  CallOnInProcessChildren(&nsGlobalWindowInner::Suspend);
+  // All in-process descendants are also suspended.  This ensure mSuspendDepth
+  // is set properly and the timers are properly canceled for each in-process
+  // descendant.
+  if (aIncludeSubWindows) {
+    CallOnInProcessDescendants(&nsGlobalWindowInner::Suspend, false);
+  }
 
   mSuspendDepth += 1;
   if (mSuspendDepth != 1) {
@@ -5484,7 +5499,7 @@ void nsGlobalWindowInner::Suspend() {
   }
 }
 
-void nsGlobalWindowInner::Resume() {
+void nsGlobalWindowInner::Resume(bool aIncludeSubWindows) {
   MOZ_ASSERT(NS_IsMainThread());
 
   // We can only safely resume a window if its the current inner window.  If
@@ -5497,9 +5512,12 @@ void nsGlobalWindowInner::Resume() {
     return;
   }
 
-  // Resume all children.  This restores timers recursively canceled
-  // in Suspend() and ensures all children have the correct mSuspendDepth.
-  CallOnInProcessChildren(&nsGlobalWindowInner::Resume);
+  // Resume all in-process descendants.  This restores timers recursively
+  // canceled in Suspend() and ensures all in-process descendants have the
+  // correct mSuspendDepth.
+  if (aIncludeSubWindows) {
+    CallOnInProcessDescendants(&nsGlobalWindowInner::Resume, false);
+  }
 
   if (mSuspendDepth == 0) {
     // Ignore if the window is not suspended.
@@ -5549,20 +5567,23 @@ bool nsGlobalWindowInner::IsSuspended() const {
   return mSuspendDepth != 0;
 }
 
-void nsGlobalWindowInner::Freeze() {
+void nsGlobalWindowInner::Freeze(bool aIncludeSubWindows) {
   MOZ_ASSERT(NS_IsMainThread());
-  Suspend();
-  FreezeInternal();
+  Suspend(aIncludeSubWindows);
+  FreezeInternal(aIncludeSubWindows);
 }
 
-void nsGlobalWindowInner::FreezeInternal() {
+void nsGlobalWindowInner::FreezeInternal(bool aIncludeSubWindows) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_DIAGNOSTIC_ASSERT(IsCurrentInnerWindow());
   MOZ_DIAGNOSTIC_ASSERT(IsSuspended());
 
   HintIsLoading(false);
 
-  CallOnInProcessChildren(&nsGlobalWindowInner::FreezeInternal);
+  if (aIncludeSubWindows) {
+    CallOnInProcessChildren(&nsGlobalWindowInner::FreezeInternal,
+                            aIncludeSubWindows);
+  }
 
   mFreezeDepth += 1;
   MOZ_ASSERT(mSuspendDepth >= mFreezeDepth);
@@ -5585,18 +5606,21 @@ void nsGlobalWindowInner::FreezeInternal() {
   NotifyDOMWindowFrozen(this);
 }
 
-void nsGlobalWindowInner::Thaw() {
+void nsGlobalWindowInner::Thaw(bool aIncludeSubWindows) {
   MOZ_ASSERT(NS_IsMainThread());
-  ThawInternal();
-  Resume();
+  ThawInternal(aIncludeSubWindows);
+  Resume(aIncludeSubWindows);
 }
 
-void nsGlobalWindowInner::ThawInternal() {
+void nsGlobalWindowInner::ThawInternal(bool aIncludeSubWindows) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_DIAGNOSTIC_ASSERT(IsCurrentInnerWindow());
   MOZ_DIAGNOSTIC_ASSERT(IsSuspended());
 
-  CallOnInProcessChildren(&nsGlobalWindowInner::ThawInternal);
+  if (aIncludeSubWindows) {
+    CallOnInProcessChildren(&nsGlobalWindowInner::ThawInternal,
+                            aIncludeSubWindows);
+  }
 
   MOZ_ASSERT(mFreezeDepth != 0);
   mFreezeDepth -= 1;
@@ -5671,43 +5695,36 @@ void nsGlobalWindowInner::SyncStateFromParentWindow() {
 }
 
 template <typename Method, typename... Args>
-CallState nsGlobalWindowInner::CallOnInProcessChildren(Method aMethod,
-                                                       Args&... aArgs) {
+CallState nsGlobalWindowInner::CallOnInProcessDescendantsInternal(
+    BrowsingContext* aBrowsingContext, bool aChildOnly, Method aMethod,
+    Args&&... aArgs) {
   MOZ_ASSERT(NS_IsMainThread());
-  MOZ_ASSERT(IsCurrentInnerWindow());
+  MOZ_ASSERT(aBrowsingContext);
 
   CallState state = CallState::Continue;
+  for (const RefPtr<BrowsingContext>& bc : aBrowsingContext->Children()) {
+    if (nsCOMPtr<nsPIDOMWindowOuter> pWin = bc->GetDOMWindow()) {
+      auto* win = nsGlobalWindowOuter::Cast(pWin);
+      if (nsGlobalWindowInner* inner = win->GetCurrentInnerWindowInternal()) {
+        // Call the descendant method using our helper CallDescendant() template
+        // method. This allows us to handle both void returning methods and
+        // methods that return CallState explicitly.  For void returning methods
+        // we assume CallState::Continue.
+        typedef decltype((inner->*aMethod)(aArgs...)) returnType;
+        state = CallDescendant<returnType>(inner, aMethod, aArgs...);
 
-  nsCOMPtr<nsIDocShell> docShell = GetDocShell();
-  if (!docShell) {
-    return state;
-  }
-
-  for (const RefPtr<BrowsingContext>& bc : GetBrowsingContext()->Children()) {
-    nsCOMPtr<nsPIDOMWindowOuter> pWin = bc->GetDOMWindow();
-    if (!pWin) {
-      continue;
+        if (state == CallState::Stop) {
+          return state;
+        }
+      }
     }
 
-    auto* win = nsGlobalWindowOuter::Cast(pWin);
-    nsGlobalWindowInner* inner = win->GetCurrentInnerWindowInternal();
-
-    // This is a bit hackish. Only freeze/suspend windows which are truly our
-    // subwindows.
-    nsCOMPtr<Element> frame = pWin->GetFrameElementInternal();
-    if (!mDoc || !frame || mDoc != frame->OwnerDoc() || !inner) {
-      continue;
-    }
-
-    // Call the child method using our helper CallChild() template method.
-    // This allows us to handle both void returning methods and methods
-    // that return CallState explicitly.  For void returning methods we
-    // assume CallState::Continue.
-    typedef decltype((inner->*aMethod)(aArgs...)) returnType;
-    state = CallChild<returnType>(inner, aMethod, aArgs...);
-
-    if (state == CallState::Stop) {
-      return state;
+    if (!aChildOnly) {
+      state = CallOnInProcessDescendantsInternal(bc.get(), aChildOnly, aMethod,
+                                                 aArgs...);
+      if (state == CallState::Stop) {
+        return state;
+      }
     }
   }
 
@@ -5856,7 +5873,7 @@ nsGlobalWindowInner::GetOrCreateServiceWorkerRegistration(
   return ref;
 }
 
-nsresult nsGlobalWindowInner::FireDelayedDOMEvents() {
+nsresult nsGlobalWindowInner::FireDelayedDOMEvents(bool aIncludeSubWindows) {
   if (mApplicationCache) {
     static_cast<nsDOMOfflineResourceList*>(mApplicationCache.get())
         ->FirePendingEvents();
@@ -5864,6 +5881,10 @@ nsresult nsGlobalWindowInner::FireDelayedDOMEvents() {
 
   // Fires an offline status event if the offline status has changed
   FireOfflineStatusEventIfChanged();
+
+  if (!aIncludeSubWindows) {
+    return NS_OK;
+  }
 
   nsCOMPtr<nsIDocShell> docShell = GetDocShell();
   if (docShell) {
@@ -5884,7 +5905,7 @@ nsresult nsGlobalWindowInner::FireDelayedDOMEvents() {
     for (nsCOMPtr<nsIDocShellTreeItem> childShell : children) {
       if (nsCOMPtr<nsPIDOMWindowOuter> pWin = childShell->GetWindow()) {
         auto* win = nsGlobalWindowOuter::Cast(pWin);
-        win->FireDelayedDOMEvents();
+        win->FireDelayedDOMEvents(true);
       }
     }
   }
@@ -6203,7 +6224,6 @@ bool nsGlobalWindowInner::RunTimeoutHandler(Timeout* aTimeout,
 
   const char* reason = GetTimeoutReasonString(timeout);
 
-#ifdef MOZ_GECKO_PROFILER
   nsCString str;
   if (profiler_can_accept_markers()) {
     TimeDuration originalInterval = timeout->When() - timeout->SubmitTime();
@@ -6220,7 +6240,6 @@ bool nsGlobalWindowInner::RunTimeoutHandler(Timeout* aTimeout,
                                               timeout->TakeProfilerBacktrace()),
                                           MarkerInnerWindowId(mWindowID)),
                             str);
-#endif
 
   bool abortIntervalHandler;
   {
@@ -6590,7 +6609,7 @@ void nsGlobalWindowInner::AddGamepad(GamepadHandle aHandle, Gamepad* aGamepad) {
   }
   mGamepadIndexSet.Put(index);
   aGamepad->SetIndex(index);
-  mGamepads.Put(aHandle, RefPtr{aGamepad});
+  mGamepads.InsertOrUpdate(aHandle, RefPtr{aGamepad});
 }
 
 void nsGlobalWindowInner::RemoveGamepad(GamepadHandle aHandle) {
@@ -6614,8 +6633,8 @@ void nsGlobalWindowInner::GetGamepads(nsTArray<RefPtr<Gamepad>>& aGamepads) {
 
   // mGamepads.Count() may not be sufficient, but it's not harmful.
   aGamepads.SetCapacity(mGamepads.Count());
-  for (auto iter = mGamepads.Iter(); !iter.Done(); iter.Next()) {
-    Gamepad* gamepad = iter.UserData();
+  for (const auto& entry : mGamepads) {
+    Gamepad* gamepad = entry.GetWeak();
     aGamepads.EnsureLengthAtLeast(gamepad->Index() + 1);
     aGamepads[gamepad->Index()] = gamepad;
   }
@@ -6641,8 +6660,8 @@ bool nsGlobalWindowInner::HasSeenGamepadInput() { return mHasSeenGamepadInput; }
 void nsGlobalWindowInner::SyncGamepadState() {
   if (mHasSeenGamepadInput) {
     RefPtr<GamepadManager> gamepadManager(GamepadManager::GetService());
-    for (auto iter = mGamepads.Iter(); !iter.Done(); iter.Next()) {
-      gamepadManager->SyncGamepadState(iter.Key(), this, iter.UserData());
+    for (const auto& entry : mGamepads) {
+      gamepadManager->SyncGamepadState(entry.GetKey(), this, entry.GetWeak());
     }
   }
 }
@@ -7153,13 +7172,13 @@ ChromeMessageBroadcaster* nsGlobalWindowInner::GetGroupMessageManager(
     const nsAString& aGroup) {
   MOZ_ASSERT(IsChromeWindow());
 
-  return mChromeFields.mGroupMessageManagers.WithEntryHandle(
-      aGroup, [&](auto&& entry) {
-        return entry
-            .OrInsertWith(
-                [&] { return new ChromeMessageBroadcaster(MessageManager()); })
-            .get();
-      });
+  return mChromeFields.mGroupMessageManagers
+      .LookupOrInsertWith(
+          aGroup,
+          [&] {
+            return MakeAndAddRef<ChromeMessageBroadcaster>(MessageManager());
+          })
+      .get();
 }
 
 void nsGlobalWindowInner::InitWasOffline() { mWasOffline = NS_IsOffline(); }

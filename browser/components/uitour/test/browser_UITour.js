@@ -193,6 +193,9 @@ var tests = [
       );
       done();
     }
+    if (CustomizableUI.protonToolbarEnabled) {
+      CustomizableUI.addWidgetToArea("home-button", "nav-bar");
+    }
     let highlight = document.getElementById("UITourHighlight");
     is_element_hidden(highlight, "Highlight should initially be hidden");
 
@@ -202,10 +205,13 @@ var tests = [
       check_highlight_size,
       "Highlight should be shown after showHighlight()"
     );
+    if (CustomizableUI.protonToolbarEnabled) {
+      CustomizableUI.removeWidgetFromArea("home-button");
+    }
   },
-  function test_highlight_customize_auto_open_close(done) {
+  function test_highlight_addons_auto_open_close(done) {
     let highlight = document.getElementById("UITourHighlight");
-    gContentAPI.showHighlight("customize");
+    gContentAPI.showHighlight("addons");
     waitForElementToBeVisible(
       highlight,
       function checkPanelIsOpen() {
@@ -237,7 +243,7 @@ var tests = [
       "Highlight should be shown after showHighlight() for fixed panel items"
     );
   },
-  function test_highlight_customize_manual_open_close(done) {
+  function test_highlight_addons_manual_open_close(done) {
     let highlight = document.getElementById("UITourHighlight");
     // Manually open the app menu then show a highlight there. The menu should remain open.
     let shownPromise = promisePanelShown(window);
@@ -245,7 +251,7 @@ var tests = [
     shownPromise
       .then(() => {
         isnot(PanelUI.panel.state, "closed", "Panel should have opened");
-        gContentAPI.showHighlight("customize");
+        gContentAPI.showHighlight("addons");
 
         waitForElementToBeVisible(
           highlight,

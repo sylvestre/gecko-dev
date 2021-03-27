@@ -18,6 +18,8 @@
 #include "mozilla/BinarySearch.h"
 #include "mozilla/dom/Element.h"
 
+#include "nsUnicharUtils.h"
+
 using namespace mozilla;
 using namespace mozilla::a11y;
 using namespace mozilla::a11y::aria;
@@ -1375,18 +1377,6 @@ static const AttrCharacteristics gWAIUnivAttrMap[] = {
     // clang-format on
 };
 
-namespace {
-
-struct RoleComparator {
-  const nsDependentSubstring& mRole;
-  explicit RoleComparator(const nsDependentSubstring& aRole) : mRole(aRole) {}
-  int operator()(const nsRoleMapEntry& aEntry) const {
-    return Compare(mRole, aEntry.ARIARoleString());
-  }
-};
-
-}  // namespace
-
 const nsRoleMapEntry* aria::GetRoleMap(dom::Element* aEl) {
   return GetRoleMapFromIndex(GetRoleMapIndex(aEl));
 }
@@ -1404,8 +1394,12 @@ uint8_t aria::GetRoleMapIndex(dom::Element* aEl) {
     // Do a binary search through table for the next role in role list
     const nsDependentSubstring role = tokenizer.nextToken();
     size_t idx;
-    if (BinarySearchIf(sWAIRoleMaps, 0, ArrayLength(sWAIRoleMaps),
-                       RoleComparator(role), &idx)) {
+    auto comparator = [&role](const nsRoleMapEntry& aEntry) {
+      return Compare(role, aEntry.ARIARoleString(),
+                     nsCaseInsensitiveStringComparator);
+    };
+    if (BinarySearchIf(sWAIRoleMaps, 0, ArrayLength(sWAIRoleMaps), comparator,
+                       &idx)) {
       return idx;
     }
   }
@@ -1449,9 +1443,11 @@ uint64_t aria::UniversalStatesFor(mozilla::dom::Element* aElement) {
 }
 
 uint8_t aria::AttrCharacteristicsFor(nsAtom* aAtom) {
-  for (uint32_t i = 0; i < ArrayLength(gWAIUnivAttrMap); i++)
-    if (gWAIUnivAttrMap[i].attributeName == aAtom)
+  for (uint32_t i = 0; i < ArrayLength(gWAIUnivAttrMap); i++) {
+    if (gWAIUnivAttrMap[i].attributeName == aAtom) {
       return gWAIUnivAttrMap[i].characteristics;
+    }
+  }
 
   return 0;
 }
@@ -1481,12 +1477,14 @@ bool AttrIterator::Next(nsAString& aAttrName, nsAString& aAttrValue) {
       if (!StringBeginsWith(attrStr, u"aria-"_ns)) continue;  // Not ARIA
 
       uint8_t attrFlags = aria::AttrCharacteristicsFor(attrAtom);
-      if (attrFlags & ATTR_BYPASSOBJ)
+      if (attrFlags & ATTR_BYPASSOBJ) {
         continue;  // No need to handle exposing as obj attribute here
+      }
 
       if ((attrFlags & ATTR_VALTOKEN) &&
-          !nsAccUtils::HasDefinedARIAToken(mElement, attrAtom))
+          !nsAccUtils::HasDefinedARIAToken(mElement, attrAtom)) {
         continue;  // only expose token based attributes if they are defined
+      }
 
       if ((attrFlags & ATTR_BYPASSOBJ_IF_FALSE) &&
           mElement->AttrValueIs(kNameSpaceID_None, attrAtom, nsGkAtoms::_false,

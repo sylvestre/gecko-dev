@@ -163,9 +163,7 @@ Http2Session::Http2Session(nsISocketTransport* aSocketTransport,
 }
 
 void Http2Session::Shutdown() {
-  for (auto iter = mStreamTransactionHash.Iter(); !iter.Done(); iter.Next()) {
-    auto stream = iter.UserData();
-
+  for (const auto& stream : mStreamTransactionHash.Values()) {
     // On a clean server hangup the server sets the GoAwayID to be the ID of
     // the last transaction it processed. If the ID of stream in the
     // local stream is greater than that it can safely be restarted because the
@@ -394,7 +392,7 @@ uint32_t Http2Session::RegisterStreamID(Http2Stream* stream, uint32_t aNewID) {
     return kDeadStreamID;
   }
 
-  mStreamIDHash.Put(aNewID, stream);
+  mStreamIDHash.InsertOrUpdate(aNewID, stream);
 
   if (aNewID & 1) {
     // don't count push streams here
@@ -538,7 +536,7 @@ bool Http2Session::AddStream(nsAHttpTransaction* aHttpTransaction,
         this, refStream.get(), mSerial, mNextStreamID));
 
   RefPtr<Http2Stream> stream = refStream;
-  mStreamTransactionHash.Put(aHttpTransaction, std::move(refStream));
+  mStreamTransactionHash.InsertOrUpdate(aHttpTransaction, std::move(refStream));
 
   mReadyForWrite.Push(stream);
   SetWriteCallbacks();
@@ -1669,9 +1667,8 @@ nsresult Http2Session::RecvSettings(Http2Session* self) {
 
         // SETTINGS only adjusts stream windows. Leave the session window alone.
         // We need to add the delta to all open streams (delta can be negative)
-        for (auto iter = self->mStreamTransactionHash.Iter(); !iter.Done();
-             iter.Next()) {
-          iter.Data()->UpdateServerReceiveWindow(delta);
+        for (const auto& stream : self->mStreamTransactionHash.Values()) {
+          stream->UpdateServerReceiveWindow(delta);
         }
       } break;
 
@@ -1933,7 +1930,8 @@ nsresult Http2Session::RecvPushPromise(Http2Session* self) {
   // whole session must call cleanupStream() after this point in order
   // to remove the stream from that hash.
   WeakPtr<Http2Stream> pushedWeak = pushedStream.get();
-  self->mStreamTransactionHash.Put(transactionBuffer, std::move(pushedStream));
+  self->mStreamTransactionHash.InsertOrUpdate(transactionBuffer,
+                                              std::move(pushedStream));
   self->mPushedStreams.AppendElement(
       static_cast<Http2PushedStream*>(pushedWeak.get()));
 
@@ -2128,13 +2126,11 @@ nsresult Http2Session::RecvGoAway(Http2Session* self) {
   // Find streams greater than the last-good ID and mark them for deletion
   // in the mGoAwayStreamsToRestart queue. The underlying transaction can be
   // restarted.
-  for (auto iter = self->mStreamTransactionHash.Iter(); !iter.Done();
-       iter.Next()) {
+  for (const auto& stream : self->mStreamTransactionHash.Values()) {
     // these streams were not processed by the server and can be restarted.
     // Do that after the enumerator completes to avoid the risk of
     // a restart event re-entrantly modifying this hash. Be sure not to restart
     // a pushed (even numbered) stream
-    auto stream = iter.UserData();
     if ((stream->StreamID() > self->mGoAwayID && (stream->StreamID() & 1)) ||
         !stream->HasRegisteredID()) {
       self->mGoAwayStreamsToRestart.Push(stream);
@@ -2266,11 +2262,9 @@ nsresult Http2Session::RecvWindowUpdate(Http2Session* self) {
     if ((oldRemoteWindow <= 0) && (self->mServerSessionWindow > 0)) {
       LOG3(
           ("Http2Session::RecvWindowUpdate %p restart session window\n", self));
-      for (auto iter = self->mStreamTransactionHash.Iter(); !iter.Done();
-           iter.Next()) {
+      for (const auto& stream : self->mStreamTransactionHash.Values()) {
         MOZ_ASSERT(self->mServerSessionWindow > 0);
 
-        auto stream = iter.UserData();
         if (!stream->BlockedOnRwin() || stream->ServerReceiveWindow() <= 0) {
           continue;
         }
@@ -2632,14 +2626,17 @@ nsresult Http2Session::RecvOrigin(Http2Session* self) {
     nsAutoCString key(host);
     key.Append(':');
     key.AppendInt(port);
-    if (!self->mOriginFrame.Get(key)) {
-      self->mOriginFrame.Put(key, true);
-      RefPtr<HttpConnectionBase> conn(self->HttpConnection());
-      MOZ_ASSERT(conn.get());
-      gHttpHandler->ConnMgr()->RegisterOriginCoalescingKey(conn, host, port);
-    } else {
-      LOG3(("Http2Session::RecvOrigin %p origin frame already in set\n", self));
-    }
+    self->mOriginFrame.WithEntryHandle(key, [&](auto&& entry) {
+      if (!entry) {
+        entry.Insert(true);
+        RefPtr<HttpConnectionBase> conn(self->HttpConnection());
+        MOZ_ASSERT(conn.get());
+        gHttpHandler->ConnMgr()->RegisterOriginCoalescingKey(conn, host, port);
+      } else {
+        LOG3(("Http2Session::RecvOrigin %p origin frame already in set\n",
+              self));
+      }
+    });
   }
 
   self->ResetDownstreamState();
@@ -3104,9 +3101,7 @@ nsresult Http2Session::WriteSegmentsAgain(nsAHttpSegmentWriter* writer,
       }
 
       // Go through and re-start all of our transactions with h2 disabled.
-      for (auto iter = mStreamTransactionHash.Iter(); !iter.Done();
-           iter.Next()) {
-        auto stream = iter.UserData();
+      for (const auto& stream : mStreamTransactionHash.Values()) {
         stream->Transaction()->DisableSpdy();
         CloseStream(stream, NS_ERROR_NET_RESET);
       }
@@ -3972,17 +3967,14 @@ uint32_t Http2Session::FindTunnelCount(nsHttpConnectionInfo* aConnInfo) {
 }
 uint32_t Http2Session::FindTunnelCount(nsCString const& aHashKey) {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
-  uint32_t rv = 0;
-  mTunnelHash.Get(aHashKey, &rv);
+  uint32_t rv = mTunnelHash.Get(aHashKey);
   return rv;
 }
 
 void Http2Session::RegisterTunnel(Http2Stream* aTunnel) {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   nsCString const& regKey = aTunnel->RegistrationKey();
-  uint32_t newcount = FindTunnelCount(regKey) + 1;
-  mTunnelHash.Remove(regKey);
-  mTunnelHash.Put(regKey, newcount);
+  const uint32_t newcount = ++mTunnelHash.LookupOrInsert(regKey, 0);
   LOG3(("Http2Stream::RegisterTunnel %p stream=%p tunnels=%d [%s]", this,
         aTunnel, newcount, regKey.get()));
 }
@@ -3990,11 +3982,11 @@ void Http2Session::RegisterTunnel(Http2Stream* aTunnel) {
 void Http2Session::UnRegisterTunnel(Http2Stream* aTunnel) {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   nsCString const& regKey = aTunnel->RegistrationKey();
-  MOZ_ASSERT(FindTunnelCount(regKey));
-  uint32_t newcount = FindTunnelCount(regKey) - 1;
-  mTunnelHash.Remove(regKey);
-  if (newcount) {
-    mTunnelHash.Put(regKey, newcount);
+  auto entry = mTunnelHash.Lookup(regKey);
+  MOZ_ASSERT(entry);
+  const uint32_t newcount = --(*entry);
+  if (!newcount) {
+    entry.Remove();
   }
   LOG3(("Http2Session::UnRegisterTunnel %p stream=%p tunnels=%d [%s]", this,
         aTunnel, newcount, regKey.get()));
@@ -4496,7 +4488,7 @@ bool Http2Session::RealJoinConnection(const nsACString& hostname, int32_t port,
 
   LOG(("joinconnection [%p %s] %s result=%d lookup\n", this,
        ConnectionInfo()->HashKey().get(), key.get(), joinedReturn));
-  mJoinConnectionCache.Put(key, joinedReturn);
+  mJoinConnectionCache.InsertOrUpdate(key, joinedReturn);
   if (!justKidding) {
     // cache a kidding entry too as this one is good for both
     nsAutoCString key2(hostname);
@@ -4504,7 +4496,7 @@ bool Http2Session::RealJoinConnection(const nsACString& hostname, int32_t port,
     key2.Append('k');
     key2.AppendInt(port);
     if (!mJoinConnectionCache.Get(key2)) {
-      mJoinConnectionCache.Put(key2, joinedReturn);
+      mJoinConnectionCache.InsertOrUpdate(key2, joinedReturn);
     }
   }
   return joinedReturn;
@@ -4515,8 +4507,8 @@ void Http2Session::TopLevelOuterContentWindowIdChanged(uint64_t windowId) {
 
   mCurrentForegroundTabOuterContentWindowId = windowId;
 
-  for (auto iter = mStreamTransactionHash.Iter(); !iter.Done(); iter.Next()) {
-    iter.Data()->TopLevelOuterContentWindowIdChanged(windowId);
+  for (const auto& stream : mStreamTransactionHash.Values()) {
+    stream->TopLevelOuterContentWindowIdChanged(windowId);
   }
 }
 

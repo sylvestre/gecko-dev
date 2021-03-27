@@ -172,8 +172,7 @@ already_AddRefed<nsHttpHandler> nsHttpHandler::GetInstance() {
     MOZ_ASSERT(NS_SUCCEEDED(rv));
     // There is code that may be executed during the final cycle collection
     // shutdown and still referencing gHttpHandler.
-    ClearOnShutdown(&gHttpHandler,
-                    ShutdownPhase::ShutdownPostLastCycleCollection);
+    ClearOnShutdown(&gHttpHandler, ShutdownPhase::CCPostLastCycleCollection);
   }
   RefPtr<nsHttpHandler> httpHandler = gHttpHandler;
   return httpHandler.forget();
@@ -758,7 +757,7 @@ nsresult nsHttpHandler::AsyncOnChannelRedirect(
   newChan->GetURI(getter_AddRefs(newURI));
   MOZ_ASSERT(newURI);
 
-  AntiTrackingRedirectHeuristic(oldChan, oldURI, newChan, newURI);
+  PrepareForAntiTrackingRedirectHeuristic(oldChan, oldURI, newChan, newURI);
 
   DynamicFpiRedirectHeuristic(oldChan, oldURI, newChan, newURI);
 
@@ -951,6 +950,18 @@ void nsHttpHandler::InitUserAgentComponents() {
   if (GetVersionEx(&info)) {
 #    pragma warning(pop)
 
+    if (info.dwMajorVersion >= 10) {
+      // Cap the reported Windows version to 10.0. This way, Microsoft doesn't
+      // get to change Web compat-sensitive values without our veto. The
+      // compat-sensitivity keeps going up as 10.0 stays as the current value
+      // for longer and longer. If the system-reported version ever changes,
+      // we'll be able to take our time to evaluate the Web compat impact
+      // instead of having to scamble to react like happened with macOS
+      // changing from 10.x to 11.x.
+      info.dwMajorVersion = 10;
+      info.dwMinorVersion = 0;
+    }
+
     const char* format;
 #    if defined _M_X64 || defined _M_AMD64
     format = OSCPU_WIN64;
@@ -972,10 +983,12 @@ void nsHttpHandler::InitUserAgentComponents() {
   SInt32 majorVersion = nsCocoaFeatures::macOSVersionMajor();
   SInt32 minorVersion = nsCocoaFeatures::macOSVersionMinor();
 
+  // Cap the reported macOS version at 10.15 (like Safari) to avoid breaking
+  // sites that assume the UA's macOS version always begins with "10.".
+  int uaVersion = (majorVersion >= 11 || minorVersion > 15) ? 15 : minorVersion;
+
   // Always return an "Intel" UA string, even on ARM64 macOS like Safari does.
-  mOscpu =
-      nsPrintfCString("Intel Mac OS X %d.%d", static_cast<int>(majorVersion),
-                      static_cast<int>(minorVersion));
+  mOscpu = nsPrintfCString("Intel Mac OS X 10.%d", uaVersion);
 #  elif defined(XP_UNIX)
   struct utsname name;
   int ret = uname(&name);
@@ -1865,8 +1878,9 @@ void nsHttpHandler::PrefsChanged(const char* pref) {
         nsAutoCString token{tokenSubstring};
         int32_t index = token.Find(";");
         if (index != kNotFound) {
-          auto* map = new nsCString(Substring(token, index + 1));
-          mAltSvcMappingTemptativeMap.Put(Substring(token, 0, index), map);
+          mAltSvcMappingTemptativeMap.InsertOrUpdate(
+              Substring(token, 0, index),
+              MakeUnique<nsCString>(Substring(token, index + 1)));
         }
       }
     }
@@ -2661,7 +2675,7 @@ void nsHttpHandler::ExcludeHttp2(const nsHttpConnectionInfo* ci) {
   mConnMgr->ExcludeHttp2(ci);
   if (!mExcludedHttp2Origins.Contains(ci->GetOrigin())) {
     MutexAutoLock lock(mHttpExclusionLock);
-    mExcludedHttp2Origins.PutEntry(ci->GetOrigin());
+    mExcludedHttp2Origins.Insert(ci->GetOrigin());
   }
 }
 
@@ -2676,7 +2690,7 @@ void nsHttpHandler::ExcludeHttp3(const nsHttpConnectionInfo* ci) {
   mConnMgr->ExcludeHttp3(ci);
   if (!mExcludedHttp3Origins.Contains(ci->GetRoutedHost())) {
     MutexAutoLock lock(mHttpExclusionLock);
-    mExcludedHttp3Origins.PutEntry(ci->GetRoutedHost());
+    mExcludedHttp3Origins.Insert(ci->GetRoutedHost());
   }
 }
 
@@ -2735,7 +2749,7 @@ void nsHttpHandler::AddHttpChannel(uint64_t aId, nsISupports* aChannel) {
   MOZ_ASSERT(NS_IsMainThread());
 
   nsWeakPtr channel(do_GetWeakReference(aChannel));
-  mIDToHttpChannelMap.Put(aId, std::move(channel));
+  mIDToHttpChannelMap.InsertOrUpdate(aId, std::move(channel));
 }
 
 void nsHttpHandler::RemoveHttpChannel(uint64_t aId) {
@@ -2850,6 +2864,18 @@ bool nsHttpHandler::FallbackToOriginIfConfigsAreECHAndAllFailed() const {
 
 bool nsHttpHandler::UseHTTPSRRForSpeculativeConnection() const {
   return StaticPrefs::network_dns_use_https_rr_for_speculative_connection();
+}
+
+void nsHttpHandler::ExcludeHTTPSRRHost(const nsACString& aHost) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  mExcludedHostsForHTTPSRRUpgrade.Insert(aHost);
+}
+
+bool nsHttpHandler::IsHostExcludedForHTTPSRR(const nsACString& aHost) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  return mExcludedHostsForHTTPSRRUpgrade.Contains(aHost);
 }
 
 }  // namespace mozilla::net

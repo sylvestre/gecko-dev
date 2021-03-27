@@ -168,6 +168,8 @@ CompositorBridgeChild* WebRenderLayerManager::GetCompositorBridgeChild() {
 void WebRenderLayerManager::GetBackendName(nsAString& name) {
   if (WrBridge()->UsingSoftwareWebRenderD3D11()) {
     name.AssignLiteral("WebRender (Software D3D11)");
+  } else if (WrBridge()->UsingSoftwareWebRenderOpenGL()) {
+    name.AssignLiteral("WebRender (Software OpenGL)");
   } else if (WrBridge()->UsingSoftwareWebRender()) {
     name.AssignLiteral("WebRender (Software)");
   } else {
@@ -293,9 +295,8 @@ bool WebRenderLayerManager::EndEmptyTransaction(EndTransactionFlags aFlags) {
           transactionData->mLargeShmems);
     }
     transactionData->mScrollUpdates = std::move(mPendingScrollUpdates);
-    for (auto it = transactionData->mScrollUpdates.Iter(); !it.Done();
-         it.Next()) {
-      nsLayoutUtils::NotifyPaintSkipTransaction(/*scroll id=*/it.Key());
+    for (const auto& scrollId : transactionData->mScrollUpdates.Keys()) {
+      nsLayoutUtils::NotifyPaintSkipTransaction(/*scroll id=*/scrollId);
     }
   }
 
@@ -339,7 +340,8 @@ void WebRenderLayerManager::EndTransactionWithoutLayer(
   size_t preallocate =
       mLastDisplayListSize < kMaxPrealloc ? mLastDisplayListSize : kMaxPrealloc;
 
-  wr::DisplayListBuilder builder(WrBridge()->GetPipeline(), preallocate,
+  wr::DisplayListBuilder builder(WrBridge()->GetPipeline(),
+                                 WrBridge()->GetWebRenderBackend(), preallocate,
                                  &mDisplayItemCache);
 
   wr::IpcResourceUpdateQueue resourceUpdates(WrBridge());
@@ -627,6 +629,7 @@ void WebRenderLayerManager::ClearCachedResources(Layer* aSubtree) {
 
 void WebRenderLayerManager::WrUpdated() {
   ClearAsyncAnimations();
+  mStateManager.mAsyncResourceUpdates.reset();
   mWebRenderCommandBuilder.ClearCachedResources();
   DiscardLocalImages();
   mDisplayItemCache.Clear();
@@ -741,9 +744,11 @@ void WebRenderLayerManager::SetRoot(Layer* aLayer) {
 already_AddRefed<PersistentBufferProvider>
 WebRenderLayerManager::CreatePersistentBufferProvider(
     const gfx::IntSize& aSize, gfx::SurfaceFormat aFormat) {
-  // Ensure devices initialization for canvas 2d. The devices are lazily
-  // initialized with WebRender to reduce memory usage.
-  gfxPlatform::GetPlatform()->EnsureDevicesInitialized();
+  // Ensure devices initialization for canvas 2d if not remote. The devices are
+  // lazily initialized with WebRender to reduce memory usage.
+  if (!gfxPlatform::UseRemoteCanvas()) {
+    gfxPlatform::GetPlatform()->EnsureDevicesInitialized();
+  }
 
   RefPtr<PersistentBufferProvider> provider =
       PersistentBufferProviderShared::Create(aSize, aFormat,

@@ -12,20 +12,21 @@ const {
   registerFront,
 } = require("devtools/shared/protocol");
 const { TargetMixin } = require("devtools/client/fronts/targets/target-mixin");
+const {
+  DescriptorMixin,
+} = require("devtools/client/fronts/descriptors/descriptor-mixin");
 
-class WorkerDescriptorFront extends TargetMixin(
-  FrontClassWithSpec(workerDescriptorSpec)
+class WorkerDescriptorFront extends DescriptorMixin(
+  TargetMixin(FrontClassWithSpec(workerDescriptorSpec))
 ) {
   constructor(client, targetFront, parentFront) {
     super(client, targetFront, parentFront);
 
     this.traits = {};
 
-    // The actor sends a "close" event, which is translated to "worker-close" by
-    // the specification in order to not conflict with Target's "close" event.
-    // This event is similar to tabDetached and means that the worker is destroyed.
-    // So that we should destroy the target in order to significate that the target
-    // is no longer debuggable.
+    // @backward-compat { version 88 } Fx88 now emits descriptor-destroyed event,
+    // which is generic to all descriptor actors and listened from the DescriptorFrontMixin.
+    // Once we support 88+, we can remove this listener.
     this.once("worker-close", this.destroy.bind(this));
   }
 
@@ -70,7 +71,7 @@ class WorkerDescriptorFront extends TargetMixin(
 
     this._attach = (async () => {
       if (this.isDestroyedOrBeingDestroyed()) {
-        return;
+        return this;
       }
 
       const response = await super.attach();
@@ -85,7 +86,7 @@ class WorkerDescriptorFront extends TargetMixin(
       this._url = response.url;
 
       if (this.isDestroyedOrBeingDestroyed()) {
-        return;
+        return this;
       }
 
       const workerTargetForm = await super.getTarget();
@@ -96,18 +97,18 @@ class WorkerDescriptorFront extends TargetMixin(
       this.targetForm.threadActor = workerTargetForm.threadActor;
 
       if (this.isDestroyedOrBeingDestroyed()) {
-        return;
+        return this;
       }
 
       await this.attachConsole();
+      return this;
     })();
     return this._attach;
   }
 
   async detach() {
-    let response;
     try {
-      response = await super.detach();
+      await super.detach();
 
       if (this.registration) {
         // Bug 1644772 - Sometimes, the Browser Toolbox fails opening with a connection timeout
@@ -118,8 +119,6 @@ class WorkerDescriptorFront extends TargetMixin(
     } catch (e) {
       this.logDetachError(e, "worker");
     }
-
-    return response;
   }
 
   async _getRegistrationIfActive() {

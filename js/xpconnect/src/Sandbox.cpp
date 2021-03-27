@@ -32,6 +32,7 @@
 #include "xpc_make_class.h"
 #include "XPCWrapper.h"
 #include "Crypto.h"
+#include "mozilla/dom/AutoEntryScript.h"
 #include "mozilla/dom/BindingCallContext.h"
 #include "mozilla/dom/BindingUtils.h"
 #include "mozilla/dom/BlobBinding.h"
@@ -76,10 +77,8 @@
 #include "mozilla/dom/XMLSerializerBinding.h"
 #include "mozilla/dom/FormDataBinding.h"
 #include "mozilla/dom/nsCSPContext.h"
-#ifdef MOZ_GLEAN
-#  include "mozilla/glean/bindings/Glean.h"
-#  include "mozilla/glean/bindings/GleanPings.h"
-#endif
+#include "mozilla/glean/bindings/Glean.h"
+#include "mozilla/glean/bindings/GleanPings.h"
 #include "mozilla/BasePrincipal.h"
 #include "mozilla/DeferredFinalize.h"
 #include "mozilla/ExtensionPolicyService.h"
@@ -177,10 +176,11 @@ static bool SandboxDump(JSContext* cx, unsigned argc, Value* vp) {
     c++;
   }
 #endif
+  MOZ_LOG(nsContentUtils::DOMDumpLog(), mozilla::LogLevel::Debug,
+          ("[Sandbox.Dump] %s", cstr));
 #ifdef ANDROID
   __android_log_write(ANDROID_LOG_INFO, "GeckoDump", cstr);
 #endif
-
   fputs(cstr, stdout);
   fflush(stdout);
   args.rval().setBoolean(true);
@@ -558,6 +558,11 @@ bool IsSandboxPrototypeProxy(JSObject* obj) {
   return js::IsProxy(obj) && js::GetProxyHandler(obj) == &sandboxProxyHandler;
 }
 
+bool IsWebExtensionContentScriptSandbox(JSObject* obj) {
+  return IsSandbox(obj) &&
+         CompartmentPrivate::Get(obj)->isWebExtensionContentScript;
+}
+
 }  // namespace xpc
 
 // A proxy handler that lets us wrap callables and invoke them with
@@ -669,25 +674,14 @@ static JSObject* WrapCallable(JSContext* cx, HandleObject callable,
   return obj;
 }
 
-template <typename Op>
-bool WrapAccessorFunction(JSContext* cx, Op& op, PropertyDescriptor* desc,
-                          unsigned attrFlag, HandleObject sandboxProtoProxy) {
-  if (!op) {
+bool WrapAccessorFunction(JSContext* cx, MutableHandleObject accessor,
+                          HandleObject sandboxProtoProxy) {
+  if (!accessor) {
     return true;
   }
 
-  if (!(desc->attrs & attrFlag)) {
-    XPCThrower::Throw(NS_ERROR_UNEXPECTED, cx);
-    return false;
-  }
-
-  RootedObject func(cx, JS_FUNC_TO_DATA_PTR(JSObject*, op));
-  func = WrapCallable(cx, func, sandboxProtoProxy);
-  if (!func) {
-    return false;
-  }
-  op = JS_DATA_TO_FUNC_PTR(Op, func.get());
-  return true;
+  accessor.set(WrapCallable(cx, accessor, sandboxProtoProxy));
+  return !!accessor;
 }
 
 static bool IsMaybeWrappedDOMConstructor(JSObject* obj) {
@@ -724,12 +718,14 @@ bool SandboxProxyHandler::getPropertyDescriptorImpl(
   }
 
   // Now fix up the getter/setter/value as needed to be bound to desc->obj.
-  if (!WrapAccessorFunction(cx, desc.getter(), desc.address(), JSPROP_GETTER,
-                            proxy))
+  if (desc.hasGetterObject() &&
+      !WrapAccessorFunction(cx, desc.getterObject(), proxy)) {
     return false;
-  if (!WrapAccessorFunction(cx, desc.setter(), desc.address(), JSPROP_SETTER,
-                            proxy))
+  }
+  if (desc.hasSetterObject() &&
+      !WrapAccessorFunction(cx, desc.setterObject(), proxy)) {
     return false;
+  }
   if (desc.value().isObject()) {
     RootedObject val(cx, &desc.value().toObject());
     if (JS::IsCallable(val) &&
@@ -914,12 +910,10 @@ bool xpc::GlobalProperties::Parse(JSContext* cx, JS::HandleObject obj) {
       indexedDB = true;
     } else if (JS_LinearStringEqualsLiteral(nameStr, "isSecureContext")) {
       isSecureContext = true;
-#ifdef MOZ_GLEAN
     } else if (JS_LinearStringEqualsLiteral(nameStr, "Glean")) {
       glean = true;
     } else if (JS_LinearStringEqualsLiteral(nameStr, "GleanPings")) {
       gleanPings = true;
-#endif
 #ifdef MOZ_WEBRTC
     } else if (JS_LinearStringEqualsLiteral(nameStr, "rtcIdentityProvider")) {
       rtcIdentityProvider = true;
@@ -1085,12 +1079,10 @@ bool xpc::GlobalProperties::DefineInXPCComponents(JSContext* cx,
   if (indexedDB && !IndexedDatabaseManager::DefineIndexedDB(cx, obj))
     return false;
 
-#ifdef MOZ_GLEAN
   if (glean && !mozilla::glean::Glean::DefineGlean(cx, obj)) return false;
   if (gleanPings && !mozilla::glean::GleanPings::DefineGleanPings(cx, obj)) {
     return false;
   }
-#endif
 
   return Define(cx, obj);
 }
@@ -1330,7 +1322,7 @@ nsresult xpc::CreateSandboxObject(JSContext* cx, MutableHandleValue vp,
         }
       }
 
-      ok = JS_SplicePrototype(cx, sandbox, options.proto);
+      ok = JS_SetPrototype(cx, sandbox, options.proto);
       if (!ok) {
         return NS_ERROR_XPC_UNEXPECTED;
       }

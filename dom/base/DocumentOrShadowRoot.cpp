@@ -142,7 +142,7 @@ void DocumentOrShadowRoot::SetAdoptedStyleSheets(
       break;
     }
     ++commonPrefix;
-    set.PutEntry(mAdoptedStyleSheets[i]);
+    set.Insert(mAdoptedStyleSheets[i]);
   }
 
   // Try to truncate the sheets to a common prefix.
@@ -218,11 +218,8 @@ void DocumentOrShadowRoot::CloneAdoptedSheetsFrom(
   MOZ_ASSERT(clonedSheetMap);
 
   for (const StyleSheet* sheet : aSource.mAdoptedStyleSheets) {
-    RefPtr<StyleSheet> clone = clonedSheetMap->WithEntryHandle(
-        sheet, [&sheet, &ownerDoc](auto&& entry) {
-          return entry.OrInsertWith(
-              [&] { return sheet->CloneAdoptedSheet(ownerDoc); });
-        });
+    RefPtr<StyleSheet> clone = clonedSheetMap->LookupOrInsertWith(
+        sheet, [&] { return sheet->CloneAdoptedSheet(ownerDoc); });
     MOZ_ASSERT(clone);
     MOZ_DIAGNOSTIC_ASSERT(clone->ConstructorDocumentMatches(ownerDoc));
     DebugOnly<bool> succeeded = list.AppendElement(std::move(clone), fallible);
@@ -316,7 +313,7 @@ Element* DocumentOrShadowRoot::GetPointerLockElement() {
              : nullptr;
 }
 
-Element* DocumentOrShadowRoot::GetFullscreenElement() {
+Element* DocumentOrShadowRoot::GetFullscreenElement() const {
   if (!AsNode().IsInComposedDoc()) {
     return nullptr;
   }
@@ -755,10 +752,7 @@ nsRadioGroupStruct* DocumentOrShadowRoot::GetRadioGroup(
 
 nsRadioGroupStruct* DocumentOrShadowRoot::GetOrCreateRadioGroup(
     const nsAString& aName) {
-  return mRadioGroups.WithEntryHandle(aName, [](auto&& entry) {
-    return entry.OrInsertWith([] { return MakeUnique<nsRadioGroupStruct>(); })
-        .get();
-  });
+  return mRadioGroups.GetOrInsertNew(aName);
 }
 
 int32_t DocumentOrShadowRoot::StyleOrderIndexOfSheet(
@@ -814,12 +808,12 @@ void DocumentOrShadowRoot::Traverse(DocumentOrShadowRoot* tmp,
   });
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAdoptedStyleSheets);
 
-  for (auto iter = tmp->mIdentifierMap.ConstIter(); !iter.Done(); iter.Next()) {
+  for (auto iter = tmp->mIdentifierMap.Iter(); !iter.Done(); iter.Next()) {
     iter.Get()->Traverse(&cb);
   }
 
-  for (auto iter = tmp->mRadioGroups.Iter(); !iter.Done(); iter.Next()) {
-    nsRadioGroupStruct* radioGroup = iter.UserData();
+  for (const auto& entry : tmp->mRadioGroups) {
+    nsRadioGroupStruct* radioGroup = entry.GetWeak();
     NS_CYCLE_COLLECTION_NOTE_EDGE_NAME(
         cb, "mRadioGroups entry->mSelectedRadioButton");
     cb.NoteXPCOMChild(ToSupports(radioGroup->mSelectedRadioButton));

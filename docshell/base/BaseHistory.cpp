@@ -49,7 +49,7 @@ bool BaseHistory::CanStore(nsIURI* aURI) {
 }
 
 void BaseHistory::ScheduleVisitedQuery(nsIURI* aURI) {
-  mPendingQueries.PutEntry(aURI);
+  mPendingQueries.Insert(aURI);
   if (mStartPendingVisitedQueriesScheduled) {
     return;
   }
@@ -67,7 +67,7 @@ void BaseHistory::ScheduleVisitedQuery(nsIURI* aURI) {
 }
 
 void BaseHistory::CancelVisitedQueryIfPossible(nsIURI* aURI) {
-  mPendingQueries.RemoveEntry(aURI);
+  mPendingQueries.Remove(aURI);
   // TODO(bug 1591393): It could be worth to make this virtual and allow places
   // to stop the existing database query? Needs some measurement.
 }
@@ -89,7 +89,7 @@ void BaseHistory::RegisterVisitedCallback(nsIURI* aURI, Link* aLink) {
   // Obtain our array of observers for this URI.
   auto* const links =
       mTrackedURIs.WithEntryHandle(aURI, [&](auto&& entry) -> ObservingLinks* {
-        MOZ_DIAGNOSTIC_ASSERT(!entry || !entry.Data().mLinks.IsEmpty(),
+        MOZ_DIAGNOSTIC_ASSERT(!entry || !entry->mLinks.IsEmpty(),
                               "An empty key was kept around in our hashtable!");
         if (!entry) {
           ScheduleVisitedQuery(aURI);
@@ -152,7 +152,7 @@ void BaseHistory::UnregisterVisitedCallback(nsIURI* aURI, Link* aLink) {
     return;
   }
 
-  ObserverArray& observers = entry.Data().mLinks;
+  ObserverArray& observers = entry->mLinks;
   if (!observers.RemoveElement(aLink)) {
     MOZ_ASSERT_UNREACHABLE("Trying to unregister node that wasn't registered!");
     return;

@@ -58,7 +58,6 @@
 #include "nsBoxFrame.h"
 #include "nsImageFrame.h"
 #include "nsSubDocumentFrame.h"
-#include "GeckoProfiler.h"
 #include "nsViewManager.h"
 #include "ImageLayers.h"
 #include "ImageContainer.h"
@@ -76,6 +75,8 @@
 #include "mozilla/OperatorNewExtensions.h"
 #include "mozilla/PendingAnimationTracker.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/ProfilerLabels.h"
+#include "mozilla/ProfilerMarkers.h"
 #include "mozilla/StyleAnimationValue.h"
 #include "mozilla/ServoBindings.h"
 #include "mozilla/SVGClipPathFrame.h"
@@ -138,12 +139,7 @@ static bool SpammyLayoutWarningsEnabled() {
 
 #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
 void AssertUniqueItem(nsDisplayItem* aItem) {
-  nsIFrame::DisplayItemArray* items =
-      aItem->Frame()->GetProperty(nsIFrame::DisplayItems());
-  if (!items) {
-    return;
-  }
-  for (nsDisplayItemBase* i : *items) {
+  for (nsDisplayItemBase* i : aItem->Frame()->DisplayItems()) {
     if (i != aItem && !i->HasDeletedFrame() && i->Frame() == aItem->Frame() &&
         i->GetPerFrameKey() == aItem->GetPerFrameKey()) {
       if (i->IsPreProcessedItem()) {
@@ -158,19 +154,6 @@ void AssertUniqueItem(nsDisplayItem* aItem) {
 bool ShouldBuildItemForEvents(const DisplayItemType aType) {
   return aType == DisplayItemType::TYPE_COMPOSITOR_HITTEST_INFO ||
          (GetDisplayItemFlagsForType(aType) & TYPE_IS_CONTAINER);
-}
-
-void UpdateDisplayItemData(nsPaintedDisplayItem* aItem) {
-  for (mozilla::DisplayItemData* did : aItem->Frame()->DisplayItemData()) {
-    if (did->GetDisplayItemKey() == aItem->GetPerFrameKey() &&
-        did->GetLayer()->AsPaintedLayer()) {
-      if (!did->HasMergedFrames()) {
-        aItem->SetDisplayItemData(did, did->GetLayer()->Manager());
-      }
-
-      return;
-    }
-  }
 }
 
 static bool ItemTypeSupportsHitTesting(const DisplayItemType aType) {
@@ -666,7 +649,8 @@ static PresShell* GetFocusedPresShell() {
 void nsDisplayListBuilder::BeginFrame() {
   nsCSSRendering::BeginFrameTreesLocked();
   mCurrentAGR = mRootAGR;
-  mFrameToAnimatedGeometryRootMap.Put(mReferenceFrame, mRootAGR);
+  mFrameToAnimatedGeometryRootMap.InsertOrUpdate(mReferenceFrame,
+                                                 RefPtr{mRootAGR});
 
   mIsPaintingToWindow = false;
   mUseHighQualityScaling = false;
@@ -790,8 +774,9 @@ AnimatedGeometryRoot* nsDisplayListBuilder::WrapAGRForFrame(
   DebugOnly<bool> dummy;
   MOZ_ASSERT(IsAnimatedGeometryRoot(aAnimatedGeometryRoot, dummy) == AGR_YES);
 
-  RefPtr<AnimatedGeometryRoot> result;
-  if (!mFrameToAnimatedGeometryRootMap.Get(aAnimatedGeometryRoot, &result)) {
+  RefPtr<AnimatedGeometryRoot> result =
+      mFrameToAnimatedGeometryRootMap.Get(aAnimatedGeometryRoot);
+  if (!result) {
     MOZ_ASSERT(nsLayoutUtils::IsAncestorFrameCrossDoc(RootReferenceFrame(),
                                                       aAnimatedGeometryRoot));
     RefPtr<AnimatedGeometryRoot> parent = aParent;
@@ -807,7 +792,8 @@ AnimatedGeometryRoot* nsDisplayListBuilder::WrapAGRForFrame(
     }
     result = AnimatedGeometryRoot::CreateAGRForFrame(
         aAnimatedGeometryRoot, parent, aIsAsync, IsRetainingDisplayList());
-    mFrameToAnimatedGeometryRootMap.Put(aAnimatedGeometryRoot, result);
+    mFrameToAnimatedGeometryRootMap.InsertOrUpdate(aAnimatedGeometryRoot,
+                                                   RefPtr{result});
   }
   MOZ_ASSERT(!aParent || result->mParentAGR == aParent);
   return result;
@@ -830,15 +816,17 @@ AnimatedGeometryRoot* nsDisplayListBuilder::FindAnimatedGeometryRootFor(
   if (aFrame == mCurrentFrame) {
     return mCurrentAGR;
   }
-  RefPtr<AnimatedGeometryRoot> result;
-  if (mFrameToAnimatedGeometryRootMap.Get(aFrame, &result)) {
+
+  RefPtr<AnimatedGeometryRoot> result =
+      mFrameToAnimatedGeometryRootMap.Get(aFrame);
+  if (result) {
     return result;
   }
 
   bool isAsync;
   nsIFrame* agrFrame = FindAnimatedGeometryRootFrameFor(aFrame, isAsync);
   result = WrapAGRForFrame(agrFrame, isAsync);
-  mFrameToAnimatedGeometryRootMap.Put(aFrame, result);
+  mFrameToAnimatedGeometryRootMap.InsertOrUpdate(aFrame, RefPtr{result});
   return result;
 }
 
@@ -864,15 +852,9 @@ void nsDisplayListBuilder::SetIsRelativeToLayoutViewport() {
 }
 
 void nsDisplayListBuilder::UpdateShouldBuildAsyncZoomContainer() {
-  Document* document = mReferenceFrame->PresContext()->Document();
-  // On desktop, we want to disable zooming in fullscreen mode (bug 1650488).
-  // On mobile (and RDM), we need zooming even in fullscreen mode to respect
-  // mobile viewport sizing (bug 1659761).
-  bool disableZoomingForFullscreen =
-      document->Fullscreen() &&
-      !document->GetPresShell()->UsesMobileViewportSizing();
+  const Document* document = mReferenceFrame->PresContext()->Document();
   mBuildAsyncZoomContainer = !mIsRelativeToLayoutViewport &&
-                             !disableZoomingForFullscreen &&
+                             !document->Fullscreen() &&
                              nsLayoutUtils::AllowZoomingForDocument(document);
 }
 
@@ -1196,8 +1178,7 @@ void nsDisplayListBuilder::LeavePresShell(const nsIFrame* aReferenceFrame,
       }
     }
     nsRootPresContext* rootPresContext = pc->GetRootPresContext();
-    if (!pc->HadContentfulPaint() && rootPresContext &&
-        rootPresContext->RefreshDriver()->IsInRefresh()) {
+    if (!pc->HadContentfulPaint() && rootPresContext) {
       if (!CurrentPresShellState()->mIsBackgroundOnly) {
         if (pc->HasEverBuiltInvisibleText() ||
             DisplayListIsContentful(this, aPaintedContents)) {
@@ -1473,7 +1454,8 @@ const DisplayItemClipChain* nsDisplayListBuilder::CreateClipChainIntersection(
       clip2 = clip2->mParent;
     }
     if (!asr) {
-      MOZ_ASSERT(!aAncestor, "We should have exited this loop earlier");
+      MOZ_DIAGNOSTIC_ASSERT(!aAncestor,
+                            "We should have exited this loop earlier");
       break;
     }
     asr = asr->mParent;
@@ -1686,9 +1668,8 @@ void nsDisplayListBuilder::RecomputeCurrentAnimatedGeometryRoot() {
     // and check to see if they need to be updated. AGRs can be in the cache
     // multiple times, so we may end up doing the work multiple times for AGRs
     // that don't change.
-    for (auto iter = mFrameToAnimatedGeometryRootMap.Iter(); !iter.Done();
-         iter.Next()) {
-      RefPtr<AnimatedGeometryRoot> cached = iter.UserData();
+    for (const RefPtr<AnimatedGeometryRoot>& cached :
+         mFrameToAnimatedGeometryRootMap.Values()) {
       if (cached->mParentAGR == oldAGR && cached != mCurrentAGR) {
         // It's possible that this cached AGR struct that has the old AGR as a
         // parent should instead have mCurrentFrame has a parent.
@@ -1890,7 +1871,7 @@ void nsDisplayListBuilder::WeakFrameRegion::RemoveModifiedFramesAndRects() {
         AnyContentAncestorModified(wrapper.mWeakFrame->GetFrame())) {
       // To avoid multiple O(n) shifts in the array, move the last element of
       // the array to the current position and decrease the array length.
-      mFrameSet.RemoveEntry(wrapper.mFrame);
+      mFrameSet.Remove(wrapper.mFrame);
       mFrames[i] = std::move(mFrames[length - 1]);
       mRects[i] = std::move(mRects[length - 1]);
       length--;
@@ -1952,15 +1933,15 @@ bool nsDisplayListBuilder::AddToWillChangeBudget(nsIFrame* aFrame,
   const uint32_t cost = GetLayerizationCost(aSize);
 
   DocumentWillChangeBudget& documentBudget =
-      mDocumentWillChangeBudgets.GetOrInsert(presContext);
+      mDocumentWillChangeBudgets.LookupOrInsert(presContext);
 
   const bool onBudget =
       (documentBudget + cost) / gWillChangeAreaMultiplier < budgetLimit;
 
   if (onBudget) {
     documentBudget += cost;
-    mFrameWillChangeBudgets.Put(aFrame,
-                                FrameWillChangeBudget(presContext, cost));
+    mFrameWillChangeBudgets.InsertOrUpdate(
+        aFrame, FrameWillChangeBudget(presContext, cost));
     aFrame->SetMayHaveWillChangeBudget(true);
   }
 
@@ -2012,8 +1993,8 @@ void nsDisplayListBuilder::RemoveFromWillChangeBudgets(const nsIFrame* aFrame) {
   if (auto entry = mFrameWillChangeBudgets.Lookup(aFrame)) {
     const FrameWillChangeBudget& frameBudget = entry.Data();
 
-    DocumentWillChangeBudget* documentBudget =
-        mDocumentWillChangeBudgets.GetValue(frameBudget.mPresContext);
+    auto documentBudget =
+        mDocumentWillChangeBudgets.Lookup(frameBudget.mPresContext);
 
     if (documentBudget) {
       *documentBudget -= frameBudget.mUsage;
@@ -2056,7 +2037,7 @@ bool nsDisplayListBuilder::AddToAGRBudget(nsIFrame* aFrame) {
 
   if (onBudget) {
     mUsedAGRBudget += cost;
-    mAGRBudgetSet.PutEntry(aFrame);
+    mAGRBudgetSet.Insert(aFrame);
   }
 
   return onBudget;
@@ -2309,11 +2290,8 @@ FrameLayerBuilder* nsDisplayList::BuildLayers(nsDisplayListBuilder* aBuilder,
   RefPtr<ContainerLayer> root;
   {
     AUTO_PROFILER_LABEL_CATEGORY_PAIR(GRAPHICS_LayerBuilding);
-#ifdef MOZ_GECKO_PROFILER
-    nsCOMPtr<nsIDocShell> docShell = presContext->GetDocShell();
     AUTO_PROFILER_TRACING_MARKER_DOCSHELL("Paint", "LayerBuilding", GRAPHICS,
-                                          docShell);
-#endif
+                                          presContext->GetDocShell());
 
     if (XRE_IsContentProcess() && StaticPrefs::gfx_content_always_paint()) {
       FrameLayerBuilder::InvalidateAllLayers(aLayerManager);
@@ -2941,7 +2919,7 @@ nsDisplayItem::nsDisplayItem(nsDisplayListBuilder* aBuilder, nsIFrame* aFrame,
   if (mFrame->BackfaceIsHidden(disp)) {
     mItemFlags += ItemFlag::BackfaceHidden;
   }
-  if (mFrame->Combines3DTransformWithAncestors(disp)) {
+  if (mFrame->Combines3DTransformWithAncestors()) {
     mItemFlags += ItemFlag::Combines3DTransformWithAncestors;
   }
 }
@@ -3004,9 +2982,8 @@ Maybe<nsRect> nsDisplayItem::GetClipWithRespectToASR(
           DisplayItemClipChain::ClipForASR(GetClipChain(), aASR)) {
     return Some(clip->GetClipRect());
   }
-#ifdef DEBUG
-  MOZ_ASSERT(false, "item should have finite clip with respect to aASR");
-#endif
+  MOZ_DIAGNOSTIC_ASSERT(false,
+                        "item should have finite clip with respect to aASR");
   return Nothing();
 }
 
@@ -3293,16 +3270,18 @@ bool nsDisplaySolidColorRegion::CreateWebRenderCommands(
 static void RegisterThemeGeometry(nsDisplayListBuilder* aBuilder,
                                   nsDisplayItem* aItem, nsIFrame* aFrame,
                                   nsITheme::ThemeGeometryType aType) {
-  if (aBuilder->IsInChromeDocumentOrPopup() && !aBuilder->IsInTransform()) {
+  if (aBuilder->IsInChromeDocumentOrPopup()) {
     nsIFrame* displayRoot = nsLayoutUtils::GetDisplayRootFrame(aFrame);
-    nsPoint offset = aBuilder->IsInSubdocument()
-                         ? aBuilder->ToReferenceFrame(aFrame)
-                         : aFrame->GetOffsetTo(displayRoot);
-    nsRect borderBox = nsRect(offset, aFrame->GetSize());
-    aBuilder->RegisterThemeGeometry(
-        aType, aItem,
-        LayoutDeviceIntRect::FromUnknownRect(borderBox.ToNearestPixels(
-            aFrame->PresContext()->AppUnitsPerDevPixel())));
+    bool preservesAxisAlignedRectangles = false;
+    nsRect borderBox = nsLayoutUtils::TransformFrameRectToAncestor(
+        aFrame, aFrame->GetRectRelativeToSelf(), displayRoot,
+        &preservesAxisAlignedRectangles);
+    if (preservesAxisAlignedRectangles) {
+      aBuilder->RegisterThemeGeometry(
+          aType, aItem,
+          LayoutDeviceIntRect::FromUnknownRect(borderBox.ToNearestPixels(
+              aFrame->PresContext()->AppUnitsPerDevPixel())));
+    }
   }
 }
 
@@ -3365,8 +3344,7 @@ nsDisplayBackgroundImage::nsDisplayBackgroundImage(
       mLayer(aInitData.layer),
       mIsRasterImage(aInitData.isRasterImage),
       mShouldFixToViewport(aInitData.shouldFixToViewport),
-      mImageFlags(0),
-      mOpacity(1.0f) {
+      mImageFlags(0) {
   MOZ_COUNT_CTOR(nsDisplayBackgroundImage);
 #ifdef DEBUG
   if (mBackgroundStyle && mBackgroundStyle != mFrame->Style()) {
@@ -3966,8 +3944,6 @@ already_AddRefed<Layer> nsDisplayBackgroundImage::BuildLayer(
   RefPtr<ImageContainer> imageContainer = GetContainer(aManager, aBuilder);
   layer->SetContainer(imageContainer);
   ConfigureLayer(layer, aParameters);
-  // ConfigureLayer doesn't know about our opacity, so apply it to layer here.
-  layer->SetOpacity(mOpacity);
   return layer.forget();
 }
 
@@ -3998,7 +3974,7 @@ bool nsDisplayBackgroundImage::CreateWebRenderCommands(
   nsCSSRendering::PaintBGParams params =
       nsCSSRendering::PaintBGParams::ForSingleLayer(
           *StyleFrame()->PresContext(), GetPaintRect(), mBackgroundRect,
-          StyleFrame(), mImageFlags, mLayer, CompositionOp::OP_OVER, mOpacity);
+          StyleFrame(), mImageFlags, mLayer, CompositionOp::OP_OVER);
   params.bgClipRect = &mBounds;
   ImgDrawResult result =
       nsCSSRendering::BuildWebRenderDisplayItemsForStyleImageLayer(
@@ -4032,13 +4008,11 @@ bool nsDisplayBackgroundImage::ComputeVisibility(nsDisplayListBuilder* aBuilder,
   return mBackgroundStyle;
 }
 
-/* static */
-nsRegion nsDisplayBackgroundImage::GetInsideClipRegion(
-    const nsDisplayItem* aItem, StyleGeometryBox aClip, const nsRect& aRect,
-    const nsRect& aBackgroundRect) {
-  nsRegion result;
+static nsRect GetInsideClipRect(const nsDisplayItem* aItem,
+                                StyleGeometryBox aClip, const nsRect& aRect,
+                                const nsRect& aBackgroundRect) {
   if (aRect.IsEmpty()) {
-    return result;
+    return {};
   }
 
   nsIFrame* frame = aItem->Frame();
@@ -4065,7 +4039,7 @@ nsRegion nsDisplayBackgroundImage::GetOpaqueRegion(
   nsRegion result;
   *aSnap = false;
 
-  if (!mBackgroundStyle || mOpacity != 1.0f) {
+  if (!mBackgroundStyle) {
     return result;
   }
 
@@ -4085,7 +4059,7 @@ nsRegion nsDisplayBackgroundImage::GetOpaqueRegion(
         layer.mRepeat.mXRepeat != StyleImageLayerRepeat::Space &&
         layer.mRepeat.mYRepeat != StyleImageLayerRepeat::Space &&
         layer.mClip != StyleGeometryBox::Text) {
-      result = GetInsideClipRegion(this, layer.mClip, mBounds, mBackgroundRect);
+      result = GetInsideClipRect(this, layer.mClip, mBounds, mBackgroundRect);
     }
   }
 
@@ -4157,7 +4131,7 @@ void nsDisplayBackgroundImage::PaintInternal(nsDisplayListBuilder* aBuilder,
   nsCSSRendering::PaintBGParams params =
       nsCSSRendering::PaintBGParams::ForSingleLayer(
           *StyleFrame()->PresContext(), aBounds, mBackgroundRect, StyleFrame(),
-          mImageFlags, mLayer, CompositionOp::OP_OVER, mOpacity);
+          mImageFlags, mLayer, CompositionOp::OP_OVER);
   params.bgClipRect = aClipRect;
   ImgDrawResult result = nsCSSRendering::PaintStyleImageLayer(params, *aCtx);
 
@@ -4746,8 +4720,8 @@ nsRegion nsDisplayBackgroundColor::GetOpaqueRegion(
   }
 
   *aSnap = true;
-  return nsDisplayBackgroundImage::GetInsideClipRegion(
-      this, mBottomLayerClip, mBackgroundRect, mBackgroundRect);
+  return GetInsideClipRect(this, mBottomLayerClip, mBackgroundRect,
+                           mBackgroundRect);
 }
 
 Maybe<nscolor> nsDisplayBackgroundColor::IsUniform(
@@ -5134,12 +5108,13 @@ bool nsDisplayBoxShadowOuter::CanBuildWebRenderDisplayItems() {
   }
 
   bool hasBorderRadius;
-  bool nativeTheme =
-      nsCSSRendering::HasBoxShadowNativeTheme(mFrame, hasBorderRadius);
-
   // We don't support native themed things yet like box shadows around
   // input buttons.
-  if (nativeTheme) {
+  //
+  // TODO(emilio): The non-native theme could provide the right rect+radius
+  // instead relatively painlessly, if we find this causes performance issues or
+  // what not.
+  if (nsCSSRendering::HasBoxShadowNativeTheme(mFrame, hasBorderRadius)) {
     return false;
   }
 
@@ -5419,32 +5394,18 @@ nsDisplayWrapList::nsDisplayWrapList(
   mListPtr->AppendToTop(aList);
   nsDisplayWrapList::UpdateBounds(aBuilder);
 
+#ifdef DEBUG
   if (!aFrame || !aFrame->IsTransformed()) {
     return;
   }
 
-  // If we're a transformed frame, then we need to find out if we're inside
-  // the nsDisplayTransform or outside of it. Frames inside the transform
-  // need mReferenceFrame == mFrame, outside needs the next ancestor
-  // reference frame.
-  // If we're inside the transform, then the nsDisplayItem constructor
-  // will have done the right thing.
-  // If we're outside the transform, then we should have only one child
-  // (since nsDisplayTransform wraps all actual content), and that child
-  // will have the correct reference frame set (since nsDisplayTransform
-  // handles this explictly).
   nsDisplayItem* i = mListPtr->GetBottom();
   if (i &&
       (!i->GetAbove() || i->GetType() == DisplayItemType::TYPE_TRANSFORM) &&
       i->Frame() == mFrame) {
-    mReferenceFrame = i->ReferenceFrame();
-    mToReferenceFrame = i->ToReferenceFrame();
+    MOZ_ASSERT(mReferenceFrame == i->ReferenceFrame());
   }
-
-  nsRect visible = aBuilder->GetVisibleRect() +
-                   aBuilder->GetCurrentFrameOffsetToReferenceFrame();
-
-  SetBuildingRect(visible);
+#endif
 }
 
 nsDisplayWrapList::nsDisplayWrapList(nsDisplayListBuilder* aBuilder,
@@ -6343,9 +6304,14 @@ bool nsDisplayOwnLayer::CreateWebRenderCommands(
   if (IsScrollThumbLayer()) {
     params.prim_flags |= wr::PrimitiveFlags::IS_SCROLLBAR_THUMB;
   }
-  if (IsZoomingLayer()) {
-    params.reference_frame_kind = wr::WrReferenceFrameKind::Zoom;
+  if (IsZoomingLayer() ||
+      ((IsFixedPositionLayer() && HasDynamicToolbar()) ||
+       (IsStickyPositionLayer() && HasDynamicToolbar()) ||
+       (IsRootScrollbarContainer() && HasDynamicToolbar()))) {
+    params.is_2d_scale_translation = true;
+    params.should_snap = true;
   }
+
   StackingContextHelper sc(aSc, GetActiveScrolledRoot(), mFrame, this, aBuilder,
                            params);
 
@@ -7355,9 +7321,24 @@ void nsDisplayTransform::SetReferenceFrameToAncestor(
   if (mFrame == aBuilder->RootReferenceFrame()) {
     return;
   }
+  // We manually recompute mToReferenceFrame without going through the
+  // builder, since this won't apply the 'additional offset'. Our
+  // children will already be painting with that applied, and we don't
+  // want to include it a second time in our transform. We don't recompute
+  // our visible/building rects, since those should still include the additional
+  // offset.
+  // TODO: Are there are things computed using our ToReferenceFrame that should
+  // have the additional offset applied? Should we instead just manually remove
+  // the offset from our transform instead of this more general value?
+  // Can we instead apply the additional offset to us and not our children, like
+  // we do for all other offsets (and how reference frames are supposed to
+  // work)?
+#ifdef DEBUG
   nsIFrame* outerFrame = nsLayoutUtils::GetCrossDocParentFrame(mFrame);
-  mReferenceFrame = aBuilder->FindReferenceFrameFor(outerFrame);
+  MOZ_ASSERT(mReferenceFrame == aBuilder->FindReferenceFrameFor(outerFrame));
+#endif
   mToReferenceFrame = mFrame->GetOffsetToCrossDoc(mReferenceFrame);
+
   if (DisplayPortUtils::IsFixedPosFrameInDisplayPort(mFrame)) {
     // This is an odd special case. If we are both IsFixedPosFrameInDisplayPort
     // and transformed that we are our own AGR parent.
@@ -7383,8 +7364,6 @@ void nsDisplayTransform::SetReferenceFrameToAncestor(
       mAnimatedGeometryRoot = mAnimatedGeometryRoot->mParentAGR;
     }
   }
-
-  SetBuildingRect(aBuilder->GetVisibleRect() + mToReferenceFrame);
 }
 
 void nsDisplayTransform::Init(nsDisplayListBuilder* aBuilder,
@@ -7557,13 +7536,12 @@ Matrix4x4 nsDisplayTransform::GetResultingTransformMatrixInternal(
   /* Get the matrix, then change its basis to factor in the origin. */
   Matrix4x4 result;
   // Call IsSVGTransformed() regardless of the value of
-  // disp->mSpecifiedTransform, since we still need any
-  // parentsChildrenOnlyTransform.
+  // aProperties.HasTransform(), since we still need any
+  // potential parentsChildrenOnlyTransform.
   Matrix svgTransform, parentsChildrenOnlyTransform;
-  bool hasSVGTransforms =
-      frame &&
+  const bool hasSVGTransforms =
+      frame && frame->HasAnyStateBits(NS_FRAME_MAY_BE_TRANSFORMED) &&
       frame->IsSVGTransformed(&svgTransform, &parentsChildrenOnlyTransform);
-
   bool shouldRound = nsLayoutUtils::ShouldSnapToGrid(frame);
 
   /* Transformed frames always have a transform, or are preserving 3d (and might
@@ -7586,7 +7564,7 @@ Matrix4x4 nsDisplayTransform::GetResultingTransformMatrixInternal(
 
   // See the comment for SVGContainerFrame::HasChildrenOnlyTransform for
   // an explanation of what children-only transforms are.
-  bool parentHasChildrenOnlyTransform =
+  const bool parentHasChildrenOnlyTransform =
       hasSVGTransforms && !parentsChildrenOnlyTransform.IsIdentity();
 
   if (parentHasChildrenOnlyTransform) {
@@ -8772,25 +8750,24 @@ bool nsDisplayPerspective::ComputeVisibility(nsDisplayListBuilder* aBuilder,
 }
 
 nsDisplayText::nsDisplayText(nsDisplayListBuilder* aBuilder,
-                             nsTextFrame* aFrame,
-                             const Maybe<bool>& aIsSelected)
+                             nsTextFrame* aFrame)
     : nsPaintedDisplayItem(aBuilder, aFrame),
       mOpacity(1.0f),
       mVisIStartEdge(0),
       mVisIEndEdge(0) {
   MOZ_COUNT_CTOR(nsDisplayText);
-  mIsFrameSelected = aIsSelected;
   mBounds = mFrame->InkOverflowRectRelativeToSelf() + ToReferenceFrame();
   // Bug 748228
   mBounds.Inflate(mFrame->PresContext()->AppUnitsPerDevPixel());
 }
 
 bool nsDisplayText::CanApplyOpacity() const {
-  if (IsSelected()) {
+  auto* f = static_cast<nsTextFrame*>(mFrame);
+
+  if (f->IsSelected()) {
     return false;
   }
 
-  nsTextFrame* f = static_cast<nsTextFrame*>(mFrame);
   const nsStyleText* textStyle = f->StyleText();
   if (textStyle->HasTextShadow()) {
     return false;
@@ -8861,7 +8838,7 @@ bool nsDisplayText::CreateWebRenderCommands(
   // view. Also if we're selected we might have some shadows from the
   // ::selected and ::inctive-selected pseudo-selectors. So don't do this
   // optimization if we have shadows or a selection.
-  if (!(IsSelected() || f->StyleText()->HasTextShadow())) {
+  if (!(f->IsSelected() || f->StyleText()->HasTextShadow())) {
     nsRect visible = GetPaintRect();
     visible.Inflate(3 * appUnitsPerDevPixel);
     bounds = bounds.Intersect(visible);
@@ -8947,21 +8924,11 @@ void nsDisplayText::RenderToContext(gfxContext* aCtx,
   }
 
   f->PaintText(params, mVisIStartEdge, mVisIEndEdge, ToReferenceFrame(),
-               IsSelected(), mOpacity);
+               f->IsSelected(), mOpacity);
 
   if (willClip) {
     aCtx->PopClip();
   }
-}
-
-bool nsDisplayText::IsSelected() const {
-  if (mIsFrameSelected.isNothing()) {
-    MOZ_ASSERT((nsTextFrame*)do_QueryFrame(mFrame));
-    auto* f = static_cast<nsTextFrame*>(mFrame);
-    mIsFrameSelected.emplace(f->IsSelected());
-  }
-
-  return mIsFrameSelected.value();
 }
 
 class nsDisplayTextGeometry : public nsDisplayItemGenericGeometry {
@@ -9182,13 +9149,16 @@ nsDisplayMasksAndClipPaths::nsDisplayMasksAndClipPaths(
       aBuilder->GetBackgroundPaintFlags() | nsCSSRendering::PAINTBG_MASK_IMAGE;
   const nsStyleSVGReset* svgReset = aFrame->StyleSVGReset();
   NS_FOR_VISIBLE_IMAGE_LAYERS_BACK_TO_FRONT(i, svgReset->mMask) {
-    if (!svgReset->mMask.mLayers[i].mImage.IsResolved()) {
+    const auto& layer = svgReset->mMask.mLayers[i];
+    if (!layer.mImage.IsResolved()) {
       continue;
     }
-    bool isTransformedFixed;
+    const nsRect& borderArea = mFrame->GetRectRelativeToSelf();
+    // NOTE(emilio): We only care about the dest rect so we don't bother
+    // computing a clip.
+    bool isTransformedFixed = false;
     nsBackgroundLayerState state = nsCSSRendering::PrepareImageLayer(
-        presContext, aFrame, flags, mFrame->GetRectRelativeToSelf(),
-        mFrame->GetRectRelativeToSelf(), svgReset->mMask.mLayers[i],
+        presContext, aFrame, flags, borderArea, borderArea, layer,
         &isTransformedFixed);
     mDestRects.AppendElement(state.mDestArea);
   }
@@ -9592,9 +9562,8 @@ Maybe<nsRect> nsDisplayMasksAndClipPaths::GetClipWithRespectToASR(
   if (childList) {
     return Some(childList->GetClippedBoundsWithRespectToASR(aBuilder, aASR));
   }
-#ifdef DEBUG
-  MOZ_ASSERT(false, "item should have finite clip with respect to aASR");
-#endif
+  MOZ_DIAGNOSTIC_ASSERT(false,
+                        "item should have finite clip with respect to aASR");
   return Nothing();
 }
 

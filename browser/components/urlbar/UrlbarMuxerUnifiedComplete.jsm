@@ -62,7 +62,10 @@ class MuxerUnifiedComplete extends UrlbarMuxer {
       strippedUrlToTopPrefixAndTitle: new Map(),
       canShowPrivateSearch: context.results.length > 1,
       canShowTailSuggestions: true,
-      formHistorySuggestions: new Set(),
+      // Form history and remote suggestions added so far.  Used for deduping
+      // suggestions.  Also includes the heuristic query string if the heuristic
+      // is a search result.  All strings in the set are lowercased.
+      suggestions: new Set(),
       canAddTabToSearch: true,
       // When you add state, update _copyState() as necessary.
     };
@@ -96,33 +99,9 @@ class MuxerUnifiedComplete extends UrlbarMuxer {
       state
     );
 
-    // Finally, insert results that have a suggested index.
-    let resultsWithSuggestedIndex = state.resultsByGroup.get(
-      UrlbarUtils.RESULT_GROUP.SUGGESTED_INDEX
-    );
-    if (resultsWithSuggestedIndex) {
-      // Sort them by index in descending order so that earlier insertions don't
-      // disrupt later ones.
-      resultsWithSuggestedIndex.sort(
-        (a, b) => a.suggestedIndex - b.suggestedIndex
-      );
-      // Do a first pass to update sort state for each result.
-      for (let result of resultsWithSuggestedIndex) {
-        this._updateStatePreAdd(result, state);
-      }
-      // Now insert them.
-      for (let result of resultsWithSuggestedIndex) {
-        if (this._canAddResult(result, state)) {
-          let index =
-            result.suggestedIndex <= sortedResults.length
-              ? result.suggestedIndex
-              : sortedResults.length;
-          sortedResults.splice(index, 0, result);
-          this._updateStatePostAdd(result, state);
-        }
-      }
-    }
+    this._addSuggestedIndexResults(sortedResults, state);
 
+    this._truncateResults(sortedResults, context.maxResults);
     context.results = sortedResults;
   }
 
@@ -139,11 +118,11 @@ class MuxerUnifiedComplete extends UrlbarMuxer {
    */
   _copyState(state) {
     let copy = Object.assign({}, state, {
-      formHistorySuggestions: new Set(state.formHistorySuggestions),
       resultsByGroup: new Map(),
       strippedUrlToTopPrefixAndTitle: new Map(
         state.strippedUrlToTopPrefixAndTitle
       ),
+      suggestions: new Set(state.suggestions),
     });
     for (let [group, results] of state.resultsByGroup) {
       copy.resultsByGroup.set(group, [...results]);
@@ -172,7 +151,6 @@ class MuxerUnifiedComplete extends UrlbarMuxer {
     // Set up some flex state for the bucket.
     let stateCopy;
     let flexSum = 0;
-    let childResultsByIndex = [];
     let unfilledChildIndexes = [];
     let unfilledChildResultCount = 0;
     if (bucket.flexChildren) {
@@ -213,7 +191,6 @@ class MuxerUnifiedComplete extends UrlbarMuxer {
 
       // Recurse and fill the child bucket.
       let childResults = this._fillBuckets(child, childMaxResultCount, state);
-      childResultsByIndex.push(childResults);
       results = results.concat(childResults);
 
       if (bucket.flexChildren && childResults.length < childMaxResultCount) {
@@ -237,17 +214,23 @@ class MuxerUnifiedComplete extends UrlbarMuxer {
         i < bucket.children.length && results.length < maxResultCount;
         i++
       ) {
-        if (unfilledChildIndexes.length && i == unfilledChildIndexes[0]) {
-          // This is one of the children that didn't fill up.
-          unfilledChildIndexes.shift();
-          results = results.concat(childResultsByIndex[i]);
-          continue;
-        }
         let child = bucket.children[i];
-        let flex = typeof child.flex == "number" ? child.flex : 0;
-        let childMaxResultCount = flex
-          ? Math.round(remainingResultCount * (flex / flexSumFilled))
-          : remainingResultCount;
+        let childMaxResultCount;
+        if (unfilledChildIndexes.length && i == unfilledChildIndexes[0]) {
+          // This is one of the children that didn't fill up.  Since it didn't
+          // fill up, the max result count to use in this pass isn't important
+          // as long as it's >= the number of results it was able to fill.  We
+          // can't re-use its results from the first pass (even though they're
+          // still correct) because we need to properly update `stateCopy` and
+          // therefore re-fill the child.
+          unfilledChildIndexes.shift();
+          childMaxResultCount = maxResultCount;
+        } else {
+          let flex = typeof child.flex == "number" ? child.flex : 0;
+          childMaxResultCount = flex
+            ? Math.round(remainingResultCount * (flex / flexSumFilled))
+            : remainingResultCount;
+        }
         let childResults = this._fillBuckets(
           child,
           childMaxResultCount,
@@ -255,7 +238,11 @@ class MuxerUnifiedComplete extends UrlbarMuxer {
         );
         results = results.concat(childResults);
       }
-      state = stateCopy;
+
+      // Update `state` in place so that it's also updated in the caller.
+      for (let [key, value] of Object.entries(stateCopy)) {
+        state[key] = value;
+      }
     }
 
     return results;
@@ -438,25 +425,16 @@ class MuxerUnifiedComplete extends UrlbarMuxer {
       return false;
     }
 
-    // Discard form history that dupes the heuristic or previous added form
-    // history (for restyleSearch).
+    // Discard form history and remote suggestions that dupe previously added
+    // suggestions or the heuristic.
     if (
       result.type == UrlbarUtils.RESULT_TYPE.SEARCH &&
-      result.source == UrlbarUtils.RESULT_SOURCE.HISTORY &&
-      (result.payload.lowerCaseSuggestion === state.heuristicResultQuery ||
-        state.formHistorySuggestions.has(result.payload.lowerCaseSuggestion))
+      result.payload.lowerCaseSuggestion
     ) {
-      return false;
-    }
-
-    // Discard remote search suggestions that dupe the heuristic.
-    if (
-      result.type == UrlbarUtils.RESULT_TYPE.SEARCH &&
-      result.source == UrlbarUtils.RESULT_SOURCE.SEARCH &&
-      result.payload.lowerCaseSuggestion &&
-      result.payload.lowerCaseSuggestion === state.heuristicResultQuery
-    ) {
-      return false;
+      let suggestion = result.payload.lowerCaseSuggestion.trim();
+      if (!suggestion || state.suggestions.has(suggestion)) {
+        return false;
+      }
     }
 
     // Discard tail suggestions if appropriate.
@@ -469,24 +447,21 @@ class MuxerUnifiedComplete extends UrlbarMuxer {
     }
 
     // Discard SERPs from browser history that dupe either the heuristic or
-    // previously added form history.
+    // previously added suggestions.
     if (
       result.source == UrlbarUtils.RESULT_SOURCE.HISTORY &&
       result.type == UrlbarUtils.RESULT_TYPE.URL
     ) {
       let submission = Services.search.parseSubmissionURL(result.payload.url);
       if (submission) {
-        let resultQuery = submission.terms.toLocaleLowerCase();
-        if (
-          state.heuristicResultQuery === resultQuery ||
-          state.formHistorySuggestions.has(resultQuery)
-        ) {
+        let resultQuery = submission.terms.trim().toLocaleLowerCase();
+        if (state.suggestions.has(resultQuery)) {
           // If the result's URL is the same as a brand new SERP URL created
           // from the query string modulo certain URL params, then treat the
           // result as a dupe and discard it.
           let [newSerpURL] = UrlbarUtils.getSearchQueryUrl(
             submission.engine,
-            resultQuery
+            submission.terms
           );
           if (
             UrlbarSearchUtils.serpsAreEquivalent(result.payload.url, newSerpURL)
@@ -598,7 +573,10 @@ class MuxerUnifiedComplete extends UrlbarMuxer {
         result.type == UrlbarUtils.RESULT_TYPE.SEARCH &&
         result.payload.query
       ) {
-        state.heuristicResultQuery = result.payload.query.toLocaleLowerCase();
+        let query = result.payload.query.trim().toLocaleLowerCase();
+        if (query) {
+          state.suggestions.add(query);
+        }
       }
     }
 
@@ -614,12 +592,15 @@ class MuxerUnifiedComplete extends UrlbarMuxer {
       state.canShowPrivateSearch = false;
     }
 
-    // Update form history suggestions.
+    // Update suggestions.
     if (
       result.type == UrlbarUtils.RESULT_TYPE.SEARCH &&
-      result.source == UrlbarUtils.RESULT_SOURCE.HISTORY
+      result.payload.lowerCaseSuggestion
     ) {
-      state.formHistorySuggestions.add(result.payload.lowerCaseSuggestion);
+      let suggestion = result.payload.lowerCaseSuggestion.trim();
+      if (suggestion) {
+        state.suggestions.add(suggestion);
+      }
     }
 
     // Avoid multiple tab-to-search results.
@@ -637,6 +618,97 @@ class MuxerUnifiedComplete extends UrlbarMuxer {
         UrlbarProviderTabToSearch.enginesShown.regular.add(
           result.payload.engine
         );
+      }
+    }
+  }
+
+  /**
+   * Inserts results with suggested indexes.  This should be called at the end
+   * of the sort, after all buckets have been filled.
+   *
+   * @param {array} sortedResults
+   *   The sorted results produced by the muxer so far.  Updated in place.
+   * @param {object} state
+   *   Global state that we use to make decisions during this sort.
+   */
+  _addSuggestedIndexResults(sortedResults, state) {
+    let suggestedIndexResults = state.resultsByGroup.get(
+      UrlbarUtils.RESULT_GROUP.SUGGESTED_INDEX
+    );
+    if (!suggestedIndexResults) {
+      return;
+    }
+
+    // First, sort the results by index in ascending order so that insertions of
+    // results with both positive and negative indexes are in ascending order.
+    suggestedIndexResults.sort((a, b) => a.suggestedIndex - b.suggestedIndex);
+
+    // Insert results with positive indexes.  Insertions should happen in
+    // ascending order so that higher-index results are inserted at their
+    // suggested indexes and aren't offset by later lower-index insertions.
+    let negativeIndexSpanCount = 0;
+    for (let result of suggestedIndexResults) {
+      if (result.suggestedIndex < 0) {
+        negativeIndexSpanCount += UrlbarUtils.getSpanForResult(result);
+      } else {
+        this._updateStatePreAdd(result, state);
+        if (this._canAddResult(result, state)) {
+          let index =
+            result.suggestedIndex <= sortedResults.length
+              ? result.suggestedIndex
+              : sortedResults.length;
+          sortedResults.splice(index, 0, result);
+          this._updateStatePostAdd(result, state);
+        }
+      }
+    }
+
+    // Before inserting results with negative indexes, truncate the sorted
+    // results so that their total span count is no larger than maxResults minus
+    // the span count of the negative-index results themselves.  If we didn't do
+    // that, the negative-index results could end up getting removed when the
+    // muxer truncates the final results array, which would effectively mean
+    // that we inserted them at the wrong indexes.
+    this._truncateResults(
+      sortedResults,
+      state.context.maxResults - negativeIndexSpanCount
+    );
+
+    // Insert results with negative indexes.
+    if (negativeIndexSpanCount) {
+      for (let result of suggestedIndexResults) {
+        if (result.suggestedIndex >= 0) {
+          break;
+        }
+        this._updateStatePreAdd(result, state);
+        if (this._canAddResult(result, state)) {
+          let index = Math.max(
+            result.suggestedIndex + sortedResults.length + 1,
+            0
+          );
+          sortedResults.splice(index, 0, result);
+          this._updateStatePostAdd(result, state);
+        }
+      }
+    }
+  }
+
+  /**
+   * Truncates the array of results so that their total span count is no larger
+   * than a given number.
+   *
+   * @param {array} sortedResults
+   *   The sorted results produced by the muxer so far.  Updated in place.
+   * @param {number} maxSpanCount
+   *   The max span count.
+   */
+  _truncateResults(sortedResults, maxSpanCount) {
+    let remainingSpanCount = maxSpanCount;
+    for (let i = 0; i < sortedResults.length; i++) {
+      remainingSpanCount -= UrlbarUtils.getSpanForResult(sortedResults[i]);
+      if (remainingSpanCount < 0) {
+        sortedResults.splice(i, sortedResults.length - i);
+        break;
       }
     }
   }

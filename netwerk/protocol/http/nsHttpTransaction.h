@@ -17,6 +17,7 @@
 #include "nsIInterfaceRequestor.h"
 #include "nsIAsyncOutputStream.h"
 #include "nsITimer.h"
+#include "nsTHashMap.h"
 #include "TimingStruct.h"
 #include "Http2Push.h"
 #include "mozilla/net/DNS.h"
@@ -99,7 +100,12 @@ class nsHttpTransaction final : public nsAHttpTransaction,
       // for the response headers.
       mPendingDurationTime = TimeStamp::Now() - mPendingTime;
     }
-    mPendingTime = now ? TimeStamp::Now() : TimeStamp();
+    // Note that the transaction could be added in to a pending queue multiple
+    // times (when the transaction is restarted or moved to a new conn entry due
+    // to HTTPS RR), so we should only set the pending time once.
+    if (mPendingTime.IsNull()) {
+      mPendingTime = now ? TimeStamp::Now() : TimeStamp();
+    }
   }
   const TimeStamp GetPendingTime() { return mPendingTime; }
 
@@ -249,6 +255,24 @@ class nsHttpTransaction final : public nsAHttpTransaction,
   void OnFastFallbackTimer();
   void HandleFallback(nsHttpConnectionInfo* aFallbackConnInfo);
   void MaybeCancelFallbackTimer();
+
+  // IMPORTANT: when adding new values, always add them to the end, otherwise
+  // it will mess up telemetry.
+  enum TRANSACTION_RESTART_REASON : uint32_t {
+    TRANSACTION_RESTART_NONE = 0,  // The transacion was not restarted.
+    TRANSACTION_RESTART_FORCED,    // The transaction was forced to restart.
+    TRANSACTION_RESTART_NO_DATA_SENT,
+    TRANSACTION_RESTART_DOWNGRADE_WITH_EARLY_DATA,
+    TRANSACTION_RESTART_HTTPS_RR_NET_RESET,
+    TRANSACTION_RESTART_HTTPS_RR_CONNECTION_REFUSED,
+    TRANSACTION_RESTART_HTTPS_RR_UNKNOWN_HOST,
+    TRANSACTION_RESTART_HTTPS_RR_NET_TIMEOUT,
+    TRANSACTION_RESTART_HTTPS_RR_SEC_ERROR,
+    TRANSACTION_RESTART_HTTPS_RR_FAST_FALLBACK,
+    TRANSACTION_RESTART_HTTP3_FAST_FALLBACK,
+    TRANSACTION_RESTART_OTHERS,
+  };
+  void SetRestartReason(TRANSACTION_RESTART_REASON aReason);
 
  private:
   class UpdateSecurityCallbacks : public Runnable {
@@ -499,8 +523,7 @@ class nsHttpTransaction final : public nsAHttpTransaction,
   Atomic<int32_t> mProxyConnectResponseCode;
 
   OnPushCallback mOnPushCallback;
-  nsDataHashtable<nsUint32HashKey, RefPtr<Http2PushedStreamWrapper>>
-      mIDToStreamMap;
+  nsTHashMap<uint32_t, RefPtr<Http2PushedStreamWrapper>> mIDToStreamMap;
 
   nsCOMPtr<nsICancelable> mDNSRequest;
   Atomic<uint32_t, Relaxed> mHTTPSSVCReceivedStage;
@@ -515,19 +538,9 @@ class nsHttpTransaction final : public nsAHttpTransaction,
   nsCOMPtr<nsITimer> mHttp3BackupTimer;
   RefPtr<nsHttpConnectionInfo> mBackupConnInfo;
   RefPtr<HTTPSRecordResolver> mResolver;
+  TRANSACTION_RESTART_REASON mRestartReason = TRANSACTION_RESTART_NONE;
 
-  // IMPORTANT: when adding new values, always add them to the end, otherwise
-  // it will mess up telemetry.
-  enum TRANSACTION_RESTART_REASON : uint32_t {
-    TRANSACTION_RESTART_NONE = 0,    // The transacion was not restarted.
-    TRANSACTION_RESTART_FORCED = 1,  // The transaction was forced to restart.
-    TRANSACTION_RESTART_HTTPSSVC_INVOLVED = 2,
-    TRANSACTION_RESTART_NO_DATA_SENT = 3,
-    TRANSACTION_RESTART_DOWNGRADE_WITH_EARLY_DATA = 4,
-    TRANSACTION_RESTART_OTHERS = 5,
-  };
-
-  nsDataHashtable<nsUint32HashKey, uint32_t> mEchRetryCounterMap;
+  nsTHashMap<nsUint32HashKey, uint32_t> mEchRetryCounterMap;
 
   bool mSupportsHTTP3 = false;
 };

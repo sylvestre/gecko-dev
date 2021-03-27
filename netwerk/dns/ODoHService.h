@@ -12,6 +12,8 @@
 #include "nsString.h"
 #include "nsIDNSListener.h"
 #include "nsIObserver.h"
+#include "nsIStreamLoader.h"
+#include "nsITimer.h"
 #include "nsWeakReference.h"
 
 namespace mozilla {
@@ -21,11 +23,15 @@ class ODoH;
 
 class ODoHService : public nsIDNSListener,
                     public nsIObserver,
-                    public nsSupportsWeakReference {
+                    public nsSupportsWeakReference,
+                    public nsITimerCallback,
+                    public nsIStreamLoaderObserver {
  public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIDNSLISTENER
   NS_DECL_NSIOBSERVER
+  NS_DECL_NSITIMERCALLBACK
+  NS_DECL_NSISTREAMLOADEROBSERVER
 
   ODoHService();
   bool Init();
@@ -33,6 +39,7 @@ class ODoHService : public nsIDNSListener,
 
   const Maybe<nsTArray<ObliviousDoHConfig>>& ODoHConfigs();
   void AppendPendingODoHRequest(ODoH* aRequest);
+  bool RemovePendingODoHRequest(ODoH* aRequest);
   void GetRequestURI(nsACString& aResult);
   // Send a DNS query to reterive the ODoHConfig.
   nsresult UpdateODoHConfig();
@@ -42,6 +49,11 @@ class ODoHService : public nsIDNSListener,
   nsresult ReadPrefs(const char* aName);
   void OnODoHPrefsChange(bool aInit);
   void BuildODoHRequestURI();
+  void StartTTLTimer(uint32_t aTTL);
+  void OnODohConfigsURIChanged();
+  void ODoHConfigUpdateDone(uint32_t aTTL, Span<const uint8_t> aRawConfig);
+  nsresult UpdateODoHConfigFromHTTPSRR();
+  nsresult UpdateODoHConfigFromURI();
 
   Mutex mLock;
   Atomic<bool, Relaxed> mQueryODoHConfigInProgress;
@@ -49,8 +61,12 @@ class ODoHService : public nsIDNSListener,
   nsCString mODoHTargetHost;
   nsCString mODoHTargetPath;
   nsCString mODoHRequestURI;
+  nsCString mODoHConfigsUri;
   Maybe<nsTArray<ObliviousDoHConfig>> mODoHConfigs;
   nsTArray<RefPtr<ODoH>> mPendingRequests;
+  // This timer is always touched on main thread to avoid race conditions.
+  nsCOMPtr<nsITimer> mTTLTimer;
+  nsCOMPtr<nsIStreamLoader> mLoader;
 };
 
 extern ODoHService* gODoHService;

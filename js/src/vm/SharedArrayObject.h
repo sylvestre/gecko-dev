@@ -169,6 +169,9 @@ class SharedArrayBufferObject : public ArrayBufferObjectMaybeShared {
   // greater than the object's length.
   static const uint8_t LENGTH_SLOT = 1;
 
+  static_assert(LENGTH_SLOT == ArrayBufferObject::BYTE_LENGTH_SLOT,
+                "JIT code assumes the same slot is used for the length");
+
   static const uint8_t RESERVED_SLOTS = 2;
 
   static const JSClass class_;
@@ -177,6 +180,10 @@ class SharedArrayBufferObject : public ArrayBufferObjectMaybeShared {
   static bool byteLengthGetter(JSContext* cx, unsigned argc, Value* vp);
 
   static bool class_constructor(JSContext* cx, unsigned argc, Value* vp);
+
+  static bool isOriginalByteLengthGetter(Native native) {
+    return native == byteLengthGetter;
+  }
 
   // Create a SharedArrayBufferObject with a new SharedArrayRawBuffer.
   static SharedArrayBufferObject* New(JSContext* cx, BufferSize length,
@@ -213,7 +220,7 @@ class SharedArrayBufferObject : public ArrayBufferObjectMaybeShared {
   }
 
   BufferSize byteLength() const {
-    return BufferSize(size_t(getReservedSlot(LENGTH_SLOT).toPrivate()));
+    return BufferSize(size_t(getFixedSlot(LENGTH_SLOT).toPrivate()));
   }
 
   bool isWasm() const { return rawBufferObject()->isWasm(); }
@@ -240,12 +247,6 @@ class SharedArrayBufferObject : public ArrayBufferObjectMaybeShared {
                                      BufferSize length);
   void dropRawBuffer();
 };
-
-bool IsSharedArrayBuffer(HandleValue v);
-bool IsSharedArrayBuffer(HandleObject o);
-bool IsSharedArrayBuffer(JSObject* o);
-
-SharedArrayBufferObject& AsSharedArrayBuffer(HandleObject o);
 
 using RootedSharedArrayBufferObject = Rooted<SharedArrayBufferObject*>;
 using HandleSharedArrayBufferObject = Handle<SharedArrayBufferObject*>;

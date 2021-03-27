@@ -1745,9 +1745,9 @@ void CounterStyle::CallFallbackStyle(CounterValue aOrdinal,
 CounterStyleManager::CounterStyleManager(nsPresContext* aPresContext)
     : mPresContext(aPresContext) {
   // Insert the static styles into cache table
-  mStyles.Put(nsGkAtoms::none, GetNoneStyle());
-  mStyles.Put(nsGkAtoms::decimal, GetDecimalStyle());
-  mStyles.Put(nsGkAtoms::disc, GetDiscStyle());
+  mStyles.InsertOrUpdate(nsGkAtoms::none, GetNoneStyle());
+  mStyles.InsertOrUpdate(nsGkAtoms::decimal, GetDecimalStyle());
+  mStyles.InsertOrUpdate(nsGkAtoms::disc, GetDiscStyle());
 }
 
 CounterStyleManager::~CounterStyleManager() {
@@ -1769,8 +1769,7 @@ void CounterStyleManager::DestroyCounterStyle(CounterStyle* aCounterStyle) {
 
 void CounterStyleManager::Disconnect() {
   CleanRetiredStyles();
-  for (auto iter = mStyles.Iter(); !iter.Done(); iter.Next()) {
-    CounterStyle* style = iter.Data();
+  for (CounterStyle* style : mStyles.Values()) {
     if (style->IsDependentStyle()) {
       DestroyCounterStyle(style);
     }
@@ -1808,7 +1807,7 @@ CounterStyle* CounterStyleManager::ResolveCounterStyle(nsAtom* aName) {
   if (!data) {
     data = GetDecimalStyle();
   }
-  mStyles.Put(aName, data);
+  mStyles.InsertOrUpdate(aName, data);
   return data;
 }
 
@@ -1862,8 +1861,7 @@ bool CounterStyleManager::NotifyRuleChanged() {
   }
 
   if (changed) {
-    for (auto iter = mStyles.Iter(); !iter.Done(); iter.Next()) {
-      CounterStyle* style = iter.Data();
+    for (CounterStyle* style : mStyles.Values()) {
       if (style->IsCustomStyle()) {
         CustomCounterStyle* custom = static_cast<CustomCounterStyle*>(style);
         custom->ResetDependentData();

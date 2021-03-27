@@ -139,13 +139,24 @@ class nsHttpConnectionInfo final : public ARefBase {
   }
   bool GetInsecureScheme() const { return mHashKey.CharAt(4) == 'I'; }
 
-  void SetNoSpdy(bool aNoSpdy) { mHashKey.SetCharAt(aNoSpdy ? 'X' : '.', 5); }
+  void SetNoSpdy(bool aNoSpdy) {
+    mHashKey.SetCharAt(aNoSpdy ? 'X' : '.', 5);
+    if (aNoSpdy && mNPNToken == "h2"_ns) {
+      mNPNToken.Truncate();
+      RebuildHashKey();
+    }
+  }
   bool GetNoSpdy() const { return mHashKey.CharAt(5) == 'X'; }
 
   void SetBeConservative(bool aBeConservative) {
     mHashKey.SetCharAt(aBeConservative ? 'C' : '.', 6);
   }
   bool GetBeConservative() const { return mHashKey.CharAt(6) == 'C'; }
+
+  void SetAnonymousAllowClientCert(bool anon) {
+    mHashKey.SetCharAt(anon ? 'B' : '.', 7);
+  }
+  bool GetAnonymousAllowClientCert() const { return mHashKey.CharAt(7) == 'B'; }
 
   void SetTlsFlags(uint32_t aTlsFlags);
   uint32_t GetTlsFlags() const { return mTlsFlags; }

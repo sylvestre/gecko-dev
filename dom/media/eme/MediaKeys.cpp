@@ -129,13 +129,11 @@ void MediaKeys::Terminated() {
 
   KeySessionHashMap keySessions;
   // Remove entries during iteration will screw it. Make a copy first.
-  for (auto iter = mKeySessions.Iter(); !iter.Done(); iter.Next()) {
-    RefPtr<MediaKeySession>& session = iter.Data();
+  for (const RefPtr<MediaKeySession>& session : mKeySessions.Values()) {
     // XXX Could the RefPtr still be moved here?
-    keySessions.Put(session->GetSessionId(), RefPtr{session});
+    keySessions.InsertOrUpdate(session->GetSessionId(), RefPtr{session});
   }
-  for (auto iter = keySessions.Iter(); !iter.Done(); iter.Next()) {
-    RefPtr<MediaKeySession>& session = iter.Data();
+  for (const RefPtr<MediaKeySession>& session : keySessions.Values()) {
     session->OnClosed();
   }
   keySessions.Clear();
@@ -161,8 +159,7 @@ void MediaKeys::Shutdown() {
   // down.
   RefPtr<MediaKeys> selfReference = this;
 
-  for (auto iter = mPromises.Iter(); !iter.Done(); iter.Next()) {
-    RefPtr<dom::DetailedPromise>& promise = iter.Data();
+  for (const RefPtr<dom::DetailedPromise>& promise : mPromises.Values()) {
     promise->MaybeRejectWithInvalidStateError(
         "Promise still outstanding at MediaKeys shutdown");
     Release();
@@ -233,19 +230,19 @@ PromiseId MediaKeys::StorePromise(DetailedPromise* aPromise) {
 
 #ifdef DEBUG
   // We should not have already stored this promise!
-  for (auto iter = mPromises.ConstIter(); !iter.Done(); iter.Next()) {
-    MOZ_ASSERT(iter.Data() != aPromise);
+  for (const RefPtr<dom::DetailedPromise>& promise : mPromises.Values()) {
+    MOZ_ASSERT(promise != aPromise);
   }
 #endif
 
-  mPromises.Put(id, RefPtr{aPromise});
+  mPromises.InsertOrUpdate(id, RefPtr{aPromise});
   return id;
 }
 
 void MediaKeys::ConnectPendingPromiseIdWithToken(PromiseId aId,
                                                  uint32_t aToken) {
   // Should only be called from MediaKeySession::GenerateRequest.
-  mPromiseIdToken.Put(aId, aToken);
+  mPromiseIdToken.InsertOrUpdate(aId, aToken);
   EME_LOG(
       "MediaKeys[%p]::ConnectPendingPromiseIdWithToken() id=%u => token(%u)",
       this, aId, aToken);
@@ -326,7 +323,7 @@ void MediaKeys::OnSessionIdReady(MediaKeySession* aSession) {
         "MediaKeySession with invalid sessionId passed to OnSessionIdReady()");
     return;
   }
-  mKeySessions.Put(aSession->GetSessionId(), RefPtr{aSession});
+  mKeySessions.InsertOrUpdate(aSession->GetSessionId(), RefPtr{aSession});
 }
 
 void MediaKeys::ResolvePromise(PromiseId aId) {
@@ -361,7 +358,7 @@ void MediaKeys::ResolvePromise(PromiseId aId) {
         "CDM LoadSession() returned a different session ID than requested");
     return;
   }
-  mKeySessions.Put(session->GetSessionId(), RefPtr{session});
+  mKeySessions.InsertOrUpdate(session->GetSessionId(), RefPtr{session});
   promise->MaybeResolve(session);
 }
 
@@ -619,7 +616,7 @@ already_AddRefed<MediaKeySession> MediaKeys::CreateSession(
   EME_LOG("MediaKeys[%p]::CreateSession(aSessionType=%" PRIu8
           ") putting session with token=%" PRIu32 " into mPendingSessions",
           this, static_cast<uint8_t>(aSessionType), session->Token());
-  mPendingSessions.Put(session->Token(), RefPtr{session});
+  mPendingSessions.InsertOrUpdate(session->Token(), RefPtr{session});
 
   return session.forget();
 }
@@ -675,9 +672,7 @@ void MediaKeys::Unbind() {
 }
 
 void MediaKeys::GetSessionsInfo(nsString& sessionsInfo) {
-  for (KeySessionHashMap::Iterator it = mKeySessions.Iter(); !it.Done();
-       it.Next()) {
-    MediaKeySession* keySession = it.Data();
+  for (const auto& keySession : mKeySessions.Values()) {
     nsString sessionID;
     keySession->GetSessionId(sessionID);
     sessionsInfo.AppendLiteral("(sid=");

@@ -599,29 +599,27 @@ void ServiceWorkerManager::MaybeStartShutdown() {
 
   mShuttingDown = true;
 
-  for (auto& entry : mRegistrationInfos) {
-    auto& dataPtr = entry.GetData();
-
-    for (auto& timerEntry : dataPtr->mUpdateTimers) {
-      timerEntry.GetData()->Cancel();
+  for (const auto& dataPtr : mRegistrationInfos.Values()) {
+    for (const auto& timerEntry : dataPtr->mUpdateTimers.Values()) {
+      timerEntry->Cancel();
     }
     dataPtr->mUpdateTimers.Clear();
 
-    for (auto& queueEntry : dataPtr->mJobQueues) {
-      queueEntry.GetData()->CancelAll();
+    for (const auto& queueEntry : dataPtr->mJobQueues.Values()) {
+      queueEntry->CancelAll();
     }
     dataPtr->mJobQueues.Clear();
 
-    for (auto& registrationEntry : dataPtr->mInfos) {
-      registrationEntry.GetData()->ShutdownWorkers();
+    for (const auto& registrationEntry : dataPtr->mInfos.Values()) {
+      registrationEntry->ShutdownWorkers();
     }
 
     // ServiceWorkerCleanup may try to unregister registrations, so don't clear
     // mInfos.
   }
 
-  for (auto& entry : mControlledClients) {
-    entry.GetData()->mRegistrationInfo->ShutdownWorkers();
+  for (const auto& entry : mControlledClients.Values()) {
+    entry->mRegistrationInfo->ShutdownWorkers();
   }
 
   for (auto iter = mOrphanedRegistrations.iter(); !iter.done(); iter.next()) {
@@ -1589,17 +1587,13 @@ ServiceWorkerManager::GetOrCreateJobQueue(const nsACString& aKey,
   // XXX we could use WithEntryHandle here to avoid a hashtable lookup, except
   // that leads to a false positive assertion, see bug 1370674 comment 7.
   if (!mRegistrationInfos.Get(aKey, &data)) {
-    data = new RegistrationDataPerPrincipal();
-    mRegistrationInfos.Put(aKey, data);
+    data = mRegistrationInfos
+               .InsertOrUpdate(aKey, MakeUnique<RegistrationDataPerPrincipal>())
+               .get();
   }
 
-  return data->mJobQueues
-      .WithEntryHandle(aScope,
-                       [](auto&& entry) {
-                         return entry.OrInsertWith(
-                             [] { return new ServiceWorkerJobQueue(); });
-                       })
-      .forget();
+  RefPtr queue = data->mJobQueues.GetOrInsertNew(aScope);
+  return queue.forget();
 }
 
 /* static */
@@ -1909,16 +1903,10 @@ void ServiceWorkerManager::AddScopeAndRegistration(
 
   MOZ_ASSERT(!scopeKey.IsEmpty());
 
-  auto* const data =
-      swm->mRegistrationInfos.WithEntryHandle(scopeKey, [](auto&& entry) {
-        return entry
-            .OrInsertWith(
-                [] { return MakeUnique<RegistrationDataPerPrincipal>(); })
-            .get();
-      });
+  auto* const data = swm->mRegistrationInfos.GetOrInsertNew(scopeKey);
 
   data->mScopeContainer.InsertScope(aScope);
-  data->mInfos.Put(aScope, RefPtr{aInfo});
+  data->mInfos.InsertOrUpdate(aScope, RefPtr{aInfo});
   swm->NotifyListenersOnRegister(aInfo);
 }
 
@@ -2774,12 +2762,12 @@ void ServiceWorkerManager::UpdateClientControllers(
   MOZ_DIAGNOSTIC_ASSERT(activeWorker);
 
   AutoTArray<RefPtr<ClientHandle>, 16> handleList;
-  for (auto iter = mControlledClients.Iter(); !iter.Done(); iter.Next()) {
-    if (iter.UserData()->mRegistrationInfo != aRegistration) {
+  for (const auto& client : mControlledClients.Values()) {
+    if (client->mRegistrationInfo != aRegistration) {
       continue;
     }
 
-    handleList.AppendElement(iter.UserData()->mClientHandle);
+    handleList.AppendElement(client->mClientHandle);
   }
 
   // Fire event after iterating mControlledClients is done to prevent
@@ -3008,9 +2996,8 @@ ServiceWorkerManager::GetAllRegistrations(nsIArray** aResult) {
     return NS_ERROR_OUT_OF_MEMORY;
   }
 
-  for (auto it1 = mRegistrationInfos.Iter(); !it1.Done(); it1.Next()) {
-    for (auto it2 = it1.UserData()->mInfos.Iter(); !it2.Done(); it2.Next()) {
-      ServiceWorkerRegistrationInfo* reg = it2.UserData();
+  for (const auto& info : mRegistrationInfos.Values()) {
+    for (ServiceWorkerRegistrationInfo* reg : info->mInfos.Values()) {
       MOZ_ASSERT(reg);
 
       array->AppendElement(reg);
@@ -3032,15 +3019,11 @@ ServiceWorkerManager::RemoveRegistrationsByOriginAttributes(
   OriginAttributesPattern pattern;
   MOZ_ALWAYS_TRUE(pattern.Init(aPattern));
 
-  for (auto it1 = mRegistrationInfos.Iter(); !it1.Done(); it1.Next()) {
-    ServiceWorkerManager::RegistrationDataPerPrincipal* data = it1.UserData();
-
+  for (const auto& data : mRegistrationInfos.Values()) {
     // We can use iteration because ForceUnregister (and Unregister) are
     // async. Otherwise doing some R/W operations on an hashtable during
     // iteration will crash.
-    for (auto it2 = data->mInfos.Iter(); !it2.Done(); it2.Next()) {
-      ServiceWorkerRegistrationInfo* reg = it2.UserData();
-
+    for (ServiceWorkerRegistrationInfo* reg : data->mInfos.Values()) {
       MOZ_ASSERT(reg);
       MOZ_ASSERT(reg->Principal());
 
@@ -3049,7 +3032,7 @@ ServiceWorkerManager::RemoveRegistrationsByOriginAttributes(
         continue;
       }
 
-      ForceUnregister(data, reg);
+      ForceUnregister(data.get(), reg);
     }
   }
 
@@ -3090,12 +3073,10 @@ void ServiceWorkerManager::Remove(const nsACString& aHost) {
     return;
   }
 
-  for (auto it1 = mRegistrationInfos.Iter(); !it1.Done(); it1.Next()) {
-    ServiceWorkerManager::RegistrationDataPerPrincipal* data = it1.UserData();
-    for (auto it2 = data->mInfos.Iter(); !it2.Done(); it2.Next()) {
-      ServiceWorkerRegistrationInfo* reg = it2.UserData();
+  for (const auto& data : mRegistrationInfos.Values()) {
+    for (const auto& entry : data->mInfos) {
       nsCOMPtr<nsIURI> scopeURI;
-      nsresult rv = NS_NewURI(getter_AddRefs(scopeURI), it2.Key());
+      nsresult rv = NS_NewURI(getter_AddRefs(scopeURI), entry.GetKey());
       if (NS_WARN_IF(NS_FAILED(rv))) {
         continue;
       }
@@ -3114,7 +3095,7 @@ void ServiceWorkerManager::Remove(const nsACString& aHost) {
       }
 
       if (hasRootDomain) {
-        ForceUnregister(data, reg);
+        ForceUnregister(data.get(), entry.GetWeak());
       }
     }
   }
@@ -3123,11 +3104,9 @@ void ServiceWorkerManager::Remove(const nsACString& aHost) {
 void ServiceWorkerManager::RemoveAll() {
   MOZ_ASSERT(NS_IsMainThread());
 
-  for (auto it1 = mRegistrationInfos.Iter(); !it1.Done(); it1.Next()) {
-    ServiceWorkerManager::RegistrationDataPerPrincipal* data = it1.UserData();
-    for (auto it2 = data->mInfos.Iter(); !it2.Done(); it2.Next()) {
-      ServiceWorkerRegistrationInfo* reg = it2.UserData();
-      ForceUnregister(data, reg);
+  for (const auto& data : mRegistrationInfos.Values()) {
+    for (ServiceWorkerRegistrationInfo* reg : data->mInfos.Values()) {
+      ForceUnregister(data.get(), reg);
     }
   }
 }

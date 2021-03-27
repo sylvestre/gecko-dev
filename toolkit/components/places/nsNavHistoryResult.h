@@ -16,7 +16,7 @@
 #include "nsTArray.h"
 #include "nsMaybeWeakPtr.h"
 #include "nsInterfaceHashtable.h"
-#include "nsDataHashtable.h"
+#include "nsTHashMap.h"
 #include "nsCycleCollectionParticipant.h"
 #include "mozilla/storage.h"
 #include "Helpers.h"
@@ -77,7 +77,6 @@ class nsNavHistoryResult final
     : public nsSupportsWeakReference,
       public nsINavHistoryResult,
       public nsINavBookmarkObserver,
-      public nsINavHistoryObserver,
       public mozilla::places::INativePlacesEventCallback {
  public:
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_NAVHISTORYRESULT_IID)
@@ -138,8 +137,7 @@ class nsNavHistoryResult final
   QueryObserverList mMobilePrefObservers;
 
   typedef nsTArray<RefPtr<nsNavHistoryFolderResultNode> > FolderObserverList;
-  nsDataHashtable<nsTrimInt64HashKey, FolderObserverList*>
-      mBookmarkFolderObservers;
+  nsTHashMap<nsTrimInt64HashKey, FolderObserverList*> mBookmarkFolderObservers;
   FolderObserverList* BookmarkFolderObserversForId(int64_t aFolderId,
                                                    bool aCreate);
 
@@ -150,8 +148,6 @@ class nsNavHistoryResult final
                                bool aExpand);
 
   void InvalidateTree();
-
-  bool mBatchInProgress;
 
   nsMaybeWeakPtrArray<nsINavHistoryResultObserver> mObservers;
   bool mSuppressNotifications;
@@ -176,10 +172,20 @@ class nsNavHistoryResult final
 
   void OnMobilePrefChanged();
 
+  bool IsBatching() const { return mBatchInProgress > 0; };
+
   static void OnMobilePrefChangedCallback(const char* prefName, void* self);
 
  protected:
   virtual ~nsNavHistoryResult();
+
+ private:
+  // Number of batch processes currently running. IsBatching() returns true if
+  // this value is greater than or equal to 1. Also, when this value changes to
+  // 1 from 0, batching() in nsINavHistoryResultObserver is called with
+  // parameter as true, when changes to 0, that means finishing all batch
+  // processes, batching() is called with false.
+  uint32_t mBatchInProgress;
 };
 
 NS_DEFINE_STATIC_IID_ACCESSOR(nsNavHistoryResult, NS_NAVHISTORYRESULT_IID)
@@ -696,6 +702,9 @@ class nsNavHistoryQueryResultNode final
 
   virtual void OnRemoving() override;
 
+  nsresult OnBeginUpdateBatch();
+  nsresult OnEndUpdateBatch();
+
  public:
   RefPtr<nsNavHistoryQuery> mQuery;
   uint32_t mLiveUpdate;  // one of QUERYUPDATE_* in nsNavHistory.h
@@ -796,6 +805,9 @@ class nsNavHistoryFolderResultNode final
   void ReindexRange(int32_t aStartIndex, int32_t aEndIndex, int32_t aDelta);
 
   nsNavHistoryResultNode* FindChildById(int64_t aItemId, uint32_t* aNodeIndex);
+
+  nsresult OnBeginUpdateBatch();
+  nsresult OnEndUpdateBatch();
 
  protected:
   virtual ~nsNavHistoryFolderResultNode();

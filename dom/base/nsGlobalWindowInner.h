@@ -17,8 +17,7 @@
 // Helper Classes
 #include "nsCOMPtr.h"
 #include "nsWeakReference.h"
-#include "nsDataHashtable.h"
-#include "nsJSThingHashtable.h"
+#include "nsTHashMap.h"
 #include "nsCycleCollectionParticipant.h"
 
 // Interfaces Needed
@@ -50,10 +49,8 @@
 #include "mozilla/dom/EventTarget.h"
 #include "mozilla/dom/WindowBinding.h"
 #include "mozilla/dom/WindowProxyHolder.h"
-#ifdef MOZ_GLEAN
-#  include "mozilla/glean/bindings/Glean.h"
-#  include "mozilla/glean/bindings/GleanPings.h"
-#endif
+#include "mozilla/glean/bindings/Glean.h"
+#include "mozilla/glean/bindings/GleanPings.h"
 #include "Units.h"
 #include "nsComponentManagerUtils.h"
 #include "nsSize.h"
@@ -192,7 +189,7 @@ class nsGlobalWindowInner final : public mozilla::dom::EventTarget,
   typedef mozilla::TimeStamp TimeStamp;
   typedef mozilla::TimeDuration TimeDuration;
 
-  typedef nsDataHashtable<nsUint64HashKey, nsGlobalWindowInner*>
+  typedef nsTHashMap<nsUint64HashKey, nsGlobalWindowInner*>
       InnerWindowByIdTable;
 
   static void AssertIsOnMainThread()
@@ -311,19 +308,19 @@ class nsGlobalWindowInner final : public mozilla::dom::EventTarget,
 
   nsresult PostHandleEvent(mozilla::EventChainPostVisitor& aVisitor) override;
 
-  void Suspend();
-  void Resume();
+  void Suspend(bool aIncludeSubWindows = true);
+  void Resume(bool aIncludeSubWindows = true);
   virtual bool IsSuspended() const override;
 
   // Calling Freeze() on a window will automatically Suspend() it.  In
-  // addition, the window and its children are further treated as no longer
-  // suitable for interaction with the user.  For example, it may be marked
-  // non-visible, cannot be focused, etc.  All worker threads are also frozen
-  // bringing them to a complete stop.  A window can have Freeze() called
-  // multiple times and will only thaw after a matching number of Thaw()
-  // calls.
-  void Freeze();
-  void Thaw();
+  // addition, the window and its children (if aIncludeSubWindows is true) are
+  // further treated as no longer suitable for interaction with the user.  For
+  // example, it may be marked non-visible, cannot be focused, etc.  All worker
+  // threads are also frozen bringing them to a complete stop.  A window can
+  // have Freeze() called multiple times and will only thaw after a matching
+  // number of Thaw() calls.
+  void Freeze(bool aIncludeSubWindows = true);
+  void Thaw(bool aIncludeSubWindows = true);
   virtual bool IsFrozen() const override;
   void SyncStateFromParentWindow();
 
@@ -358,7 +355,7 @@ class nsGlobalWindowInner final : public mozilla::dom::EventTarget,
 
   void NoteDOMContentLoaded();
 
-  virtual nsresult FireDelayedDOMEvents() override;
+  virtual nsresult FireDelayedDOMEvents(bool aIncludeSubWindows) override;
 
   virtual void MaybeUpdateTouchState() override;
 
@@ -838,10 +835,9 @@ class nsGlobalWindowInner final : public mozilla::dom::EventTarget,
   bool HasActiveSpeechSynthesis();
 #endif
 
-#ifdef MOZ_GLEAN
   mozilla::glean::Glean* Glean();
   mozilla::glean::GleanPings* GleanPings();
-#endif
+
   already_AddRefed<nsICSSDeclaration> GetDefaultComputedStyle(
       mozilla::dom::Element& aElt, const nsAString& aPseudoElt,
       mozilla::ErrorResult& aError);
@@ -1041,22 +1037,39 @@ class nsGlobalWindowInner final : public mozilla::dom::EventTarget,
   // Get the parent, returns null if this is a toplevel window
   nsPIDOMWindowOuter* GetInProcessParentInternal();
 
- public:
-  // popup tracking
-  bool IsPopupSpamWindow();
-
  private:
+  template <typename Method, typename... Args>
+  mozilla::CallState CallOnInProcessDescendantsInternal(
+      mozilla::dom::BrowsingContext* aBrowsingContext, bool aChildOnly,
+      Method aMethod, Args&&... aArgs);
+
   // Call the given method on the immediate children of this window.  The
   // CallState returned by the last child method invocation is returned or
   // CallState::Continue if the method returns void.
   template <typename Method, typename... Args>
-  mozilla::CallState CallOnInProcessChildren(Method aMethod, Args&... aArgs);
+  mozilla::CallState CallOnInProcessChildren(Method aMethod, Args&&... aArgs) {
+    MOZ_ASSERT(IsCurrentInnerWindow());
+    return CallOnInProcessDescendantsInternal(GetBrowsingContext(), true,
+                                              aMethod, aArgs...);
+  }
+
+  // Call the given method on the descendant of this window.  The CallState
+  // returned by the last descendant method invocation is returned or
+  // CallState::Continue if the method returns void.
+  template <typename Method, typename... Args>
+  mozilla::CallState CallOnInProcessDescendants(Method aMethod,
+                                                Args&&... aArgs) {
+    MOZ_ASSERT(IsCurrentInnerWindow());
+    return CallOnInProcessDescendantsInternal(GetBrowsingContext(), false,
+                                              aMethod, aArgs...);
+  }
 
   // Helper to convert a void returning child method into an implicit
   // CallState::Continue value.
   template <typename Return, typename Method, typename... Args>
   typename std::enable_if<std::is_void<Return>::value, mozilla::CallState>::type
-  CallChild(nsGlobalWindowInner* aWindow, Method aMethod, Args&... aArgs) {
+  CallDescendant(nsGlobalWindowInner* aWindow, Method aMethod,
+                 Args&&... aArgs) {
     (aWindow->*aMethod)(aArgs...);
     return mozilla::CallState::Continue;
   }
@@ -1065,12 +1078,13 @@ class nsGlobalWindowInner final : public mozilla::dom::EventTarget,
   template <typename Return, typename Method, typename... Args>
   typename std::enable_if<std::is_same<Return, mozilla::CallState>::value,
                           mozilla::CallState>::type
-  CallChild(nsGlobalWindowInner* aWindow, Method aMethod, Args&... aArgs) {
+  CallDescendant(nsGlobalWindowInner* aWindow, Method aMethod,
+                 Args&&... aArgs) {
     return (aWindow->*aMethod)(aArgs...);
   }
 
-  void FreezeInternal();
-  void ThawInternal();
+  void FreezeInternal(bool aIncludeSubWindows);
+  void ThawInternal(bool aIncludeSubWindows);
 
   mozilla::CallState ShouldReportForServiceWorkerScopeInternal(
       const nsACString& aScope, bool* aResultOut);
@@ -1115,13 +1129,13 @@ class nsGlobalWindowInner final : public mozilla::dom::EventTarget,
 
   bool IsInModalState();
 
-  virtual void SetFocusedElement(mozilla::dom::Element* aElement,
-                                 uint32_t aFocusMethod = 0,
-                                 bool aNeedsFocus = false) override;
+  void SetFocusedElement(mozilla::dom::Element* aElement,
+                         uint32_t aFocusMethod = 0,
+                         bool aNeedsFocus = false) override;
 
-  virtual uint32_t GetFocusMethod() override;
+  uint32_t GetFocusMethod() override;
 
-  virtual bool ShouldShowFocusRing() override;
+  bool ShouldShowFocusRing() override;
 
   // Inner windows only.
   void UpdateCanvasFocus(bool aFocusChanged, nsIContent* aNewContent);
@@ -1192,9 +1206,8 @@ class nsGlobalWindowInner final : public mozilla::dom::EventTarget,
   // NOTE: Chrome Only
   void DisconnectAndClearGroupMessageManagers() {
     MOZ_RELEASE_ASSERT(IsChromeWindow());
-    for (auto iter = mChromeFields.mGroupMessageManagers.Iter(); !iter.Done();
-         iter.Next()) {
-      mozilla::dom::ChromeMessageBroadcaster* mm = iter.UserData();
+    for (const auto& entry : mChromeFields.mGroupMessageManagers) {
+      mozilla::dom::ChromeMessageBroadcaster* mm = entry.GetWeak();
       if (mm) {
         mm->Disconnect();
       }
@@ -1397,7 +1410,7 @@ class nsGlobalWindowInner final : public mozilla::dom::EventTarget,
   uint32_t mSerial;
 #endif
 
-  // the method that was used to focus mFocusedNode
+  // the method that was used to focus mFocusedElement
   uint32_t mFocusMethod;
 
   // The current idle request callback handle
@@ -1448,10 +1461,8 @@ class nsGlobalWindowInner final : public mozilla::dom::EventTarget,
   RefPtr<mozilla::dom::SpeechSynthesis> mSpeechSynthesis;
 #endif
 
-#ifdef MOZ_GLEAN
   RefPtr<mozilla::glean::Glean> mGlean;
   RefPtr<mozilla::glean::GleanPings> mGleanPings;
-#endif
 
   // This is the CC generation the last time we called CanSkip.
   uint32_t mCanSkipCCGeneration;
@@ -1537,14 +1548,6 @@ inline nsIScriptContext* nsGlobalWindowInner::GetContextInternal() {
 inline nsGlobalWindowOuter* nsGlobalWindowInner::GetOuterWindowInternal()
     const {
   return nsGlobalWindowOuter::Cast(GetOuterWindow());
-}
-
-inline bool nsGlobalWindowInner::IsPopupSpamWindow() {
-  if (!mOuterWindow) {
-    return false;
-  }
-
-  return GetOuterWindowInternal()->mIsPopupSpam;
 }
 
 #endif /* nsGlobalWindowInner_h___ */

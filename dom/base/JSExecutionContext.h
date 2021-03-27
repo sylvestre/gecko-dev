@@ -115,7 +115,7 @@ class MOZ_STACK_CLASS JSExecutionContext final {
   // After getting a notification that an off-thread compilation terminated,
   // this function will take the result of the parser and move it to the main
   // thread.
-  MOZ_MUST_USE nsresult JoinCompile(JS::OffThreadToken** aOffThreadToken);
+  [[nodiscard]] nsresult JoinCompile(JS::OffThreadToken** aOffThreadToken);
 
   // Compile a script contained in a SourceText.
   nsresult Compile(JS::CompileOptions& aCompileOptions,
@@ -137,12 +137,6 @@ class MOZ_STACK_CLASS JSExecutionContext final {
   // thread.
   nsresult JoinDecode(JS::OffThreadToken** aOffThreadToken);
 
-  nsresult JoinDecodeBinAST(JS::OffThreadToken** aOffThreadToken);
-
-  // Decode a BinAST encoded script contained in a buffer.
-  nsresult DecodeBinAST(JS::CompileOptions& aCompileOptions,
-                        const uint8_t* aBuf, size_t aLength);
-
   // Get a successfully compiled script.
   JSScript* GetScript();
 
@@ -150,7 +144,7 @@ class MOZ_STACK_CLASS JSExecutionContext final {
   JSScript* MaybeGetScript();
 
   // Execute the compiled script and ignore the return value.
-  MOZ_MUST_USE nsresult ExecScript();
+  [[nodiscard]] nsresult ExecScript();
 
   // Execute the compiled script a get the return value.
   //
@@ -163,7 +157,7 @@ class MOZ_STACK_CLASS JSExecutionContext final {
   // compartment given as argument to the JSExecutionContext constructor. If the
   // caller is in a different compartment, then the out-param value should be
   // wrapped by calling |JS_WrapValue|.
-  MOZ_MUST_USE nsresult ExecScript(JS::MutableHandle<JS::Value> aRetValue);
+  [[nodiscard]] nsresult ExecScript(JS::MutableHandle<JS::Value> aRetValue);
 };
 }  // namespace dom
 }  // namespace mozilla

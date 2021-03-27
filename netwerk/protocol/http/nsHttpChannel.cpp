@@ -55,13 +55,14 @@
 #include "nsThreadUtils.h"
 #include "GeckoProfiler.h"
 #include "nsIConsoleService.h"
+#include "mozilla/AntiTrackingRedirectHeuristic.h"
 #include "mozilla/AntiTrackingUtils.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/BasePrincipal.h"
 #include "mozilla/ContentBlocking.h"
 #include "mozilla/DebugOnly.h"
 #include "mozilla/Preferences.h"
-#include "mozilla/Services.h"
+#include "mozilla/Components.h"
 #include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/StaticPrefs_fission.h"
 #include "mozilla/StaticPrefs_network.h"
@@ -621,6 +622,43 @@ nsresult nsHttpChannel::MaybeUseHTTPSRRForUpgrade(bool aShouldUpgrade,
     return ContinueOnBeforeConnect(aShouldUpgrade, aStatus);
   }
 
+  auto shouldSkipUpgradeWithHTTPSRR = [&]() -> bool {
+    nsAutoCString uriHost;
+    mURI->GetAsciiHost(uriHost);
+
+    if (gHttpHandler->IsHostExcludedForHTTPSRR(uriHost)) {
+      return true;
+    }
+
+    nsCOMPtr<nsIPrincipal> triggeringPrincipal =
+        mLoadInfo->TriggeringPrincipal();
+    // If the security context that triggered the load is not https, then it's
+    // not a downgrade scenario.
+    if (!triggeringPrincipal->SchemeIs("https")) {
+      return false;
+    }
+
+    nsAutoCString triggeringHost;
+    triggeringPrincipal->GetAsciiHost(triggeringHost);
+
+    // If the initial request's host is not the same, we should upgrade this
+    // request.
+    if (!triggeringHost.Equals(uriHost)) {
+      return false;
+    }
+
+    // Add the host to a excluded list because:
+    // 1. We don't need to do the same check again.
+    // 2. Other subresources in the same host will be also excluded.
+    gHttpHandler->ExcludeHTTPSRRHost(uriHost);
+    return true;
+  };
+
+  if (shouldSkipUpgradeWithHTTPSRR()) {
+    StoreUseHTTPSSVC(false);
+    return ContinueOnBeforeConnect(aShouldUpgrade, aStatus);
+  }
+
   if (mHTTPSSVCRecord.isSome()) {
     LOG((
         "nsHttpChannel::MaybeUseHTTPSRRForUpgrade [%p] mHTTPSSVCRecord is some",
@@ -678,6 +716,7 @@ nsresult nsHttpChannel::ContinueOnBeforeConnect(bool aShouldUpgrade,
 
   if (LoadIsTRRServiceChannel()) {
     mCaps |= NS_HTTP_LARGE_KEEPALIVE;
+    mCaps |= NS_HTTP_DISALLOW_HTTPS_RR;
   }
 
   mCaps |= NS_HTTP_TRR_FLAGS_FROM_MODE(nsIRequest::GetTRRMode());
@@ -693,6 +732,8 @@ nsresult nsHttpChannel::ContinueOnBeforeConnect(bool aShouldUpgrade,
   mConnectionInfo->SetTRRMode(nsIRequest::GetTRRMode());
   mConnectionInfo->SetIPv4Disabled(mCaps & NS_HTTP_DISABLE_IPV4);
   mConnectionInfo->SetIPv6Disabled(mCaps & NS_HTTP_DISABLE_IPV6);
+  mConnectionInfo->SetAnonymousAllowClientCert(
+      (mLoadFlags & LOAD_ANONYMOUS_ALLOW_CLIENT_CERT) != 0);
 
   // notify "http-on-before-connect" observers
   gHttpHandler->OnBeforeConnect(this);
@@ -1213,6 +1254,10 @@ nsresult nsHttpChannel::SetupTransaction() {
   }
   if (LoadBeConservative()) {
     mCaps |= NS_HTTP_BE_CONSERVATIVE;
+  }
+
+  if (mLoadFlags & LOAD_ANONYMOUS_ALLOW_CLIENT_CERT) {
+    mCaps |= NS_HTTP_LOAD_ANONYMOUS_CONNECT_ALLOW_CLIENT_CERT;
   }
 
   // Use the URI path if not proxying (transparent proxying such as proxy
@@ -3682,7 +3727,7 @@ nsresult nsHttpChannel::OpenCacheEntryInternal(
   nsAutoCString cacheKey;
 
   nsCOMPtr<nsICacheStorageService> cacheStorageService(
-      services::GetCacheStorageService());
+      components::CacheStorage::Service());
   if (!cacheStorageService) {
     return NS_ERROR_NOT_AVAILABLE;
   }
@@ -4847,7 +4892,7 @@ nsresult nsHttpChannel::OpenCacheInputStream(nsICacheEntry* cacheEntry,
   nsCOMPtr<nsIInputStream> wrapper;
 
   nsCOMPtr<nsIStreamTransportService> sts(
-      services::GetStreamTransportService());
+      components::StreamTransport::Service());
   rv = sts ? NS_OK : NS_ERROR_NOT_AVAILABLE;
   if (NS_SUCCEEDED(rv)) {
     rv = sts->CreateInputTransport(stream, true, getter_AddRefs(transport));
@@ -5100,7 +5145,7 @@ void nsHttpChannel::MaybeCreateCacheEntryWhenRCWN() {
   LOG(("nsHttpChannel::MaybeCreateCacheEntryWhenRCWN [this=%p]", this));
 
   nsCOMPtr<nsICacheStorageService> cacheStorageService(
-      services::GetCacheStorageService());
+      components::CacheStorage::Service());
   if (!cacheStorageService) {
     return;
   }
@@ -6384,6 +6429,13 @@ nsresult nsHttpChannel::AsyncOpenFinal(TimeStamp aTimeStamp) {
   RefPtr<nsHttpChannel> self = this;
   bool willCallback = NS_SUCCEEDED(
       AsyncUrlChannelClassifier::CheckChannel(this, [self]() -> void {
+        nsCOMPtr<nsIURI> uri;
+        self->GetURI(getter_AddRefs(uri));
+        MOZ_ASSERT(uri);
+
+        // Finish the AntiTracking Heuristic before BeginConnect().
+        FinishAntiTrackingRedirectHeuristic(self, uri);
+
         nsresult rv = self->MaybeResolveProxyAndBeginConnect();
         if (NS_FAILED(rv)) {
           // Since this error is thrown asynchronously so that the caller
@@ -6549,11 +6601,6 @@ nsresult nsHttpChannel::BeginConnect() {
                       !(mCaps & NS_HTTP_BE_CONSERVATIVE) &&
                       !LoadBeConservative() && LoadAllowHttp3();
 
-  // No need to lookup HTTPSSVC record if mHTTPSSVCRecord already contains a
-  // value.
-  StoreUseHTTPSSVC(StaticPrefs::network_dns_upgrade_with_https_rr() &&
-                   mHTTPSSVCRecord.isNothing());
-
   RefPtr<AltSvcMapping> mapping;
   if (!mConnectionInfo && LoadAllowAltSvc() &&  // per channel
       (http2Allowed || http3Allowed) && !(mLoadFlags & LOAD_FRESH_CONNECTION) &&
@@ -6602,9 +6649,6 @@ nsresult nsHttpChannel::BeginConnect() {
                                originAttributes);
     Telemetry::Accumulate(Telemetry::HTTP_TRANSACTION_USE_ALTSVC, true);
     Telemetry::Accumulate(Telemetry::HTTP_TRANSACTION_USE_ALTSVC_OE, !isHttps);
-
-    // Don't use HTTPSSVC record if we found altsvc mapping.
-    StoreUseHTTPSSVC(false);
   } else if (mConnectionInfo) {
     LOG(("nsHttpChannel %p Using channel supplied connection info", this));
     Telemetry::Accumulate(Telemetry::HTTP_TRANSACTION_USE_ALTSVC, false);
@@ -6615,9 +6659,19 @@ nsresult nsHttpChannel::BeginConnect() {
     Telemetry::Accumulate(Telemetry::HTTP_TRANSACTION_USE_ALTSVC, false);
   }
 
-  if (mConnectionInfo->UsingConnect()) {
-    StoreUseHTTPSSVC(false);
+  bool httpsRRAllowed =
+      !LoadBeConservative() && !(mCaps & NS_HTTP_BE_CONSERVATIVE) &&
+      !(mLoadInfo->TriggeringPrincipal()->IsSystemPrincipal() &&
+        mLoadInfo->GetExternalContentPolicyType() !=
+            ExtContentPolicy::TYPE_DOCUMENT) &&
+      !mConnectionInfo->UsingConnect();
+  if (!httpsRRAllowed) {
+    mCaps |= NS_HTTP_DISALLOW_HTTPS_RR;
   }
+  // No need to lookup HTTPSSVC record if mHTTPSSVCRecord already contains a
+  // value.
+  StoreUseHTTPSSVC(StaticPrefs::network_dns_upgrade_with_https_rr() &&
+                   httpsRRAllowed && mHTTPSSVCRecord.isNothing());
 
   // Need to re-ask the handler, since mConnectionInfo may not be the connInfo
   // we used earlier
@@ -6737,8 +6791,8 @@ nsresult nsHttpChannel::MaybeStartDNSPrefetch() {
   bool httpssvcQueried = false;
   // If https rr is not queried sucessfully, we have to reset mUseHTTPSSVC to
   // false. Otherwise, this channel may wait https rr forever.
-  auto resetUsHTTPSSVC =
-      MakeScopeExit([&] { StoreUseHTTPSSVC(httpssvcQueried); });
+  auto resetUsHTTPSSVC = MakeScopeExit(
+      [&] { StoreUseHTTPSSVC(LoadUseHTTPSSVC() && httpssvcQueried); });
 
   // Start a DNS lookup very early in case the real open is queued the DNS can
   // happen in parallel. Do not do so in the presence of an HTTP proxy as
@@ -6792,7 +6846,7 @@ nsresult nsHttpChannel::MaybeStartDNSPrefetch() {
     // not "prefetch", since DNS prefetch can be disabled by the pref.
     if (LoadUseHTTPSSVC() ||
         (gHttpHandler->UseHTTPSRRForSpeculativeConnection() &&
-         !mHTTPSSVCRecord && !mConnectionInfo->UsingConnect())) {
+         !mHTTPSSVCRecord && !(mCaps & NS_HTTP_DISALLOW_HTTPS_RR))) {
       MOZ_ASSERT(!mHTTPSSVCRecord);
 
       OriginAttributes originAttributes;
@@ -7312,9 +7366,19 @@ nsHttpChannel::OnStartRequest(nsIRequest* request) {
         NS_SUCCEEDED(mStatus));
   }
 
-  if (gTRRService && gTRRService->IsConfirmed()) {
-    Telemetry::Accumulate(Telemetry::HTTP_CHANNEL_ONSTART_SUCCESS_TRR,
-                          TRRService::AutoDetectedKey(), NS_SUCCEEDED(mStatus));
+  if (StaticPrefs::network_trr_odoh_enabled()) {
+    nsCOMPtr<nsIDNSService> dns = do_GetService(NS_DNSSERVICE_CONTRACTID);
+    bool ODoHActivated = false;
+    if (dns && NS_SUCCEEDED(dns->GetODoHActivated(&ODoHActivated)) &&
+        ODoHActivated) {
+      Telemetry::Accumulate(Telemetry::HTTP_CHANNEL_ONSTART_SUCCESS_ODOH,
+                            NS_SUCCEEDED(mStatus));
+    }
+  } else if (gTRRService && gTRRService->IsConfirmed()) {
+    // Note this telemetry probe is not working when DNS resolution is done in
+    // the socket process.
+    Telemetry::Accumulate(Telemetry::HTTP_CHANNEL_ONSTART_SUCCESS_TRR2,
+                          TRRService::ProviderKey(), NS_SUCCEEDED(mStatus));
   }
 
   if (mRaceCacheWithNetwork) {
@@ -7402,6 +7466,7 @@ nsHttpChannel::OnStartRequest(nsIRequest* request) {
           Telemetry::HTTP_CHANNEL_ONSTART_SUCCESS_HTTPS_RR,
           LoadEchConfigUsed() ? "echConfig-used"_ns : "echConfig-not-used"_ns,
           NS_SUCCEEDED(mStatus));
+      StoreHasHTTPSRR(true);
     }
   }
 
@@ -8052,16 +8117,18 @@ nsresult nsHttpChannel::ContinueOnStopRequest(nsresult aStatus, bool aIsFromNet,
     int32_t priority = PRIORITY_NORMAL;
     GetPriority(&priority);
 
+    uint64_t size = 0;
+    GetEncodedBodySize(&size);
+
     nsAutoCString contentType;
     if (mResponseHead) {
       mResponseHead->ContentType(contentType);
     }
     profiler_add_network_marker(
         uri, requestMethod, priority, mChannelId, NetworkLoadType::LOAD_STOP,
-        mLastStatusReported, TimeStamp::Now(), mLogicalOffset,
-        mCacheDisposition, mLoadInfo->GetInnerWindowID(), &mTransactionTimings,
-        nullptr, std::move(mSource),
-        Some(nsDependentCString(contentType.get())));
+        mLastStatusReported, TimeStamp::Now(), size, mCacheDisposition,
+        mLoadInfo->GetInnerWindowID(), &mTransactionTimings, nullptr,
+        std::move(mSource), Some(nsDependentCString(contentType.get())));
   }
 #endif
 
@@ -8745,7 +8812,6 @@ nsresult nsHttpChannel::ContinueDoAuthRetry(
     const std::function<nsresult(nsHttpChannel*, nsresult)>&
         aContinueOnStopRequestFunc) {
   LOG(("nsHttpChannel::ContinueDoAuthRetry [this=%p]\n", this));
-
   StoreIsPending(true);
 
   // get rid of the old response headers
@@ -8754,9 +8820,16 @@ nsresult nsHttpChannel::ContinueDoAuthRetry(
   // rewind the upload stream
   if (mUploadStream) {
     nsCOMPtr<nsISeekableStream> seekable = do_QueryInterface(mUploadStream);
+    nsresult rv = NS_ERROR_NO_INTERFACE;
     if (seekable) {
-      seekable->Seek(nsISeekableStream::NS_SEEK_SET, 0);
+      rv = seekable->Seek(nsISeekableStream::NS_SEEK_SET, 0);
     }
+
+    // This should not normally happen, but it's possible that big memory
+    // blobs originating in the other process can't be rewinded.
+    // In that case we just fail the request, otherwise the content length
+    // will not match and this load will never complete.
+    NS_ENSURE_SUCCESS(rv, rv);
   }
 
   // always set sticky connection flag
@@ -9128,7 +9201,7 @@ void nsHttpChannel::DoInvalidateCacheEntry(nsIURI* aURI) {
   LOG(("DoInvalidateCacheEntry [channel=%p key=%s]", this, key.get()));
 
   nsCOMPtr<nsICacheStorageService> cacheStorageService(
-      services::GetCacheStorageService());
+      components::CacheStorage::Service());
   rv = cacheStorageService ? NS_OK : NS_ERROR_FAILURE;
 
   nsCOMPtr<nsICacheStorage> cacheStorage;
@@ -9336,34 +9409,16 @@ void nsHttpChannel::SetOriginHeader() {
   if (mRequestHead.IsGet() || mRequestHead.IsHead()) {
     return;
   }
-  if (mLoadInfo->TriggeringPrincipal()->IsSystemPrincipal()) {
-    // Do not set origin header for system principal contexts:
-    return;
-  }
   nsresult rv;
 
   nsAutoCString existingHeader;
   Unused << mRequestHead.GetHeader(nsHttp::Origin, existingHeader);
   if (!existingHeader.IsEmpty()) {
     LOG(("nsHttpChannel::SetOriginHeader Origin header already present"));
-    // In case we already have an Origin header, check with referrerInfo
-    // if we should "null" it.
-    Unused << mRequestHead.GetHeader(nsHttp::Origin, existingHeader);
-    auto const shouldNullifyOriginHeader =
-        [&existingHeader](nsHttpChannel* self) {
-          if (self->LoadTaintedOriginFlag()) {
-            return true;
-          }
-
-          nsCOMPtr<nsIURI> uri;
-          nsresult rv = NS_NewURI(getter_AddRefs(uri), existingHeader);
-          if (NS_FAILED(rv)) {
-            return false;
-          }
-          return ReferrerInfo::ShouldSetNullOriginHeader(self, uri);
-        };
-
-    if (shouldNullifyOriginHeader(this)) {
+    nsCOMPtr<nsIURI> uri;
+    rv = NS_NewURI(getter_AddRefs(uri), existingHeader);
+    if (NS_SUCCEEDED(rv) &&
+        ReferrerInfo::ShouldSetNullOriginHeader(this, uri)) {
       LOG(("nsHttpChannel::SetOriginHeader null Origin by Referrer-Policy"));
       rv = mRequestHead.SetHeader(nsHttp::Origin, "null"_ns, false /* merge */);
       MOZ_ASSERT(NS_SUCCEEDED(rv));
@@ -9371,30 +9426,33 @@ void nsHttpChannel::SetOriginHeader() {
     return;
   }
 
+  if (StaticPrefs::network_http_sendOriginHeader() == 0) {
+    // Origin header suppressed by user setting
+    return;
+  }
+
   nsCOMPtr<nsIURI> referrer;
   auto* basePrin = BasePrincipal::Cast(mLoadInfo->TriggeringPrincipal());
-  rv = basePrin->GetURI(getter_AddRefs(referrer));
-  if (NS_FAILED(rv)) {
+  basePrin->GetURI(getter_AddRefs(referrer));
+  if (!referrer || !dom::ReferrerInfo::IsReferrerSchemeAllowed(referrer)) {
     return;
   }
 
   nsAutoCString origin("null");
+  nsContentUtils::GetASCIIOrigin(referrer, origin);
 
-  if (StaticPrefs::network_http_sendOriginHeader() != 0 && referrer &&
-      ReferrerInfo::IsReferrerSchemeAllowed(referrer) &&
-      !ReferrerInfo::ShouldSetNullOriginHeader(this, referrer) &&
-      !LoadTaintedOriginFlag()) {
-    nsContentUtils::GetASCIIOrigin(referrer, origin);
-
-    // Restrict Origin to same-origin loads if requested by user
-    if (StaticPrefs::network_http_sendOriginHeader() == 1) {
-      nsAutoCString currentOrigin;
-      nsContentUtils::GetASCIIOrigin(mURI, currentOrigin);
-      if (!origin.EqualsIgnoreCase(currentOrigin.get())) {
-        // Origin header suppressed by user setting
-        origin.AssignLiteral("null");
-      }
+  // Restrict Origin to same-origin loads if requested by user
+  if (StaticPrefs::network_http_sendOriginHeader() == 1) {
+    nsAutoCString currentOrigin;
+    nsContentUtils::GetASCIIOrigin(mURI, currentOrigin);
+    if (!origin.EqualsIgnoreCase(currentOrigin.get())) {
+      // Origin header suppressed by user setting
+      return;
     }
+  }
+
+  if (ReferrerInfo::ShouldSetNullOriginHeader(this, referrer)) {
+    origin.AssignLiteral("null");
   }
 
   rv = mRequestHead.SetHeader(nsHttp::Origin, origin, false /* merge */);
@@ -10016,8 +10074,7 @@ void nsHttpChannel::ReEvaluateReferrerAfterTrackingStatusIsKnown() {
               ReferrerInfo::GetDefaultReferrerPolicy(nullptr, nullptr,
                                                      isPrivate)) {
         nsCOMPtr<nsIReferrerInfo> newReferrerInfo =
-            referrerInfo->CloneWithNewPolicy(
-                ReferrerInfo::GetDefaultReferrerPolicy(this, mURI, isPrivate));
+            referrerInfo->CloneWithNewPolicy(ReferrerPolicy::_empty);
         // The arguments passed to SetReferrerInfoInternal here should mirror
         // the arguments passed in
         // HttpChannelChild::RecvOverrideReferrerInfoDuringBeginConnect().

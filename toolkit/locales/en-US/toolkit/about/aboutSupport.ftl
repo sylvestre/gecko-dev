@@ -127,12 +127,12 @@ sandbox-sys-call-tid = TID
 sandbox-sys-call-proc-type = Process Type
 sandbox-sys-call-number = Syscall
 sandbox-sys-call-args = Arguments
-safe-mode-title = Try Safe Mode
-restart-in-safe-mode-label = Restart with Add-ons Disabled…
+troubleshoot-mode-title = Diagnose issues
+restart-in-troubleshoot-mode-label = Troubleshoot Mode…
 clear-startup-cache-title = Try clearing the startup cache
 clear-startup-cache-label = Clear startup cache…
-startup-cache-dialog-title = Clear startup cache
-startup-cache-dialog-body = Restart { -brand-short-name } to clear startup cache. This will not change your settings or remove extensions you’ve added to { -brand-short-name }.
+startup-cache-dialog-title2 = Restart { -brand-short-name } to clear startup cache?
+startup-cache-dialog-body2 = This will not change your settings or remove extensions.
 restart-button-label = Restart
 
 ## Media titles
@@ -156,6 +156,7 @@ media-device-latency = Latency
 media-capabilities-title = Media Capabilities
 # List all the entries of the database.
 media-capabilities-enumerate = Enumerate database
+
 ##
 
 intl-title = Internationalization & Localization
@@ -180,6 +181,7 @@ intl-regional-prefs = Regional Preferences
 remote-debugging-title = Remote Debugging (Chromium Protocol)
 remote-debugging-accepting-connections = Accepting Connections
 remote-debugging-url = URL
+
 ##
 
 support-third-party-modules-title = Third-Party Modules
@@ -257,6 +259,7 @@ raw-data-copied = Raw data copied to clipboard
 text-copied = Text copied to clipboard
 
 ## The verb "blocked" here refers to a graphics feature such as "Direct2D" or "OpenGL layers".
+
 blocked-driver = Blocked for your graphics driver version.
 blocked-gfx-card = Blocked for your graphics card because of unresolved driver issues.
 blocked-os-version = Blocked for your operating system version.
@@ -280,6 +283,7 @@ virtual-monitor-disp = Virtual Monitor Display
 ## The following strings indicate if an API key has been found.
 ## In some development versions, it's expected for some API keys that they are
 ## not found.
+
 found = Found
 missing = Missing
 
@@ -385,10 +389,12 @@ zooming-enabled = smooth pinch-zoom enabled
 
 ## Variables
 ## $preferenceKey (string) - String ID of preference
+
 wheel-warning = async wheel input disabled due to unsupported pref: { $preferenceKey }
 touch-warning = async touch input disabled due to unsupported pref: { $preferenceKey }
 
 ## Strings representing the status of the Enterprise Policies engine.
+
 policies-inactive = Inactive
 policies-active = Active
 policies-error = Error
@@ -401,3 +407,14 @@ support-printing-clear-settings-button = Clear saved print settings
 support-printing-modified-settings = Modified print settings
 support-printing-prefs-name = Name
 support-printing-prefs-value = Value
+
+## Normandy sections
+
+support-remote-experiments-title = Remote Experiments
+support-remote-experiments-name = Name
+support-remote-experiments-branch = Experiment Branch
+support-remote-experiments-see-about-studies = See <a data-l10n-name="support-about-studies-link">about:studies</a> for more information, including how to disable individual experiments or to disable { -brand-short-name } from running this type of experiment in the future.
+
+support-remote-features-title = Remote Features
+support-remote-features-name = Name
+support-remote-features-status = Status

@@ -6,6 +6,7 @@
 #ifndef __nsLookAndFeel
 #define __nsLookAndFeel
 
+#include <bitset>
 #include <windows.h>
 
 #include "nsXPLookAndFeel.h"
@@ -62,6 +63,12 @@ class nsLookAndFeel final : public nsXPLookAndFeel {
   void SetCacheImpl(const LookAndFeelCache& aCache) override;
 
  private:
+  enum CachedValueKind {
+    PrimaryPointerCapabilitiesKind,
+    AllPointerCapabilitiesKind,
+    CachedValueKindMax = AllPointerCapabilitiesKind,
+  };
+
   void DoSetCache(const LookAndFeelCache& aCache);
 
   /**
@@ -95,6 +102,15 @@ class nsLookAndFeel final : public nsXPLookAndFeel {
   int32_t mUseAccessibilityTheme;
   int32_t mUseDefaultTheme;  // is the current theme a known default?
   int32_t mNativeThemeId;    // see LookAndFeel enum 'WindowsTheme'
+
+  // Information about whether pointers exist, and whether they are fine
+  // (like a mouse) or coarse (like a VR peripheral), and whether they
+  // support the concept of "hovering" over something
+  //
+  // See the CSS "@media pointer" query for more info
+  int32_t mPrimaryPointerCapabilities;
+  int32_t mAllPointerCapabilities;
+
   int32_t mCaretBlinkTime;
 
   // Cached colors and flags indicating success in their retrieval.
@@ -124,15 +140,19 @@ class nsLookAndFeel final : public nsXPLookAndFeel {
     gfxFontStyle mFontStyle;
   };
 
-  mozilla::RangedArray<CachedSystemFont, size_t(FontID::MINIMUM),
-                       size_t(FontID::MAXIMUM) + 1 - size_t(FontID::MINIMUM)>
+  mozilla::EnumeratedArray<FontID, FontID::End, CachedSystemFont>
       mSystemFontCache;
 
-  mozilla::RangedArray<LookAndFeelFont, size_t(FontID::MINIMUM),
-                       size_t(FontID::MAXIMUM) + 1 - size_t(FontID::MINIMUM)>
-      mFontCache;
+  using FontCache =
+      mozilla::EnumeratedArray<FontID, FontID::End, LookAndFeelFont>;
+  FontCache mFontCache;
 
   nsCOMPtr<nsIWindowsRegKey> mDwmKey;
+
+  // A bitmap of which cached values are currently valid (ignored in content
+  // process, since all cached values in content may only be updated from
+  // one valid value to another, otherwise layout will not function properly)
+  std::bitset<CachedValueKindMax + 1> mCacheValidBits;
 };
 
 #endif

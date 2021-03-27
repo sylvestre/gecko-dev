@@ -19,6 +19,7 @@
 #include "mozilla/AlreadyAddRefed.h"
 #include "mozilla/Assertions.h"
 #include "mozilla/Attributes.h"
+#include "mozilla/LinkedList.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/dom/BrowsingContext.h"
 #include "mozilla/dom/Nullable.h"
@@ -71,6 +72,8 @@ class MutableTabContext;
 class BrowserBridgeChild;
 class RemoteBrowser;
 struct RemotenessOptions;
+struct RemotenessChangeOptions;
+class SessionStoreChangeListener;
 
 namespace ipc {
 class StructuredCloneData;
@@ -97,7 +100,8 @@ typedef struct _GtkWidget GtkWidget;
 
 class nsFrameLoader final : public nsStubMutationObserver,
                             public mozilla::dom::ipc::MessageManagerCallback,
-                            public nsWrapperCache {
+                            public nsWrapperCache,
+                            public mozilla::LinkedListElement<nsFrameLoader> {
   friend class AutoResetInShow;
   friend class AutoResetInFrameSwap;
   friend class nsFrameLoaderOwner;
@@ -119,6 +123,7 @@ class nsFrameLoader final : public nsStubMutationObserver,
   // FrameLoaders.
   static already_AddRefed<nsFrameLoader> Recreate(
       Element* aOwner, BrowsingContext* aContext, BrowsingContextGroup* aGroup,
+      const mozilla::dom::RemotenessChangeOptions& aRemotenessOptions,
       bool aIsRemote, bool aNetworkCreated, bool aPreserveContext);
 
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_FRAMELOADER_IID)
@@ -218,7 +223,7 @@ class nsFrameLoader final : public nsStubMutationObserver,
 
   void RequestUpdatePosition(mozilla::ErrorResult& aRv);
 
-  bool RequestTabStateFlush(uint32_t aFlushId, bool aIsFinal = false);
+  already_AddRefed<Promise> RequestTabStateFlush(mozilla::ErrorResult& aRv);
 
   void RequestEpochUpdate(uint32_t aEpoch);
 
@@ -489,6 +494,8 @@ class nsFrameLoader final : public nsStubMutationObserver,
   // browsing context for a newly opened tab/window is ready.
   void InvokeBrowsingContextReadyCallback();
 
+  void RequestTabStateFlush();
+
   RefPtr<mozilla::dom::BrowsingContext> mPendingBrowsingContext;
   nsCOMPtr<nsIURI> mURIToLoad;
   nsCOMPtr<nsIPrincipal> mTriggeringPrincipal;
@@ -524,6 +531,8 @@ class nsFrameLoader final : public nsStubMutationObserver,
   mozilla::ScreenIntSize mLazySize;
 
   RefPtr<mozilla::dom::TabListener> mSessionStoreListener;
+
+  RefPtr<mozilla::dom::SessionStoreChangeListener> mSessionStoreChangeListener;
 
   nsCString mRemoteType;
 

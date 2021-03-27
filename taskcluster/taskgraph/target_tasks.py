@@ -747,50 +747,6 @@ def target_tasks_ship_geckoview(full_task_graph, parameters, graph_config):
     return [l for l, t in six.iteritems(full_task_graph.tasks) if filter(t)]
 
 
-@_target_task("fennec_v68")
-def target_tasks_fennec_v68(full_task_graph, parameters, graph_config):
-    """
-    Select tasks required for running weekly fennec v68 tests
-    """
-
-    def filter(task):
-        test_platform = task.attributes.get("test_platform")
-        try_name = task.attributes.get("raptor_try_name")
-
-        vismet = task.attributes.get("kind") == "visual-metrics-dep"
-        if vismet:
-            test_platform = task.task.get("extra").get("treeherder-platform")
-            try_name = task.label
-
-        if task.attributes.get("unittest_suite") != "raptor" and not vismet:
-            return False
-        if not accept_raptor_android_build(test_platform):
-            return False
-        if "-wr" not in try_name:
-            return False
-
-        if "-fennec" in try_name:
-            if "-power" in try_name:
-                return True
-            if "browsertime" in try_name:
-                if "tp6m" in try_name:
-                    return True
-                elif "speedometer" in try_name:
-                    return True
-                else:
-                    return False
-            if "-youtube-playback" in try_name:
-                # Bug 1627898: VP9 tests don't work on G5
-                if "-g5-" in test_platform and "-vp9-" in try_name:
-                    return False
-                # Bug 1639193: AV1 tests are currently broken
-                if "-av1-" in try_name:
-                    return False
-            return True
-
-    return [l for l, t in six.iteritems(full_task_graph.tasks) if filter(t)]
-
-
 @_target_task("live_site_perf_testing")
 def target_tasks_live_site_perf_testing(full_task_graph, parameters, graph_config):
     """
@@ -798,31 +754,41 @@ def target_tasks_live_site_perf_testing(full_task_graph, parameters, graph_confi
     """
 
     def filter(task):
-        platform = task.attributes.get("build_platform")
         attributes = task.attributes
-        vismet = attributes.get("kind") == "visual-metrics-dep"
-        if attributes.get("unittest_suite") != "raptor" and not vismet:
-            return False
+        platform = attributes.get("test_platform")
         try_name = attributes.get("raptor_try_name")
+
+        vismet = attributes.get("kind") == "visual-metrics-dep"
         if vismet:
             platform = task.task.get("extra").get("treeherder-platform")
             try_name = task.label
 
-        if not accept_raptor_android_build(platform):
+        if attributes.get("unittest_suite") != "raptor" and not vismet:
             return False
-        if "-wr" not in try_name:
+        elif "live" not in try_name:
             return False
-        if "fenix" not in try_name:
+        elif "browsertime" not in try_name:
             return False
-        if "browsertime" not in try_name:
+        elif "shippable" not in platform:
             return False
-        if "live" not in try_name:
-            return False
-        for test in LIVE_SITES:
-            if try_name.endswith(test + "-wr") or try_name.endswith(test + "-wr-e10s"):
-                # These tests run 3 times a week, ignore them
+
+        # android
+        if "android" in platform:
+            if not accept_raptor_android_build(platform):
+                return False
+            elif "-wr" not in try_name:
+                return False
+            elif "fenix" not in try_name:
                 return False
 
+        # desktop
+        if "windows7" in platform:
+            return False
+
+        for test in LIVE_SITES:
+            if re.search(test + r"(-fis|-wr)?$", try_name):
+                # These tests run 3 times a week, ignore them
+                return False
         return True
 
     return [l for l, t in six.iteritems(full_task_graph.tasks) if filter(t)]
@@ -870,13 +836,9 @@ def target_tasks_general_perf_testing(full_task_graph, parameters, graph_config)
             # Select some browsertime tasks as desktop smoke-tests
             if "browsertime" in try_name:
                 if "chrome" in try_name:
-                    if "linux" in platform or "macos" in platform:
-                        return True
-                    return False
+                    return True
                 if "chromium" in try_name:
-                    if "linux" in platform or "macos" in platform:
-                        return True
-                    return False
+                    return True
                 if "-fis" in try_name:
                     return False
                 if "-wr" in try_name:
@@ -884,14 +846,15 @@ def target_tasks_general_perf_testing(full_task_graph, parameters, graph_config)
                 if "linux" in platform:
                     if "speedometer" in try_name:
                         return True
-            else:
-                # Run tests on all chrome variants
-                if ("linux" in platform or "macos" in platform) and "tp6" in try_name:
-                    return False
+                # Run browsertime benchmark tests on chrome/chromium
                 if "-chrome" in try_name:
                     return True
                 if "-chromium" in try_name:
                     return True
+            else:
+                # Don't run tp6 raptor tests
+                if "tp6" in try_name:
+                    return False
         # Android selection
         elif accept_raptor_android_build(platform):
             # Ignore all fennec tests here, we run those weekly
@@ -1065,6 +1028,13 @@ def target_tasks_searchfox(full_task_graph, parameters, graph_config):
 def target_tasks_coverity_full(full_task_graph, parameters, graph_config):
     """Select tasks required to run Coverity Static Analysis"""
     return ["source-test-coverity-coverity-full-analysis"]
+
+
+# Run Updatebot's cron job 4 times daily.
+@_target_task("updatebot_cron")
+def target_tasks_updatebot_cron(full_task_graph, parameters, graph_config):
+    """Select tasks required to run Updatebot's cron job"""
+    return ["updatebot-cron"]
 
 
 @_target_task("customv8_update")
@@ -1261,35 +1231,6 @@ def target_tasks_raptor_tp6m(full_task_graph, parameters, graph_config):
                 and "fenix" in try_name
             ):
                 return True
-
-    return [l for l, t in six.iteritems(full_task_graph.tasks) if filter(t)]
-
-
-@_target_task("raptor_tp6_windows10_64_ref_hw_2017")
-def target_tasks_raptor_tp6_windows10_64_ref_hw_2017(
-    full_task_graph, parameters, graph_config
-):
-    """
-    Select tasks required for running raptor cold tests on raptor_tp6_windows10_64_ref_hw_2017
-    """
-
-    def filter(task):
-        platform = task.attributes.get("test_platform")
-        attributes = task.attributes
-
-        if attributes.get("unittest_suite") != "raptor":
-            return False
-
-        if "windows10-64-ref-hw-2017/opt" not in platform:
-            return False
-
-        try_name = attributes.get("raptor_try_name")
-        if "raptor" in try_name:
-            if "-tp6" in try_name:
-                if "-cold" in try_name:
-                    return True
-                return False
-            return True
 
     return [l for l, t in six.iteritems(full_task_graph.tasks) if filter(t)]
 

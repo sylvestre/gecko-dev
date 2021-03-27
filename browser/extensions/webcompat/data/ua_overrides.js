@@ -227,26 +227,6 @@ const AVAILABLE_UA_OVERRIDES = [
   },
   {
     /*
-     * Bug 1509831 - cc.com - Add UA override for CC.com
-     * WebCompat issue #329 - https://webcompat.com/issues/329
-     *
-     * ComedyCentral blocks Firefox for not being able to play HLS, which was
-     * true in previous versions, but no longer is. With a spoofed Chrome UA,
-     * the site works just fine.
-     */
-    id: "bug1509831",
-    platform: "android",
-    domain: "cc.com",
-    bug: "1509831",
-    config: {
-      matches: ["*://*.cc.com/*"],
-      uaTransformer: _ => {
-        return "Mozilla/5.0 (Linux; Android 6.0.1; SM-G920F Build/MMB29K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.91 Mobile Safari/537.36";
-      },
-    },
-  },
-  {
-    /*
      * Bug 1509873 - zmags.com - Add UA override for secure.viewer.zmags.com
      * WebCompat issue #21576 - https://webcompat.com/issues/21576
      *
@@ -473,18 +453,19 @@ const AVAILABLE_UA_OVERRIDES = [
   },
   {
     /*
-     * Bug 1622081 - UA override for m2.bmo.com
+     * Bug 1697324 - Update the override for mobile2.bmo.com
+     * Previously Bug 1622081 - UA override for mobile2.bmo.com
      * Webcompat issue #45019 - https://webcompat.com/issues/45019
      *
-     * Unless the UA string contains "Chrome", m2.bmo.com will
+     * Unless the UA string contains "Chrome", mobile2.bmo.com will
      * display a modal saying the browser is out-of-date.
      */
-    id: "bug1622081",
+    id: "bug1697324",
     platform: "android",
-    domain: "m2.bmo.com",
-    bug: "1622081",
+    domain: "mobile2.bmo.com",
+    bug: "1697324",
     config: {
-      matches: ["*://m2.bmo.com/*"],
+      matches: ["*://mobile2.bmo.com/*"],
       uaTransformer: originalUA => {
         return originalUA + " Chrome";
       },
@@ -505,26 +486,6 @@ const AVAILABLE_UA_OVERRIDES = [
     bug: "1628455",
     config: {
       matches: ["https://*.autotrader.ca/*"],
-      uaTransformer: () => {
-        return UAHelpers.getDeviceAppropriateChromeUA();
-      },
-    },
-  },
-  {
-    /*
-     * Bug 1630280 - UA override for dominos.ch
-     * Webcompat issue #48273 - https://webcompat.com/issues/48273
-     *
-     * dominos.ch is suggesting downloading their native app and showing
-     * an overlay that can't be removed in Firefox for Android. Spoofing
-     * as Chrome allows to continue to the site
-     */
-    id: "bug1630280",
-    platform: "android",
-    domain: "dominos.ch",
-    bug: "1630280",
-    config: {
-      matches: ["https://*.dominos.ch/*"],
       uaTransformer: () => {
         return UAHelpers.getDeviceAppropriateChromeUA();
       },
@@ -652,6 +613,28 @@ const AVAILABLE_UA_OVERRIDES = [
       matches: ["*://*.vh1.com/*"],
       uaTransformer: () => {
         return UAHelpers.getDeviceAppropriateChromeUA();
+      },
+    },
+  },
+  {
+    /*
+     * Bug 1693827 - Add UA override for www.spectrum.net/voice/
+     * Webcompat issue https://bugzilla.mozilla.org/show_bug.cgi?id=1546167
+     *
+     * The site is not allowing Firefox users to download
+     * voice messages based on UA detection. Chrome UA is required.
+     */
+    id: "bug1693827",
+    platform: "desktop",
+    domain: "spectrum.net",
+    bug: "1693827",
+    config: {
+      matches: ["*://*.spectrum.net/voice/*"],
+      uaTransformer: originalUA => {
+        return (
+          UAHelpers.getPrefix(originalUA) +
+          " AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.90 Safari/537.36"
+        );
       },
     },
   },

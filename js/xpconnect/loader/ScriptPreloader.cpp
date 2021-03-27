@@ -5,6 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "ScriptPreloader-inl.h"
+#include "mozilla/Monitor.h"
 #include "mozilla/ScriptPreloader.h"
 #include "mozilla/loader/ScriptCacheActors.h"
 
@@ -25,6 +26,7 @@
 #include "mozilla/dom/Document.h"
 
 #include "js/CompileOptions.h"  // JS::ReadOnlyCompileOptions
+#include "js/Transcoding.h"
 #include "MainThreadUtils.h"
 #include "nsDebug.h"
 #include "nsDirectoryServiceUtils.h"
@@ -208,7 +210,7 @@ static void TraceOp(JSTracer* trc, void* data) {
 }  // anonymous namespace
 
 void ScriptPreloader::Trace(JSTracer* trc) {
-  for (auto& script : IterHash(mScripts)) {
+  for (const auto& script : mScripts.Values()) {
     script->mScript.Trace(trc);
   }
 }
@@ -282,9 +284,7 @@ void ScriptPreloader::InvalidateCache() {
     MOZ_ASSERT(mParsingSources.empty());
     MOZ_ASSERT(mPendingScripts.isEmpty());
 
-    for (auto& script : IterHash(mScripts)) {
-      script.Remove();
-    }
+    mScripts.Clear();
 
     // If we've already finished saving the cache at this point, start a new
     // delayed save operation. This will write out an empty cache file in place
@@ -570,8 +570,8 @@ Result<Ok, nsresult> ScriptPreloader::InitCacheInternal(
         script->mReadyToExecute = true;
       }
 
-      mScripts.Put(script->mCachePath, script.get());
-      Unused << script.release();
+      const auto& cachePath = script->mCachePath;
+      mScripts.InsertOrUpdate(cachePath, std::move(script));
     }
 
     if (buf.error()) {
@@ -794,7 +794,7 @@ void ScriptPreloader::NoteScript(const nsCString& url,
   }
 
   auto script =
-      mScripts.LookupOrAdd(cachePath, *this, url, cachePath, jsscript);
+      mScripts.GetOrInsertNew(cachePath, *this, url, cachePath, jsscript);
   if (isRunOnce) {
     script->mIsRunOnce = true;
   }
@@ -823,7 +823,8 @@ void ScriptPreloader::NoteScript(const nsCString& url,
     return;
   }
 
-  auto script = mScripts.LookupOrAdd(cachePath, *this, url, cachePath, nullptr);
+  auto script =
+      mScripts.GetOrInsertNew(cachePath, *this, url, cachePath, nullptr);
 
   if (!script->HasRange()) {
     MOZ_ASSERT(!script->HasArray());
@@ -1167,7 +1168,7 @@ bool ScriptPreloader::CachedScript::XDREncode(JSContext* cx) {
   mXDRData.construct<JS::TranscodeBuffer>();
 
   JS::TranscodeResult code = JS::EncodeScript(cx, Buffer(), jsscript);
-  if (code == JS::TranscodeResult_Ok) {
+  if (code == JS::TranscodeResult::Ok) {
     mXDRRange.emplace(Buffer().begin(), Buffer().length());
     mSize = Range().length();
     return true;
@@ -1205,7 +1206,19 @@ JSScript* ScriptPreloader::CachedScript::GetJSScript(
   LOG(Info, "Decoding script %s on main thread...\n", mURL.get());
 
   JS::RootedScript script(cx);
-  if (JS::DecodeScript(cx, options, Range(), &script)) {
+  if (JS::DecodeScript(cx, options, Range(), &script) ==
+      JS::TranscodeResult::Ok) {
+    // Lock the monitor here to avoid data races on mScript
+    // from other threads like the cache writing thread.
+    //
+    // It is possible that we could end up decoding the same
+    // script twice, because DecodeScript isn't being guarded
+    // by the monitor; however, to encourage off-thread decode
+    // to proceed for other scripts we don't hold the monitor
+    // while doing main thread decode, merely while updating
+    // mScript.
+    mCache.mMonitor.AssertNotCurrentThreadOwns();
+    MonitorAutoLock mal(mCache.mMonitor);
     mScript.Set(script);
 
     if (mCache.mSaveComplete) {

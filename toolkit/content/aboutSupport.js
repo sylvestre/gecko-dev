@@ -1202,9 +1202,8 @@ var snapshotFormatters = {
 
     const iconUp = "chrome://global/skin/icons/arrow-up-12.svg";
     const iconDown = "chrome://global/skin/icons/arrow-dropdown-12.svg";
-    const iconFolder = "chrome://global/skin/icons/findFile.svg";
-    const iconUnsigned =
-      "chrome://global/skin/icons/connection-mixed-active-loaded.svg";
+    const iconFolder = "chrome://global/skin/icons/folder.svg";
+    const iconUnsigned = "chrome://global/skin/icons/security-broken.svg";
     const outerTHead = $("third-party-modules-thead");
     const outerTBody = $("third-party-modules-tbody");
 
@@ -1359,6 +1358,35 @@ var snapshotFormatters = {
       );
       outerTBody.appendChild(detailRow);
     }
+  },
+
+  normandy(data) {
+    if (!data) {
+      return;
+    }
+
+    const { prefStudies, addonStudies, prefRollouts } = data;
+    $.append(
+      $("remote-features-tbody"),
+      prefRollouts.map(({ slug, state }) =>
+        $.new("tr", [
+          $.new("td", [document.createTextNode(slug)]),
+          $.new("td", [document.createTextNode(state)]),
+        ])
+      )
+    );
+
+    $.append(
+      $("remote-experiments-tbody"),
+      [addonStudies, prefStudies]
+        .flat()
+        .map(({ userFacingName, branch }) =>
+          $.new("tr", [
+            $.new("td", [document.createTextNode(userFacingName)]),
+            $.new("td", [document.createTextNode(branch)]),
+          ])
+        )
+    );
   },
 };
 
@@ -1771,8 +1799,8 @@ function setupEventListeners() {
         promptBody,
         restartButtonLabel,
       ] = await document.l10n.formatValues([
-        { id: "startup-cache-dialog-title" },
-        { id: "startup-cache-dialog-body" },
+        { id: "startup-cache-dialog-title2" },
+        { id: "startup-cache-dialog-body2" },
         { id: "restart-button-label" },
       ]);
       const buttonFlags =
@@ -1780,7 +1808,7 @@ function setupEventListeners() {
         Services.prompt.BUTTON_POS_1 * Services.prompt.BUTTON_TITLE_CANCEL +
         Services.prompt.BUTTON_POS_0_DEFAULT;
       const result = Services.prompt.confirmEx(
-        window,
+        window.docShell.chromeEventHandler.ownerGlobal,
         promptTitle,
         promptBody,
         buttonFlags,

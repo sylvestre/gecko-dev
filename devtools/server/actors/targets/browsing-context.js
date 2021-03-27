@@ -14,8 +14,7 @@
  * BrowsingContextTargetActor is an abstract class used by target actors that hold
  * documents, such as frames, chrome windows, etc.
  *
- * This class is extended by FrameTargetActor, ParentProcessTargetActor, and
- * ChromeWindowTargetActor.
+ * This class is extended by FrameTargetActor, ParentProcessTargetActor.
  *
  * See devtools/docs/backend/actor-hierarchy.md for more details.
  *
@@ -237,22 +236,40 @@ const browsingContextTargetPrototype = {
    *
    * @param connection DevToolsServerConnection
    *        The conection to the client.
-   * @param docShell nsIDocShell
-   *        The |docShell| for the debugged frame.
    * @param options Object
    *        Object with following attributes:
+   *        - docShell nsIDocShell
+   *          The |docShell| for the debugged frame.
+   *        - doNotFireFrameUpdates Boolean
+   *          If true, omit emitting `frameUpdate` events. This is only useful
+   *          for the top level target, in order to populate the toolbox iframe selector dropdown.
+   *          But we can avoid sending these RDP messages for any additional remote target.
    *        - followWindowGlobalLifeCycle Boolean
    *          If true, the target actor will only inspect the current WindowGlobal (and its children windows).
    *          But won't inspect next document loaded in the same BrowsingContext.
    *          The actor will behave more like a WindowGlobalTarget rather than a BrowsingContextTarget.
    *          We may eventually switch everything to this, i.e. uses only WindowGlobalTarget.
    *          But for now, we restrict this behavior to remoted iframes.
-   *        - doNotFireFrameUpdates Boolean
-   *          If true, omit emitting `frameUpdate` events. This is only useful
-   *          for the top level target, in order to populate the toolbox iframe selector dropdown.
-   *          But we can avoid sending these RDP messages for any additional remote target.
+   *        - isTopLevelTarget Boolean
+   *          Should be set to true for all top-level targets. A top level target
+   *          is the topmost target of a DevTools "session". For instance for a local
+   *          tab toolbox, the FrameTargetActor for the content page is the top level target.
+   *          For the Multiprocess Browser Toolbox, the parent process target is the top level
+   *          target.
+   *          At the moment this only impacts the BrowsingContextTarget `reconfigure`
+   *          implementation. But for server-side target switching this flag will be exposed
+   *          to the client and should be available for all target actor classes. It will be
+   *          used to detect target switching. (Bug 1644397)
    */
-  initialize: function(connection, docShell, options = {}) {
+  initialize: function(
+    connection,
+    {
+      docShell,
+      doNotFireFrameUpdates,
+      followWindowGlobalLifeCycle,
+      isTopLevelTarget,
+    }
+  ) {
     Actor.prototype.initialize.call(this, connection);
 
     if (!docShell) {
@@ -262,12 +279,12 @@ const browsingContextTargetPrototype = {
     }
     this.docShell = docShell;
 
-    this.followWindowGlobalLifeCycle = options.followWindowGlobalLifeCycle;
-    this.doNotFireFrameUpdates = options.doNotFireFrameUpdates;
+    this.followWindowGlobalLifeCycle = followWindowGlobalLifeCycle;
+    this.doNotFireFrameUpdates = doNotFireFrameUpdates;
+    this.isTopLevelTarget = !!isTopLevelTarget;
 
     // A map of actor names to actor instances provided by extensions.
     this._extraActors = {};
-    this._exited = false;
     this._sourcesManager = null;
 
     // Map of DOM stylesheets to StyleSheetActors
@@ -289,7 +306,6 @@ const browsingContextTargetPrototype = {
     this.watchNewDocShells = false;
 
     this.traits = {
-      reconfigure: true,
       // Supports frame listing via `listFrames` request and `frameUpdate` events
       // as well as frame switching via `switchToFrame` request
       frames: true,
@@ -324,10 +340,6 @@ const browsingContextTargetPrototype = {
     return true;
   },
 
-  get exited() {
-    return this._exited;
-  },
-
   get attached() {
     return !!this._attached;
   },
@@ -346,7 +358,7 @@ const browsingContextTargetPrototype = {
    * Try to locate the console actor if it exists.
    */
   get _consoleActor() {
-    if (this.exited || this.isDestroyed()) {
+    if (this.isDestroyed()) {
       return null;
     }
     const form = this.form();
@@ -529,12 +541,18 @@ const browsingContextTargetPrototype = {
   },
 
   form() {
-    assert(!this.exited, "form() shouldn't be called on exited browser actor.");
+    assert(
+      !this.isDestroyed(),
+      "form() shouldn't be called on destroyed browser actor."
+    );
     assert(this.actorID, "Actor should have an actorID.");
 
     const response = {
       actor: this.actorID,
       browsingContextID: this.browsingContextID,
+      // True for targets created by JSWindowActors, see constructor JSDoc.
+      followWindowGlobalLifeCycle: this.followWindowGlobalLifeCycle,
+      isTopLevelTarget: this.isTopLevelTarget,
       traits: {
         // @backward-compat { version 64 } Exposes a new trait to help identify
         // BrowsingContextActor's inherited actors from the client side.
@@ -542,6 +560,14 @@ const browsingContextTargetPrototype = {
         // @backward-compat { version 87 } Print & color scheme simulations
         // should now be set using reconfigure.
         reconfigureSupportsSimulationFeatures: true,
+        // @backward-compat { version 88 } Browsing context targets can compute
+        // the isTopLevelTarget flag on the server. Note that not all targets
+        // support this, so we might keep this trait until all top level targets
+        // can provide this flag consistently from the server.
+        supportsTopLevelTargetFlag: true,
+        // @backward-compat { version 88 } Added in version 88, will not be
+        // available on targets from older servers.
+        supportsFollowWindowGlobalLifeCycleFlag: true,
       },
     };
 
@@ -572,20 +598,9 @@ const browsingContextTargetPrototype = {
    * Called when the actor is removed from the connection.
    */
   destroy() {
-    this.exit();
-    Actor.prototype.destroy.call(this);
-    TargetActorRegistry.unregisterTargetActor(this);
-    Resources.unwatchAllTargetResources(this);
-  },
-
-  /**
-   * Called by the root actor when the underlying browsing context is closed.
-   */
-  exit() {
-    if (this.exited) {
+    if (this.isDestroyed()) {
       return;
     }
-
     // Tell the thread actor that the browsing context is closed, so that it may terminate
     // instead of resuming the debuggee script.
     if (this._attached) {
@@ -594,12 +609,12 @@ const browsingContextTargetPrototype = {
     }
 
     this._detach();
-
     this.docShell = null;
-
     this._extraActors = null;
 
-    this._exited = true;
+    Actor.prototype.destroy.call(this);
+    TargetActorRegistry.unregisterTargetActor(this);
+    Resources.unwatchAllTargetResources(this);
   },
 
   /**
@@ -657,7 +672,7 @@ const browsingContextTargetPrototype = {
   _watchDocshells() {
     // If for some unexpected reason, the actor is immediately destroyed,
     // avoid registering leaking observer listener.
-    if (this.exited) {
+    if (this.isDestroyed()) {
       return;
     }
 
@@ -864,7 +879,7 @@ const browsingContextTargetPrototype = {
         // document is destroyed, and there is no other top level docshell,
         // we detach the actor to unregister all listeners and prevent any
         // exception.
-        this.exit();
+        this.destroy();
       }
       return;
     }
@@ -1013,7 +1028,7 @@ const browsingContextTargetPrototype = {
     // Firefox shutdown.
     if (this.docShell) {
       this._unwatchDocShell(this.docShell);
-      this._restoreDocumentSettings();
+      this._restoreTargetConfiguration();
     }
     this._unwatchDocshells();
 
@@ -1059,9 +1074,9 @@ const browsingContextTargetPrototype = {
   // Protocol Request Handlers
 
   attach(request) {
-    if (this.exited) {
+    if (this.isDestroyed()) {
       throw {
-        error: "exited",
+        error: "destroyed",
       };
     }
 
@@ -1171,21 +1186,6 @@ const browsingContextTargetPrototype = {
   },
 
   /**
-   * Reconfigure options.
-   */
-  reconfigure(request) {
-    const options = request.options || {};
-
-    if (!this.docShell) {
-      // The browsing context is already closed.
-      return {};
-    }
-    this._toggleDevToolsSettings(options);
-
-    return {};
-  },
-
-  /**
    * Ensure that CSS error reporting is enabled.
    */
   async ensureCSSErrorReportingEnabled(request) {
@@ -1225,9 +1225,33 @@ const browsingContextTargetPrototype = {
   },
 
   /**
-   * Handle logic to enable/disable JS/cache/Service Worker testing.
+   * For browsing-context targets which can't use the watcher configuration
+   * actor (eg webextension targets), the client directly calls `reconfigure`.
+   * Once all targets support the watcher, this method can be removed.
    */
-  _toggleDevToolsSettings(options) {
+  reconfigure(request) {
+    const options = request.options || {};
+    return this.updateTargetConfiguration(options);
+  },
+
+  /**
+   * Apply target-specific options.
+   *
+   * This will be called by the watcher when the DevTools target-configuration
+   * is updated, or when a target is created via JSWindowActors.
+   */
+  updateTargetConfiguration(options = {}) {
+    if (!this.docShell) {
+      // The browsing context is already closed.
+      return;
+    }
+
+    if (!this.isTopLevelTarget) {
+      // DevTools target options should only apply to the top target and be
+      // propagated through the browsing context tree via the platform.
+      return;
+    }
+
     // Wait a tick so that the response packet can be dispatched before the
     // subsequent navigation event packet.
     let reload = false;
@@ -1265,23 +1289,17 @@ const browsingContextTargetPrototype = {
     if (typeof options.restoreFocus == "boolean") {
       this._restoreFocus = options.restoreFocus;
     }
-    // Reload if:
-    //  - there's an explicit `performReload` flag and it's true
-    //  - there's no `performReload` flag, but it makes sense to do so
-    const hasExplicitReloadFlag = "performReload" in options;
-    if (
-      (hasExplicitReloadFlag && options.performReload) ||
-      (!hasExplicitReloadFlag && reload)
-    ) {
+
+    if (reload) {
       this.reload();
     }
   },
 
   /**
-   * Opposite of the _toggleDevToolsSettings method, that reset document state
-   * when closing the toolbox.
+   * Opposite of the updateTargetConfiguration method, that resets document
+   * state when closing the toolbox.
    */
-  _restoreDocumentSettings() {
+  _restoreTargetConfiguration() {
     this._restoreJavascript();
     this._setCacheDisabled(false);
     this._setServiceWorkersTestingEnabled(false);
@@ -1599,7 +1617,10 @@ const browsingContextTargetPrototype = {
    *
    */
   createStyleSheetActor(styleSheet) {
-    assert(!this.exited, "Target must not be exited to create a sheet actor.");
+    assert(
+      !this.isDestroyed(),
+      "Target must not be destroyed to create a sheet actor."
+    );
     if (this._styleSheetActors.has(styleSheet)) {
       return this._styleSheetActors.get(styleSheet);
     }

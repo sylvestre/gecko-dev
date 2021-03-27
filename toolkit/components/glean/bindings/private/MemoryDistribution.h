@@ -8,6 +8,7 @@
 #define mozilla_glean_GleanMemoryDistribution_h
 
 #include "mozilla/glean/bindings/DistributionData.h"
+#include "mozilla/glean/bindings/HistogramGIFFTMap.h"
 #include "mozilla/glean/fog_ffi_generated.h"
 #include "mozilla/Maybe.h"
 #include "nsIGleanMetrics.h"
@@ -31,7 +32,13 @@ class MemoryDistributionMetric {
    * InvalidValue error is recorded.
    */
   void Accumulate(uint64_t aSample) const {
+    auto hgramId = HistogramIdForMetric(mId);
+    if (hgramId) {
+      Telemetry::Accumulate(hgramId.extract(), aSample);
+    }
+#ifndef MOZ_GLEAN_ANDROID
     fog_memory_distribution_accumulate(mId, aSample);
+#endif
   }
 
   /**
@@ -53,6 +60,10 @@ class MemoryDistributionMetric {
    */
   Maybe<DistributionData> TestGetValue(
       const nsACString& aPingName = nsCString()) const {
+#ifdef MOZ_GLEAN_ANDROID
+    Unused << mId;
+    return Nothing();
+#else
     if (!fog_memory_distribution_test_has_value(mId, &aPingName)) {
       return Nothing();
     }
@@ -62,9 +73,10 @@ class MemoryDistributionMetric {
     fog_memory_distribution_test_get_value(mId, &aPingName, &ret.sum, &buckets,
                                            &counts);
     for (size_t i = 0; i < buckets.Length(); ++i) {
-      ret.values.Put(buckets[i], counts[i]);
+      ret.values.InsertOrUpdate(buckets[i], counts[i]);
     }
     return Some(std::move(ret));
+#endif
   }
 
  private:

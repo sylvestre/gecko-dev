@@ -45,7 +45,7 @@ struct DefaultJitOptions {
   bool disableGvn;
   bool disableInlining;
   bool disableLicm;
-  bool disablePgo;
+  bool disablePruning;
   bool disableInstructionReordering;
   bool disableRangeAnalysis;
   bool disableRecoverIns;
@@ -113,8 +113,7 @@ struct DefaultJitOptions {
   // measure the effectiveness of each mitigation with various proof of
   // concept.
   bool spectreIndexMasking;
-  bool spectreObjectMitigationsBarriers;
-  bool spectreObjectMitigationsMisc;
+  bool spectreObjectMitigations;
   bool spectreStringMitigations;
   bool spectreValueMasking;
   bool spectreJitToCxxCalls;

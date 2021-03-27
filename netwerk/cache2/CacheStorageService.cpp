@@ -255,16 +255,12 @@ class WalkMemoryCacheRunnable : public WalkCacheRunnable {
 
       if (!CacheStorageService::IsRunning()) return NS_ERROR_NOT_INITIALIZED;
 
-      for (auto iterGlobal = sGlobalEntryTables->Iter(); !iterGlobal.Done();
-           iterGlobal.Next()) {
-        CacheEntryTable* entries = iterGlobal.UserData();
+      for (const auto& entries : sGlobalEntryTables->Values()) {
         if (entries->Type() != CacheEntryTable::MEMORY_ONLY) {
           continue;
         }
 
-        for (auto iter = entries->Iter(); !iter.Done(); iter.Next()) {
-          CacheEntry* entry = iter.UserData();
-
+        for (CacheEntry* entry : entries->Values()) {
           MOZ_ASSERT(!entry->IsUsingDisk());
 
           mSize += entry->GetMetadataMemoryConsumption();
@@ -545,8 +541,7 @@ void CacheStorageService::DropPrivateBrowsingEntries() {
   if (mShutdown) return;
 
   nsTArray<nsCString> keys;
-  for (auto iter = sGlobalEntryTables->Iter(); !iter.Done(); iter.Next()) {
-    const nsACString& key = iter.Key();
+  for (const nsACString& key : sGlobalEntryTables->Keys()) {
     nsCOMPtr<nsILoadContextInfo> info = CacheFileUtils::ParseKey(key);
     if (info && info->IsPrivate()) {
       keys.AppendElement(key);
@@ -801,13 +796,9 @@ NS_IMETHODIMP CacheStorageService::Clear() {
 
   NS_ENSURE_TRUE(!mShutdown, NS_ERROR_NOT_INITIALIZED);
 
-  nsTArray<nsCString> keys;
-  for (auto iter = sGlobalEntryTables->Iter(); !iter.Done(); iter.Next()) {
-    keys.AppendElement(iter.Key());
-  }
-
-  for (uint32_t i = 0; i < keys.Length(); ++i) {
-    DoomStorageEntries(keys[i], nullptr, true, false, nullptr);
+  const auto keys = ToTArray<nsTArray<nsCString>>(sGlobalEntryTables->Keys());
+  for (const auto& key : keys) {
+    DoomStorageEntries(key, nullptr, true, false, nullptr);
   }
 
   // Passing null as a load info means to evict all contexts.
@@ -890,24 +881,21 @@ nsresult CacheStorageService::ClearOriginInternal(
   mozilla::MutexAutoLock lock(mLock);
 
   if (sGlobalEntryTables) {
-    for (auto iter = sGlobalEntryTables->Iter(); !iter.Done(); iter.Next()) {
+    for (const auto& globalEntry : *sGlobalEntryTables) {
       bool matches = false;
-      rv =
-          CacheFileUtils::KeyMatchesLoadContextInfo(iter.Key(), info, &matches);
+      rv = CacheFileUtils::KeyMatchesLoadContextInfo(globalEntry.GetKey(), info,
+                                                     &matches);
       NS_ENSURE_SUCCESS(rv, rv);
       if (!matches) {
         continue;
       }
 
-      CacheEntryTable* table = iter.UserData();
+      CacheEntryTable* table = globalEntry.GetWeak();
       MOZ_ASSERT(table);
 
       nsTArray<RefPtr<CacheEntry>> entriesToDelete;
 
-      for (auto entryIter = table->Iter(); !entryIter.Done();
-           entryIter.Next()) {
-        CacheEntry* entry = entryIter.UserData();
-
+      for (CacheEntry* entry : table->Values()) {
         nsCOMPtr<nsIURI> uri;
         rv = NS_NewURI(getter_AddRefs(uri), entry->GetURI());
         NS_ENSURE_SUCCESS(rv, rv);
@@ -1105,7 +1093,7 @@ static bool AddExactEntry(CacheEntryTable* aEntries, nsACString const& aKey,
   }
 
   LOG(("AddExactEntry [entry=%p put]", aEntry));
-  aEntries->Put(aKey, RefPtr{aEntry});
+  aEntries->InsertOrUpdate(aKey, RefPtr{aEntry});
   return true;
 }
 
@@ -1192,8 +1180,11 @@ void CacheStorageService::RecordMemoryOnlyEntry(CacheEntry* aEntry,
       return;
     }
 
-    entries = new CacheEntryTable(CacheEntryTable::MEMORY_ONLY);
-    sGlobalEntryTables->Put(memoryStorageID, entries);
+    entries = sGlobalEntryTables
+                  ->InsertOrUpdate(
+                      memoryStorageID,
+                      MakeUnique<CacheEntryTable>(CacheEntryTable::MEMORY_ONLY))
+                  .get();
     LOG(("  new memory-only storage table for %s", memoryStorageID.get()));
   }
 
@@ -1248,7 +1239,7 @@ void CacheStorageService::ForceEntryValidFor(nsACString const& aContextKey,
   // This will be the timeout
   TimeStamp validUntil = now + TimeDuration::FromSeconds(aSecondsToTheFuture);
 
-  mForcedValidEntries.Put(aContextKey + aEntryKey, validUntil);
+  mForcedValidEntries.InsertOrUpdate(aContextKey + aEntryKey, validUntil);
 }
 
 void CacheStorageService::RemoveEntryForceValid(nsACString const& aContextKey,
@@ -1560,13 +1551,17 @@ nsresult CacheStorageService::AddStorageEntry(
     NS_ENSURE_FALSE(mShutdown, NS_ERROR_NOT_INITIALIZED);
 
     // Ensure storage table
-    CacheEntryTable* entries;
-    if (!sGlobalEntryTables->Get(aContextKey, &entries)) {
-      entries = new CacheEntryTable(CacheEntryTable::ALL_ENTRIES);
-      sGlobalEntryTables->Put(aContextKey, entries);
-      LOG(("  new storage entries table for context '%s'",
-           aContextKey.BeginReading()));
-    }
+    CacheEntryTable* const entries =
+        sGlobalEntryTables
+            ->LookupOrInsertWith(
+                aContextKey,
+                [&aContextKey] {
+                  LOG(("  new storage entries table for context '%s'",
+                       aContextKey.BeginReading()));
+                  return MakeUnique<CacheEntryTable>(
+                      CacheEntryTable::ALL_ENTRIES);
+                })
+            .get();
 
     bool entryExists = entries->Get(entryKey, getter_AddRefs(entry));
 
@@ -1608,7 +1603,7 @@ nsresult CacheStorageService::AddStorageEntry(
       // Entry is not in the hashtable or has just been truncated...
       entry = new CacheEntry(aContextKey, aURI, aIdExtension, aWriteToDisk,
                              aSkipSizeCheck, aPin);
-      entries->Put(entryKey, RefPtr{entry});
+      entries->InsertOrUpdate(entryKey, RefPtr{entry});
       LOG(("  new entry %p for %s", entry.get(), entryKey.get()));
     }
 
@@ -1944,9 +1939,9 @@ nsresult CacheStorageService::DoomStorageEntries(
 
     CacheEntryTable* diskEntries;
     if (memoryEntries && sGlobalEntryTables->Get(aContextKey, &diskEntries)) {
-      for (auto iter = memoryEntries->Iter(); !iter.Done(); iter.Next()) {
-        auto entry = iter.Data();
-        RemoveExactEntry(diskEntries, iter.Key(), entry, false);
+      for (const auto& memoryEntry : *memoryEntries) {
+        auto entry = memoryEntry.GetData();
+        RemoveExactEntry(diskEntries, memoryEntry.GetKey(), entry, false);
       }
     }
   }
@@ -2203,7 +2198,7 @@ void CacheStorageService::TelemetryRecordEntryRemoval(CacheEntry const* entry) {
 
   TimeStamp now = TimeStamp::NowLoRes();
   TelemetryPrune(now);
-  mPurgeTimeStamps.Put(key, now);
+  mPurgeTimeStamps.InsertOrUpdate(key, now);
 
   Telemetry::Accumulate(Telemetry::HTTP_CACHE_ENTRY_REUSE_COUNT,
                         entry->UseCount());
@@ -2268,22 +2263,22 @@ CacheStorageService::CollectReports(nsIHandleReportCallback* aHandleReport,
   //   1 CacheFileOutputStream
   //   N CacheFileInputStream
   if (sGlobalEntryTables) {
-    for (auto iter1 = sGlobalEntryTables->Iter(); !iter1.Done(); iter1.Next()) {
+    for (const auto& globalEntry : *sGlobalEntryTables) {
       CacheStorageService::Self()->Lock().AssertCurrentThreadOwns();
 
-      CacheEntryTable* table = iter1.UserData();
+      CacheEntryTable* table = globalEntry.GetWeak();
 
       size_t size = 0;
       mozilla::MallocSizeOf mallocSizeOf = CacheStorageService::MallocSizeOf;
 
       size += table->ShallowSizeOfIncludingThis(mallocSizeOf);
-      for (auto iter2 = table->Iter(); !iter2.Done(); iter2.Next()) {
-        size += iter2.Key().SizeOfExcludingThisIfUnshared(mallocSizeOf);
+      for (const auto& tableEntry : *table) {
+        size += tableEntry.GetKey().SizeOfExcludingThisIfUnshared(mallocSizeOf);
 
         // Bypass memory-only entries, those will be reported when iterating the
         // memory only table. Memory-only entries are stored in both ALL_ENTRIES
         // and MEMORY_ONLY hashtables.
-        RefPtr<mozilla::net::CacheEntry> const& entry = iter2.Data();
+        RefPtr<mozilla::net::CacheEntry> const& entry = tableEntry.GetData();
         if (table->Type() == CacheEntryTable::MEMORY_ONLY ||
             entry->IsUsingDisk()) {
           size += entry->SizeOfIncludingThis(mallocSizeOf);
@@ -2295,7 +2290,8 @@ CacheStorageService::CollectReports(nsIHandleReportCallback* aHandleReport,
           nsPrintfCString(
               "explicit/network/cache2/%s-storage(%s)",
               table->Type() == CacheEntryTable::MEMORY_ONLY ? "memory" : "disk",
-              aAnonymize ? "<anonymized>" : iter1.Key().BeginReading()),
+              aAnonymize ? "<anonymized>"
+                         : globalEntry.GetKey().BeginReading()),
           nsIMemoryReporter::KIND_HEAP, nsIMemoryReporter::UNITS_BYTES, size,
           "Memory used by the cache storage."_ns, aData);
     }

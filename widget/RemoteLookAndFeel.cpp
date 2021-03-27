@@ -10,6 +10,7 @@
 #include "gfxFont.h"
 #include "MainThreadUtils.h"
 #include "mozilla/Assertions.h"
+#include "mozilla/ClearOnShutdown.h"
 #include "mozilla/Result.h"
 #include "mozilla/ResultExtensions.h"
 #include "mozilla/StaticPrefs_widget.h"
@@ -28,7 +29,7 @@ RemoteLookAndFeel::RemoteLookAndFeel(FullLookAndFeel&& aData)
              "Only content processes should be using a RemoteLookAndFeel");
 
 #ifdef MOZ_WIDGET_GTK
-  if (!StaticPrefs::widget_disable_native_theme_for_content()) {
+  if (!StaticPrefs::widget_non_native_theme_enabled()) {
     // Configure the theme in this content process with the Gtk theme that was
     // chosen by WithThemeConfiguredForContent in the parent process.
     nsLookAndFeel::ConfigureTheme(aData.theme());
@@ -45,7 +46,7 @@ void RemoteLookAndFeel::SetDataImpl(FullLookAndFeel&& aData) {
   mTables = std::move(aData.tables());
 
 #ifdef MOZ_WIDGET_GTK
-  if (!StaticPrefs::widget_disable_native_theme_for_content()) {
+  if (!StaticPrefs::widget_non_native_theme_enabled()) {
     // Configure the theme in this content process with the Gtk theme that was
     // chosen by WithThemeConfiguredForContent in the parent process.
     nsLookAndFeel::ConfigureTheme(aData.theme());
@@ -57,9 +58,8 @@ namespace {
 
 template <typename Item, typename UInt, typename ID>
 Result<const Item*, nsresult> MapLookup(const nsTArray<Item>& aItems,
-                                        const nsTArray<UInt>& aMap, ID aID,
-                                        ID aMinimum = ID(0)) {
-  UInt mapped = aMap[static_cast<size_t>(aID) - static_cast<size_t>(aMinimum)];
+                                        const nsTArray<UInt>& aMap, ID aID) {
+  UInt mapped = aMap[static_cast<size_t>(aID)];
 
   if (mapped == std::numeric_limits<UInt>::max()) {
     return Err(NS_ERROR_NOT_IMPLEMENTED);
@@ -119,22 +119,12 @@ nsresult RemoteLookAndFeel::NativeGetFloat(FloatID aID, float& aResult) {
 
 bool RemoteLookAndFeel::NativeGetFont(FontID aID, nsString& aFontName,
                                       gfxFontStyle& aFontStyle) {
-  auto result =
-      MapLookup(mTables.fonts(), mTables.fontMap(), aID, FontID::MINIMUM);
+  auto result = MapLookup(mTables.fonts(), mTables.fontMap(), aID);
   if (result.isErr()) {
     return false;
   }
-
   const LookAndFeelFont& font = *result.unwrap();
-  MOZ_ASSERT(font.haveFont());
-  aFontName = font.name();
-  aFontStyle = gfxFontStyle();
-  aFontStyle.size = font.size();
-  aFontStyle.weight = FontWeight(font.weight());
-  aFontStyle.style =
-      font.italic() ? FontSlantStyle::Italic() : FontSlantStyle::Normal();
-
-  return true;
+  return LookAndFeelFontToStyle(font, aFontName, aFontStyle);
 }
 
 char16_t RemoteLookAndFeel::GetPasswordCharacterImpl() {
@@ -208,34 +198,14 @@ const FullLookAndFeel* RemoteLookAndFeel::ExtractData() {
                NS_SUCCEEDED(rv) ? Some(theColor) : Nothing{});
     }
 
-    for (auto id :
-         MakeInclusiveEnumeratedRange(FontID::MINIMUM, FontID::MAXIMUM)) {
-      LookAndFeelFont font{};
+    for (auto id : MakeEnumeratedRange(FontID::End)) {
       gfxFontStyle fontStyle{};
 
-      bool rv = impl->NativeGetFont(id, font.name(), fontStyle);
+      nsString name;
+      bool rv = impl->NativeGetFont(id, name, fontStyle);
       Maybe<LookAndFeelFont> maybeFont;
       if (rv) {
-        font.haveFont() = true;
-        font.size() = fontStyle.size;
-        font.weight() = fontStyle.weight.ToFloat();
-        font.italic() = fontStyle.style.IsItalic();
-        MOZ_ASSERT(fontStyle.style.IsNormal() || fontStyle.style.IsItalic(),
-                   "Cannot handle oblique font style");
-#ifdef DEBUG
-        {
-          // Assert that all the remaining font style properties have their
-          // default values.
-          gfxFontStyle candidate = fontStyle;
-          gfxFontStyle defaults{};
-          candidate.size = defaults.size;
-          candidate.weight = defaults.weight;
-          candidate.style = defaults.style;
-          MOZ_ASSERT(candidate.Equals(defaults),
-                     "Some font style properties not supported");
-        }
-#endif
-        maybeFont = Some(std::move(font));
+        maybeFont.emplace(StyleToLookAndFeelFont(name, fontStyle));
       }
       AddToMap(&lf->tables().fonts(), &lf->tables().fontMap(),
                std::move(maybeFont));

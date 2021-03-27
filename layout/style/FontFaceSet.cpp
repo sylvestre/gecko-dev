@@ -184,8 +184,8 @@ void FontFaceSet::Disconnect() {
     mDocument->CSSLoader()->RemoveObserver(this);
   }
 
-  for (auto it = mLoaders.Iter(); !it.Done(); it.Next()) {
-    it.Get()->GetKey()->Cancel();
+  for (const auto& key : mLoaders.Keys()) {
+    key->Cancel();
   }
 
   mLoaders.Clear();
@@ -269,7 +269,7 @@ void FontFaceSet::FindMatchingFontFaces(const nsACString& aFont,
   arrays[1] = &mRuleFaces;
 
   // Set of FontFaces that we want to return.
-  nsTHashtable<nsPtrHashKey<FontFace>> matchingFaces;
+  nsTHashSet<FontFace*> matchingFaces;
 
   for (const FontFamilyName& fontFamilyName : familyList->mNames) {
     if (!fontFamilyName.IsNamed()) {
@@ -290,7 +290,7 @@ void FontFaceSet::FindMatchingFontFaces(const nsACString& aFont,
       FontFace::Entry* entry = static_cast<FontFace::Entry*>(e);
       if (HasAnyCharacterInUnicodeRange(entry, aText)) {
         for (FontFace* f : entry->GetFontFaces()) {
-          matchingFaces.PutEntry(f);
+          matchingFaces.Insert(f);
         }
       }
     }
@@ -650,13 +650,13 @@ bool FontFaceSet::UpdateRules(const nsTArray<nsFontFaceRuleContainer>& aRules) {
   mNonRuleFacesDirty = false;
 
   // reuse existing FontFace objects mapped to rules already
-  nsDataHashtable<nsPtrHashKey<RawServoFontFaceRule>, FontFace*> ruleFaceMap;
+  nsTHashMap<nsPtrHashKey<RawServoFontFaceRule>, FontFace*> ruleFaceMap;
   for (size_t i = 0, i_end = mRuleFaces.Length(); i < i_end; ++i) {
     FontFace* f = mRuleFaces[i].mFontFace;
     if (!f) {
       continue;
     }
-    ruleFaceMap.Put(f->GetRule(), f);
+    ruleFaceMap.InsertOrUpdate(f->GetRule(), f);
   }
 
   // The @font-face rules that make up the user font set have changed,
@@ -672,15 +672,15 @@ bool FontFaceSet::UpdateRules(const nsTArray<nsFontFaceRuleContainer>& aRules) {
   // the same font entries as before. (The order can affect font selection
   // where multiple faces match the requested style, perhaps with overlapping
   // unicode-range coverage.)
-  for (auto it = mUserFontSet->mFontFamilies.Iter(); !it.Done(); it.Next()) {
-    it.Data()->DetachFontEntries();
+  for (const auto& fontFamily : mUserFontSet->mFontFamilies.Values()) {
+    fontFamily->DetachFontEntries();
   }
 
   // Sometimes aRules has duplicate @font-face rules in it; we should make
   // that not happen, but in the meantime, don't try to insert the same
   // FontFace object more than once into mRuleFaces.  We track which
   // ones we've handled in this table.
-  nsTHashtable<nsPtrHashKey<RawServoFontFaceRule>> handledRules;
+  nsTHashSet<RawServoFontFaceRule*> handledRules;
 
   for (size_t i = 0, i_end = aRules.Length(); i < i_end; ++i) {
     // Insert each FontFace objects for each rule into our list, migrating old
@@ -961,6 +961,9 @@ FontFaceSet::FindOrCreateUserFontEntryFromFontFace(
 
   uint32_t languageOverride = NO_FONT_LANGUAGE_OVERRIDE;
   StyleFontDisplay fontDisplay = StyleFontDisplay::Auto;
+  float ascentOverride = -1.0;
+  float descentOverride = -1.0;
+  float lineGapOverride = -1.0;
 
   gfxFontEntry::RangeFlags rangeFlags = gfxFontEntry::RangeFlags::eNoFlags;
 
@@ -979,6 +982,17 @@ FontFaceSet::FindOrCreateUserFontEntryFromFontFace(
   // set up font display
   if (Maybe<StyleFontDisplay> display = aFontFace->GetFontDisplay()) {
     fontDisplay = *display;
+  }
+
+  // set up font metrics overrides
+  if (Maybe<StylePercentage> ascent = aFontFace->GetAscentOverride()) {
+    ascentOverride = ascent->_0;
+  }
+  if (Maybe<StylePercentage> descent = aFontFace->GetDescentOverride()) {
+    descentOverride = descent->_0;
+  }
+  if (Maybe<StylePercentage> lineGap = aFontFace->GetLineGapOverride()) {
+    lineGapOverride = lineGap->_0;
   }
 
   // set up font features
@@ -1004,7 +1018,8 @@ FontFaceSet::FindOrCreateUserFontEntryFromFontFace(
     // rather than creating a new one.
     existingEntry->UpdateAttributes(
         weight, stretch, italicStyle, featureSettings, variationSettings,
-        languageOverride, unicodeRanges, fontDisplay, rangeFlags);
+        languageOverride, unicodeRanges, fontDisplay, rangeFlags,
+        ascentOverride, descentOverride, lineGapOverride);
     // If the family name has changed, remove the entry from its current family
     // and clear the mFamilyName field so it can be reset when added to a new
     // family.
@@ -1140,7 +1155,7 @@ FontFaceSet::FindOrCreateUserFontEntryFromFontFace(
   RefPtr<gfxUserFontEntry> entry = set->mUserFontSet->FindOrCreateUserFontEntry(
       aFamilyName, srcArray, weight, stretch, italicStyle, featureSettings,
       variationSettings, languageOverride, unicodeRanges, fontDisplay,
-      rangeFlags);
+      rangeFlags, ascentOverride, descentOverride, lineGapOverride);
 
   return entry.forget();
 }
@@ -1266,9 +1281,8 @@ void FontFaceSet::CacheFontLoadability() {
   }
 
   // TODO(emilio): We could do it a bit more incrementally maybe?
-  for (auto iter = mUserFontSet->mFontFamilies.Iter(); !iter.Done();
-       iter.Next()) {
-    for (const gfxFontEntry* entry : iter.Data()->GetFontList()) {
+  for (const auto& fontFamily : mUserFontSet->mFontFamilies.Values()) {
+    for (const gfxFontEntry* entry : fontFamily->GetFontList()) {
       if (!entry->mIsUserFontContainer) {
         continue;
       }
@@ -1279,9 +1293,8 @@ void FontFaceSet::CacheFontLoadability() {
         if (src.mSourceType != gfxFontFaceSrc::eSourceType_URL) {
           continue;
         }
-        mAllowedFontLoads.WithEntryHandle(&src, [&](auto&& entry) {
-          entry.OrInsertWith([&] { return IsFontLoadAllowed(src); });
-        });
+        mAllowedFontLoads.LookupOrInsertWith(
+            &src, [&] { return IsFontLoadAllowed(src); });
       }
     }
   }
@@ -1291,7 +1304,7 @@ bool FontFaceSet::IsFontLoadAllowed(const gfxFontFaceSrc& aSrc) {
   MOZ_ASSERT(aSrc.mSourceType == gfxFontFaceSrc::eSourceType_URL);
 
   if (ServoStyleSet::IsInServoTraversal()) {
-    bool* entry = mAllowedFontLoads.GetValue(&aSrc);
+    auto entry = mAllowedFontLoads.Lookup(&aSrc);
     MOZ_DIAGNOSTIC_ASSERT(entry, "Missed an update?");
     return entry ? *entry : false;
   }
@@ -1813,11 +1826,12 @@ FontFaceSet::UserFontSet::CreateUserFontEntry(
     const nsTArray<gfxFontFeature>& aFeatureSettings,
     const nsTArray<gfxFontVariation>& aVariationSettings,
     uint32_t aLanguageOverride, gfxCharacterMap* aUnicodeRanges,
-    StyleFontDisplay aFontDisplay, RangeFlags aRangeFlags) {
+    StyleFontDisplay aFontDisplay, RangeFlags aRangeFlags,
+    float aAscentOverride, float aDescentOverride, float aLineGapOverride) {
   RefPtr<gfxUserFontEntry> entry = new FontFace::Entry(
       this, aFontFaceSrcList, aWeight, aStretch, aStyle, aFeatureSettings,
       aVariationSettings, aLanguageOverride, aUnicodeRanges, aFontDisplay,
-      aRangeFlags);
+      aRangeFlags, aAscentOverride, aDescentOverride, aLineGapOverride);
   return entry.forget();
 }
 

@@ -7,6 +7,7 @@
 
 #include "mozilla/BinarySearch.h"
 #include "mozilla/HTMLEditor.h"
+#include "mozilla/Logging.h"
 #include "mozilla/TextEditor.h"
 #include "mozilla/dom/Element.h"
 
@@ -23,6 +24,8 @@
 #include <algorithm>
 
 using namespace mozilla;
+
+static LazyLogModule sInlineSpellWordUtilLog{"InlineSpellWordUtil"};
 
 // IsIgnorableCharacter
 //
@@ -206,6 +209,10 @@ nsresult mozInlineSpellWordUtil::SetPositionAndEnd(nsINode* aPositionNode,
                                                    int32_t aPositionOffset,
                                                    nsINode* aEndNode,
                                                    int32_t aEndOffset) {
+  MOZ_LOG(sInlineSpellWordUtilLog, LogLevel::Debug,
+          ("%s: pos=(%p, %i), end=(%p, %i)", __FUNCTION__, aPositionNode,
+           aPositionOffset, aEndNode, aEndOffset));
+
   MOZ_ASSERT(aPositionNode, "Null begin node?");
   MOZ_ASSERT(aEndNode, "Null end node?");
 
@@ -333,9 +340,8 @@ static void NormalizeWord(const nsAString& aInput, int32_t aPos, int32_t aLen,
 bool mozInlineSpellWordUtil::GetNextWord(nsAString& aText,
                                          NodeOffsetRange* aNodeOffsetRange,
                                          bool* aSkipChecking) {
-#ifdef DEBUG_SPELLCHECK
-  printf("GetNextWord called; mNextWordIndex=%d\n", mNextWordIndex);
-#endif
+  MOZ_LOG(sInlineSpellWordUtilLog, LogLevel::Debug,
+          ("%s: mNextWordIndex=%d", __FUNCTION__, mNextWordIndex));
 
   if (mNextWordIndex < 0 || mNextWordIndex >= int32_t(mRealWords.Length())) {
     mNextWordIndex = -1;
@@ -349,10 +355,9 @@ bool mozInlineSpellWordUtil::GetNextWord(nsAString& aText,
   *aSkipChecking = !word.mCheckableWord;
   ::NormalizeWord(mSoftText, word.mSoftTextOffset, word.mLength, aText);
 
-#ifdef DEBUG_SPELLCHECK
-  printf("GetNextWord returning: %s (skip=%d)\n",
-         NS_ConvertUTF16toUTF8(aText).get(), *aSkipChecking);
-#endif
+  MOZ_LOG(sInlineSpellWordUtilLog, LogLevel::Debug,
+          ("%s: returning: %s (skip=%d)", __FUNCTION__,
+           NS_ConvertUTF16toUTF8(aText).get(), *aSkipChecking));
 
   return true;
 }
@@ -756,6 +761,8 @@ void mozInlineSpellWordUtil::NormalizeWord(nsAString& aWord) {
 }
 
 void mozInlineSpellWordUtil::BuildSoftText() {
+  MOZ_LOG(sInlineSpellWordUtilLog, LogLevel::Debug, ("%s", __FUNCTION__));
+
   // First we have to work backwards from mSoftStart to find a text node
   // containing a DOM word separator, a non-inline-element
   // boundary, or the hard start node. That's where we'll start building the
@@ -875,9 +882,9 @@ void mozInlineSpellWordUtil::BuildSoftText() {
     }
   }
 
-#ifdef DEBUG_SPELLCHECK
-  printf("Got DOM string: %s\n", NS_ConvertUTF16toUTF8(mSoftText).get());
-#endif
+  MOZ_LOG(sInlineSpellWordUtilLog, LogLevel::Debug,
+          ("%s: got DOM string: %s", __FUNCTION__,
+           NS_ConvertUTF16toUTF8(mSoftText).get()));
 }
 
 nsresult mozInlineSpellWordUtil::BuildRealWords() {
@@ -1011,9 +1018,31 @@ NodeOffset mozInlineSpellWordUtil::MapSoftTextOffsetToDOMPosition(
   return NodeOffset(nullptr, -1);
 }
 
-int32_t mozInlineSpellWordUtil::FindRealWordContaining(int32_t aSoftTextOffset,
-                                                       DOMMapHint aHint,
-                                                       bool aSearchForward) {
+// static
+void mozInlineSpellWordUtil::ToString(const DOMMapHint aHint,
+                                      nsACString& aResult) {
+  switch (aHint) {
+    case HINT_BEGIN:
+      aResult.AssignLiteral("begin");
+      break;
+    case HINT_END:
+      aResult.AssignLiteral("end");
+      break;
+  }
+}
+
+int32_t mozInlineSpellWordUtil::FindRealWordContaining(
+    int32_t aSoftTextOffset, DOMMapHint aHint, bool aSearchForward) const {
+  if (MOZ_LOG_TEST(sInlineSpellWordUtilLog, LogLevel::Debug)) {
+    nsAutoCString hint;
+    mozInlineSpellWordUtil::ToString(aHint, hint);
+
+    MOZ_LOG(
+        sInlineSpellWordUtilLog, LogLevel::Debug,
+        ("%s: offset=%i, hint=%s, searchForward=%i.", __FUNCTION__,
+         aSoftTextOffset, hint.get(), static_cast<int32_t>(aSearchForward)));
+  }
+
   NS_ASSERTION(mSoftTextValid,
                "Soft text must be valid if we're to map out of it");
   if (!mSoftTextValid) return -1;

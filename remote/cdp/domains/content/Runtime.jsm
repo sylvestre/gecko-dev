@@ -6,21 +6,20 @@
 
 var EXPORTED_SYMBOLS = ["Runtime"];
 
-const { addDebuggerToGlobal } = ChromeUtils.import(
-  "resource://gre/modules/jsdebugger.jsm",
-  {}
+var { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
 );
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-const { ContentProcessDomain } = ChromeUtils.import(
-  "chrome://remote/content/cdp/domains/ContentProcessDomain.jsm"
-);
-const { ExecutionContext } = ChromeUtils.import(
-  "chrome://remote/content/cdp/domains/content/runtime/ExecutionContext.jsm"
-);
-const { executeSoon } = ChromeUtils.import(
-  "chrome://remote/content/shared/Sync.jsm"
-);
+XPCOMUtils.defineLazyModuleGetters(this, {
+  addDebuggerToGlobal: "resource://gre/modules/jsdebugger.jsm",
+  Services: "resource://gre/modules/Services.jsm",
+
+  ContentProcessDomain:
+    "chrome://remote/content/cdp/domains/ContentProcessDomain.jsm",
+  executeSoon: "chrome://remote/content/shared/Sync.jsm",
+  ExecutionContext:
+    "chrome://remote/content/cdp/domains/content/runtime/ExecutionContext.jsm",
+});
 
 // Import the `Debugger` constructor in the current scope
 addDebuggerToGlobal(Cu.getGlobalForObject(this));

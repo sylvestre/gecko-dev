@@ -51,6 +51,7 @@
 #include "mozilla/layers/WebRenderUserData.h"
 #include "mozilla/layers/WebRenderScrollData.h"
 #include "mozilla/layers/RenderRootStateManager.h"
+#include "mozilla/ProfilerLabels.h"
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -1067,7 +1068,7 @@ static void EndSwapDocShellsForViews(nsView* aSibling) {
     }
     nsIFrame* frame = aSibling->GetFrame();
     if (frame) {
-      nsIFrame* parent = nsLayoutUtils::GetCrossDocParentFrame(frame);
+      nsIFrame* parent = nsLayoutUtils::GetCrossDocParentFrameInProcess(frame);
       if (parent->HasAnyStateBits(NS_FRAME_IN_POPUP)) {
         nsIFrame::AddInPopupStateBitToDescendants(frame);
       } else {
@@ -1078,7 +1079,7 @@ static void EndSwapDocShellsForViews(nsView* aSibling) {
                !parent->HasAnyStateBits(NS_FRAME_DESCENDANT_NEEDS_PAINT |
                                         NS_FRAME_IS_NONDISPLAY)) {
           parent->AddStateBits(NS_FRAME_DESCENDANT_NEEDS_PAINT);
-          parent = nsLayoutUtils::GetCrossDocParentFrame(parent);
+          parent = nsLayoutUtils::GetCrossDocParentFrameInProcess(parent);
         }
       }
     }
@@ -1120,20 +1121,15 @@ void nsSubDocumentFrame::EndSwapDocShells(nsIFrame* aOther) {
 }
 
 void nsSubDocumentFrame::ClearDisplayItems() {
-  DisplayItemArray* items = GetProperty(DisplayItems());
-  if (!items) {
-    return;
-  }
-
-  nsIFrame* displayRoot = nsLayoutUtils::GetDisplayRootFrame(this);
-  MOZ_ASSERT(displayRoot);
-
-  RetainedDisplayListBuilder* retainedBuilder =
-      displayRoot->GetProperty(RetainedDisplayListBuilder::Cached());
-  MOZ_ASSERT(retainedBuilder);
-
-  for (nsDisplayItemBase* i : *items) {
+  for (nsDisplayItemBase* i : DisplayItems()) {
     if (i->GetType() == DisplayItemType::TYPE_SUBDOCUMENT) {
+      nsIFrame* displayRoot = nsLayoutUtils::GetDisplayRootFrame(this);
+      MOZ_ASSERT(displayRoot);
+
+      RetainedDisplayListBuilder* retainedBuilder =
+          displayRoot->GetProperty(RetainedDisplayListBuilder::Cached());
+      MOZ_ASSERT(retainedBuilder);
+
       auto* item = static_cast<nsDisplaySubDocument*>(i);
       item->GetChildren()->DeleteAll(retainedBuilder->Builder());
       item->Disown();

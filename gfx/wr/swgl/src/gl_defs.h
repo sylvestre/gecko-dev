@@ -178,6 +178,7 @@ typedef intptr_t GLintptr;
 #define GL_NUM_EXTENSIONS 0x821D
 #define GL_MINOR_VERSION 0x821C
 #define GL_MAJOR_VERSION 0x821B
+#define GL_SHADING_LANGUAGE_VERSION 0x8B8C
 
 #define GL_POINTS 0x0000
 #define GL_LINES 0x0001
@@ -210,3 +211,5 @@ typedef intptr_t GLintptr;
 #define GL_HSL_SATURATION_KHR 0x92AE
 #define GL_HSL_COLOR_KHR 0x92AF
 #define GL_HSL_LUMINOSITY_KHR 0x92B0
+
+#define SWGL_BLEND_DROP_SHADOW 0xB001

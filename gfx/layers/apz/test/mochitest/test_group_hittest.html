@@ -26,6 +26,11 @@ var prefs = [
   ["apz.test.logging_enabled", true],
 ];
 
+var overscroll_prefs = [...prefs,
+                        ["apz.overscroll.enabled", true],
+                        ["apz.overscroll.test_async_scroll_offset.enabled", true],
+                       ];
+
 var subtests = [
   {"file": "helper_hittest_basic.html", "prefs": prefs},
   {"file": "helper_hittest_fixed_in_scrolled_transform.html", "prefs": prefs},
@@ -42,6 +47,7 @@ var subtests = [
   {"file": "helper_hittest_hoisted_scrollinfo.html", "prefs": prefs},
   {"file": "helper_hittest_spam.html", "prefs": prefs},
   {"file": "helper_hittest_hidden_inactive_scrollframe.html", "prefs": prefs},
+  {"file": "helper_hittest_overscroll.html", "prefs": overscroll_prefs},
 ];
 
 function addConditionalTests(tests) {
@@ -49,7 +55,7 @@ function addConditionalTests(tests) {
   // function run after loading, because trying to read layerManagerType can
   // throw an NS_ERROR_FAILURE if called too early.
   var utils = SpecialPowers.getDOMWindowUtils(window);
-  var isWebRender = utils.layerManagerType == "WebRender";
+  var isWebRender = utils.layerManagerType.startsWith("WebRender");
   if (isWebRender) {
     tests = tests.concat([
       {"file": "helper_hittest_deep_scene_stack.html", "prefs": prefs},

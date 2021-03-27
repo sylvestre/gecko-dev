@@ -7,8 +7,9 @@
 #ifndef mozilla_glean_GleanBoolean_h
 #define mozilla_glean_GleanBoolean_h
 
-#include "nsIGleanMetrics.h"
+#include "mozilla/glean/bindings/ScalarGIFFTMap.h"
 #include "mozilla/glean/fog_ffi_generated.h"
+#include "nsIGleanMetrics.h"
 
 namespace mozilla {
 namespace glean {
@@ -22,9 +23,24 @@ class BooleanMetric {
   /**
    * Set to the specified boolean value.
    *
-   * @param value the value to set.
+   * @param aValue the value to set.
    */
-  void Set(bool value) const { fog_boolean_set(mId, int(value)); }
+  void Set(bool aValue) const {
+    auto scalarId = ScalarIdForMetric(mId);
+    if (scalarId) {
+      Telemetry::ScalarSet(scalarId.extract(), aValue);
+    } else if (IsSubmetricId(mId)) {
+      auto map = gLabeledMirrors.Lock();
+      auto tuple = map->MaybeGet(mId);
+      if (tuple) {
+        Telemetry::ScalarSet(Get<0>(*tuple.ref()), Get<1>(*tuple.ref()),
+                             aValue);
+      }
+    }
+#ifndef MOZ_GLEAN_ANDROID
+    fog_boolean_set(mId, int(aValue));
+#endif
+  }
 
   /**
    * **Test-only API**
@@ -44,10 +60,15 @@ class BooleanMetric {
    * @return value of the stored metric.
    */
   Maybe<bool> TestGetValue(const nsACString& aPingName = nsCString()) const {
+#ifdef MOZ_GLEAN_ANDROID
+    Unused << mId;
+    return Nothing();
+#else
     if (!fog_boolean_test_has_value(mId, &aPingName)) {
       return Nothing();
     }
     return Some(fog_boolean_test_get_value(mId, &aPingName));
+#endif
   }
 
  private:

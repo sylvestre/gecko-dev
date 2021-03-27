@@ -8,6 +8,7 @@
 #define mozilla_dom_WindowContext_h
 
 #include "mozilla/PermissionDelegateHandler.h"
+#include "mozilla/WeakPtr.h"
 #include "mozilla/Span.h"
 #include "mozilla/dom/MaybeDiscarded.h"
 #include "mozilla/dom/SyncedContext.h"
@@ -82,7 +83,10 @@ class BrowsingContextGroup;
   FIELD(HasReportedShadowDOMUsage, bool)                               \
   /* Whether the principal of this window is for a local               \
    * IP address */                                                     \
-  FIELD(IsLocalIP, bool)
+  FIELD(IsLocalIP, bool)                                               \
+  /* Whether the corresponding document has `loading='lazy'`           \
+   * images; It won't become false if the image becomes non-lazy */    \
+  FIELD(HadLazyLoadImage, bool)
 
 class WindowContext : public nsISupports, public nsWrapperCache {
   MOZ_DECL_SYNCED_CONTEXT(WindowContext, MOZ_EACH_WC_FIELD)
@@ -93,6 +97,7 @@ class WindowContext : public nsISupports, public nsWrapperCache {
  public:
   static already_AddRefed<WindowContext> GetById(uint64_t aInnerWindowId);
   static LogModule* GetLog();
+  static LogModule* GetSyncLog();
 
   BrowsingContext* GetBrowsingContext() const { return mBrowsingContext; }
   BrowsingContextGroup* Group() const;
@@ -103,7 +108,7 @@ class WindowContext : public nsISupports, public nsWrapperCache {
 
   bool IsCached() const;
 
-  bool IsInProcess() const { return mInProcess; }
+  bool IsInProcess() const { return mIsInProcess; }
 
   bool HasBeforeUnload() const { return GetHasBeforeUnload(); }
 
@@ -175,10 +180,11 @@ class WindowContext : public nsISupports, public nsWrapperCache {
 
   bool CanShowPopup();
 
+  bool HadLazyLoadImage() const { return GetHadLazyLoadImage(); }
+
  protected:
   WindowContext(BrowsingContext* aBrowsingContext, uint64_t aInnerWindowId,
-                uint64_t aOuterWindowId, bool aInProcess,
-                FieldValues&& aFields);
+                uint64_t aOuterWindowId, FieldValues&& aFields);
   virtual ~WindowContext();
 
   virtual void Init();
@@ -262,6 +268,9 @@ class WindowContext : public nsISupports, public nsWrapperCache {
   bool CanSet(FieldIndex<IDX_IsLocalIP>, const bool& aValue,
               ContentParent* aSource);
 
+  bool CanSet(FieldIndex<IDX_HadLazyLoadImage>, const bool& aValue,
+              ContentParent* aSource);
+
   void DidSet(FieldIndex<IDX_HasReportedShadowDOMUsage>, bool aOldValue);
 
   void DidSet(FieldIndex<IDX_SHEntryHasUserInteraction>, bool aOldValue);
@@ -278,6 +287,7 @@ class WindowContext : public nsISupports, public nsWrapperCache {
   const uint64_t mInnerWindowId;
   const uint64_t mOuterWindowId;
   RefPtr<BrowsingContext> mBrowsingContext;
+  WeakPtr<WindowGlobalChild> mWindowGlobalChild;
 
   // --- NEVER CHANGE `mChildren` DIRECTLY! ---
   // Changes to this list need to be synchronized to the list within our
@@ -286,7 +296,7 @@ class WindowContext : public nsISupports, public nsWrapperCache {
   nsTArray<RefPtr<BrowsingContext>> mChildren;
 
   bool mIsDiscarded = false;
-  bool mInProcess = false;
+  bool mIsInProcess = false;
 
   // The start time of user gesture, this is only available if the window
   // context is in process.

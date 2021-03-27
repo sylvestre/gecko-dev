@@ -332,37 +332,6 @@ def _cxxLifecycleProxyType(ptr=False):
     return Type("mozilla::ipc::ActorLifecycleProxy", ptr=ptr)
 
 
-def _callInsertManagedActor(managees, actor):
-    return ExprCall(ExprSelect(managees, ".", "PutEntry"), args=[actor])
-
-
-def _callRemoveManagedActor(managees, actor):
-    return ExprCall(ExprSelect(managees, ".", "RemoveEntry"), args=[actor])
-
-
-def _callClearManagedActors(managees):
-    return ExprCall(ExprSelect(managees, ".", "Clear"))
-
-
-def _callHasManagedActor(managees, actor):
-    return ExprCall(ExprSelect(managees, ".", "Contains"), args=[actor])
-
-
-def _callGetLifecycleProxy(actor=ExprVar.THIS):
-    return ExprCall(ExprSelect(actor, "->", "GetLifecycleProxy"))
-
-
-def _releaseLifecycleProxy(actor=None):
-    return StmtCode(
-        """
-        mozilla::ipc::ActorLifecycleProxy* proxy =
-            (${actor})->GetLifecycleProxy();
-        NS_IF_RELEASE(proxy);
-        """,
-        actor=actor or ExprVar.THIS,
-    )
-
-
 def _otherSide(side):
     if side == "child":
         return "parent"
@@ -738,9 +707,10 @@ class _HybridDecl:
     """A hybrid decl stores both an IPDL type and all the C++ type
     info needed by later passes, along with a basic name for the decl."""
 
-    def __init__(self, ipdltype, name):
+    def __init__(self, ipdltype, name, attributes={}):
         self.ipdltype = ipdltype
         self.name = name
+        self.attributes = attributes
 
     def var(self):
         return ExprVar(self.name)
@@ -1146,7 +1116,11 @@ class MessageDecl(ipdl.ast.MessageDecl):
         |params| and |returns| is the C++ semantics of those: 'in', 'out', or None."""
 
         def makeDecl(d, sems):
-            if self.decl.type.tainted and direction == "recv":
+            if (
+                self.decl.type.tainted
+                and "NoTaint" not in d.attributes
+                and direction == "recv"
+            ):
                 # Tainted types are passed by-value, allowing the receiver to move them if desired.
                 assert sems != "out"
                 return Decl(Type("Tainted", T=d.bareType(side)), d.name)
@@ -1544,7 +1518,7 @@ class _DecorateWithCxxStuff(ipdl.ast.Visitor):
             self.typedefSet.add(Typedef(Type(ud.fqClassName()), ud.name))
 
     def visitDecl(self, decl):
-        return _HybridDecl(decl.type, decl.progname)
+        return _HybridDecl(decl.type, decl.progname, decl.attributes)
 
     def visitMessageDecl(self, md):
         md.namespace = self.protocolName
@@ -3669,7 +3643,7 @@ class _GenerateProtocolActorCode(ipdl.ast.Visitor):
         # don't friend ourself if we're a self-managed protocol
         friends.discard(ptype)
 
-        for friend in friends:
+        for friend in sorted(friends, key=lambda f: f.fullname()):
             self.actorForwardDecls.extend(
                 [_makeForwardDeclForActor(friend, self.prettyside), Whitespace.NL]
             )
@@ -3988,8 +3962,8 @@ class _GenerateProtocolActorCode(ipdl.ast.Visitor):
         for managed in ptype.manages:
             managedmeth.addcode(
                 """
-                for (auto it = ${container}.ConstIter(); !it.Done(); it.Next()) {
-                    arr__.AppendElement(it.Get()->GetKey()->GetLifecycleProxy());
+                for (auto* key : ${container}) {
+                    arr__.AppendElement(key->GetLifecycleProxy());
                 }
 
                 """,
@@ -4198,12 +4172,12 @@ class _GenerateProtocolActorCode(ipdl.ast.Visitor):
         for managed in ptype.manages:
             clearsubtree.addcode(
                 """
-                for (auto it = ${container}.Iter(); !it.Done(); it.Next()) {
-                    it.Get()->GetKey()->ClearSubtree();
+                for (auto* key : ${container}) {
+                    key->ClearSubtree();
                 }
-                for (auto it = ${container}.Iter(); !it.Done(); it.Next()) {
+                for (auto* key : ${container}) {
                     // Recursively releasing ${container} kids.
-                    auto* proxy = it.Get()->GetKey()->GetLifecycleProxy();
+                    auto* proxy = key->GetLifecycleProxy();
                     NS_IF_RELEASE(proxy);
                 }
                 ${container}.Clear();
@@ -4352,14 +4326,9 @@ class _GenerateProtocolActorCode(ipdl.ast.Visitor):
                     """
                     {
                         ${manageecxxtype} actor = static_cast<${manageecxxtype}>(aListener);
-                        auto& container = ${container};
 
-                        // Use a temporary variable here so all the assertion expressions
-                        // in the MOZ_RELEASE_ASSERT call below are textually identical;
-                        // the linker can then merge the strings from the assertion macro(s).
-                        MOZ_RELEASE_ASSERT(container.Contains(actor),
-                            "actor not managed by this!");
-                        container.RemoveEntry(actor);
+                        const bool removed = ${container}.EnsureRemoved(actor);
+                        MOZ_RELEASE_ASSERT(removed, "actor not managed by this!");
 
                         auto* proxy = actor->GetLifecycleProxy();
                         NS_IF_RELEASE(proxy);
@@ -4688,7 +4657,7 @@ class _GenerateProtocolActorCode(ipdl.ast.Visitor):
             }
 
             ${actor}->SetManagerAndRegister($,{setManagerArgs});
-            ${container}.PutEntry(${actor});
+            ${container}.Insert(${actor});
             """,
                 actor=actordecl.var(),
                 actorname=actorproto.name() + self.side.capitalize(),
@@ -5020,31 +4989,19 @@ class _GenerateProtocolActorCode(ipdl.ast.Visitor):
         if not md.decl.type.isAsync() or not md.hasReply():
             return []
 
-        selfvar = ExprVar("self__")
-        serializeParams = [
-            StmtCode("bool resolve__ = true;\n"),
-            _ParamTraits.checkedWrite(
-                None,
-                ExprVar("resolve__"),
-                self.replyvar,
-                sentinelKey="resolve__",
-                actor=selfvar,
-            ),
-        ]
-
         def paramValue(idx):
             assert idx < len(md.returns)
             if len(md.returns) > 1:
                 return ExprCode("mozilla::Get<${idx}>(aParam)", idx=idx)
             return ExprVar("aParam")
 
-        serializeParams += [
+        serializeParams = [
             _ParamTraits.checkedWrite(
                 p.ipdltype,
                 paramValue(idx),
                 self.replyvar,
                 sentinelKey=p.name,
-                actor=selfvar,
+                actor=ExprVar("self__"),
             )
             for idx, p in enumerate(md.returns)
         ]
@@ -5052,33 +5009,23 @@ class _GenerateProtocolActorCode(ipdl.ast.Visitor):
         return [
             StmtCode(
                 """
-                int32_t seqno__ = ${msgvar}.seqno();
-                RefPtr<mozilla::ipc::ActorLifecycleProxy> proxy__ =
-                    GetLifecycleProxy();
+                UniquePtr<IPC::Message> ${replyvar}(${replyCtor}(${routingId}));
+                ${replyvar}->set_seqno(${msgvar}.seqno());
 
-                ${resolvertype} resolver = [proxy__, seqno__, ${routingId}](${resolveType} aParam) {
-                    if (!proxy__->Get()) {
-                        NS_WARNING("Not resolving response because actor is dead.");
-                        return;
-                    }
-                    ${actortype} self__ = static_cast<${actortype}>(proxy__->Get());
+                RefPtr<mozilla::ipc::IPDLResolverInner> resolver__ =
+                    new mozilla::ipc::IPDLResolverInner(std::move(${replyvar}), this);
 
-                    IPC::Message* ${replyvar} = ${replyCtor}(${routingId});
-                    ${replyvar}->set_seqno(seqno__);
-
-                    $*{serializeParams}
-                    ${logSendingReply}
-                    bool sendok__ = self__->ChannelSend(${replyvar});
-                    if (!sendok__) {
-                        NS_WARNING("Error sending reply");
-                    }
+                ${resolvertype} resolver = [resolver__ = std::move(resolver__)](${resolveType} aParam) {
+                    resolver__->Resolve([&] (IPC::Message* ${replyvar}, IProtocol* self__) {
+                        $*{serializeParams}
+                        ${logSendingReply}
+                    });
                 };
                 """,
                 msgvar=self.msgvar,
                 resolvertype=Type(md.resolverName()),
                 routingId=routingId,
                 resolveType=_resolveType(md.returns, self.side),
-                actortype=_cxxBareType(ActorType(self.protocol.decl.type), self.side),
                 replyvar=self.replyvar,
                 replyCtor=ExprVar(md.pqReplyCtorFunc()),
                 serializeParams=serializeParams,
@@ -5086,7 +5033,7 @@ class _GenerateProtocolActorCode(ipdl.ast.Visitor):
                     md,
                     self.replyvar,
                     "Sending reply ",
-                    actor=selfvar,
+                    actor=ExprVar("self__"),
                 ),
             )
         ]
@@ -5177,7 +5124,7 @@ class _GenerateProtocolActorCode(ipdl.ast.Visitor):
                     Decl(
                         (
                             Type("Tainted", T=p.bareType(side))
-                            if md.decl.type.tainted
+                            if md.decl.type.tainted and "NoTaint" not in p.attributes
                             else p.bareType(side)
                         ),
                         p.var().name,
@@ -5227,32 +5174,34 @@ class _GenerateProtocolActorCode(ipdl.ast.Visitor):
         isctor = md.decl.type.isCtor()
         resolve = ExprVar("resolve__")
         reason = ExprVar("reason__")
+
+        # NOTE: The `resolve__` and `reason__` parameters don't have sentinels,
+        # as they are serialized by the IPDLResolverInner type in
+        # ProtocolUtils.cpp rather than by generated code.
         desresolve = [
-            StmtDecl(Decl(Type.BOOL, resolve.name), init=ExprLiteral.FALSE),
-            _ParamTraits.checkedRead(
-                None,
-                ExprAddrOf(resolve),
-                msgexpr,
-                ExprAddrOf(itervar),
-                errfn,
-                "'%s'" % resolve.name,
-                sentinelKey=resolve.name,
-                errfnSentinel=errfnSent,
-                actor=ExprVar.THIS,
+            StmtCode(
+                """
+                bool resolve__ = false;
+                if (!ReadIPDLParam(${msgexpr}, &${itervar}, this, &resolve__)) {
+                    FatalError("Error deserializing bool");
+                    return MsgValueError;
+                }
+                """,
+                msgexpr=msgexpr,
+                itervar=itervar,
             ),
         ]
         desrej = [
-            StmtDecl(Decl(_ResponseRejectReason.Type(), reason.name), initargs=[]),
-            _ParamTraits.checkedRead(
-                None,
-                ExprAddrOf(reason),
-                msgexpr,
-                ExprAddrOf(itervar),
-                errfn,
-                "'%s'" % reason.name,
-                sentinelKey=reason.name,
-                errfnSentinel=errfnSent,
-                actor=ExprVar.THIS,
+            StmtCode(
+                """
+                ResponseRejectReason reason__{};
+                if (!ReadIPDLParam(${msgexpr}, &${itervar}, this, &reason__)) {
+                    FatalError("Error deserializing ResponseRejectReason");
+                    return MsgValueError;
+                }
+                """,
+                msgexpr=msgexpr,
+                itervar=itervar,
             ),
             self.endRead(msgvar, itervar),
         ]
@@ -5407,6 +5356,7 @@ class _GenerateProtocolActorCode(ipdl.ast.Visitor):
             send = ExprSelect(actor, "->", send.name)
 
         sendok = ExprVar("sendok__")
+        self.externalIncludes.add("mozilla/ProfilerMarkers.h")
         return (
             sendok,
             (
@@ -5587,6 +5537,7 @@ class _GenerateProtocolActorCode(ipdl.ast.Visitor):
         )
 
     def profilerLabel(self, md):
+        self.externalIncludes.add("mozilla/ProfilerLabels.h")
         return StmtCode(
             """
             AUTO_PROFILER_LABEL("${name}::${msgname}", OTHER);

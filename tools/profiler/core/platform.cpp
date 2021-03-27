@@ -59,6 +59,9 @@
 #include "mozilla/SchedulerGroup.h"
 #include "mozilla/Services.h"
 #include "mozilla/StackWalk.h"
+#ifdef XP_WIN
+#  include "mozilla/StackWalkThread.h"
+#endif
 #include "mozilla/StaticPtr.h"
 #include "mozilla/ThreadLocal.h"
 #include "mozilla/TimeStamp.h"
@@ -270,17 +273,15 @@ static uint32_t AvailableFeatures() {
 static uint32_t DefaultFeatures() {
   return ProfilerFeature::Java | ProfilerFeature::JS | ProfilerFeature::Leaf |
          ProfilerFeature::StackWalk | ProfilerFeature::Threads |
-         ProfilerFeature::Screenshots;
+         ProfilerFeature::CPUUtilization | ProfilerFeature::Screenshots;
 }
 
 // Extra default features when MOZ_PROFILER_STARTUP is set (even if not
 // available).
 static uint32_t StartupExtraDefaultFeatures() {
-  // Enable CPUUtilization by default for startup profiles as it is useful to
-  // see when startup alternates between CPU intensive tasks and being blocked.
   // Enable file I/Os by default for startup profiles as startup is heavy on
   // I/O operations.
-  return ProfilerFeature::CPUUtilization | ProfilerFeature::FileIOAll;
+  return ProfilerFeature::FileIOAll;
 }
 
 // The class is a thin shell around mozglue PlatformMutex. It does not preserve
@@ -798,13 +799,13 @@ class ActivePS {
 
   ActivePS(PSLockRef aLock, PowerOfTwo32 aCapacity, double aInterval,
            uint32_t aFeatures, const char** aFilters, uint32_t aFilterCount,
-           uint64_t aActiveBrowsingContextID, const Maybe<double>& aDuration)
+           uint64_t aActiveTabID, const Maybe<double>& aDuration)
       : mGeneration(sNextGeneration++),
         mCapacity(aCapacity),
         mDuration(aDuration),
         mInterval(aInterval),
         mFeatures(AdjustFeatures(aFeatures, aFilterCount)),
-        mActiveBrowsingContextID(aActiveBrowsingContextID),
+        mActiveTabID(aActiveTabID),
         mProfileBufferChunkManager(
             size_t(ClampToAllowedEntries(aCapacity.Value())) * scBytesPerEntry,
             ChunkSizeForEntries(aCapacity.Value())),
@@ -912,11 +913,11 @@ class ActivePS {
  public:
   static void Create(PSLockRef aLock, PowerOfTwo32 aCapacity, double aInterval,
                      uint32_t aFeatures, const char** aFilters,
-                     uint32_t aFilterCount, uint64_t aActiveBrowsingContextID,
+                     uint32_t aFilterCount, uint64_t aActiveTabID,
                      const Maybe<double>& aDuration) {
     MOZ_ASSERT(!sInstance);
     sInstance = new ActivePS(aLock, aCapacity, aInterval, aFeatures, aFilters,
-                             aFilterCount, aActiveBrowsingContextID, aDuration);
+                             aFilterCount, aActiveTabID, aDuration);
   }
 
   [[nodiscard]] static SamplerThread* Destroy(PSLockRef aLock) {
@@ -933,14 +934,14 @@ class ActivePS {
   static bool Equals(PSLockRef, PowerOfTwo32 aCapacity,
                      const Maybe<double>& aDuration, double aInterval,
                      uint32_t aFeatures, const char** aFilters,
-                     uint32_t aFilterCount, uint64_t aActiveBrowsingContextID) {
+                     uint32_t aFilterCount, uint64_t aActiveTabID) {
     MOZ_ASSERT(sInstance);
     if (sInstance->mCapacity != aCapacity ||
         sInstance->mDuration != aDuration ||
         sInstance->mInterval != aInterval ||
         sInstance->mFeatures != aFeatures ||
         sInstance->mFilters.length() != aFilterCount ||
-        sInstance->mActiveBrowsingContextID != aActiveBrowsingContextID) {
+        sInstance->mActiveTabID != aActiveTabID) {
       return false;
     }
 
@@ -1023,12 +1024,11 @@ class ActivePS {
       if (sInstance->mDuration) {
         aWriter.DoubleProperty("duration", sInstance->mDuration.value());
       }
-      // Here, we are converting uint64_t to double. Browsing Context IDs are
+      // Here, we are converting uint64_t to double. Tab IDs are
       // being created using `nsContentUtils::GenerateProcessSpecificId`, which
       // is specifically designed to only use 53 of the 64 bits to be lossless
       // when passed into and out of JS as a double.
-      aWriter.DoubleProperty("activeBrowsingContextID",
-                             sInstance->mActiveBrowsingContextID);
+      aWriter.DoubleProperty("activeTabID", sInstance->mActiveTabID);
     }
     aWriter.EndObject();
   }
@@ -1043,7 +1043,7 @@ class ActivePS {
 
   PS_GET(uint32_t, Features)
 
-  PS_GET(uint64_t, ActiveBrowsingContextID)
+  PS_GET(uint64_t, ActiveTabID)
 
 #define PS_GET_FEATURE(n_, str_, Name_, desc_)                \
   static bool Feature##Name_(PSLockRef) {                     \
@@ -1378,10 +1378,10 @@ class ActivePS {
   // Substrings of names of threads we want to profile.
   Vector<std::string> mFilters;
 
-  // Browsing Context ID of the active active browser screen's active tab.
+  // ID of the active browser screen's active tab.
   // It's being used to determine the profiled tab. It's "0" if we failed to
   // get the ID.
-  const uint64_t mActiveBrowsingContextID;
+  const uint64_t mActiveTabID;
 
   // The chunk manager used by `mProfileBuffer` below.
   ProfileBufferChunkManagerWithLocalLimit mProfileBufferChunkManager;
@@ -1688,40 +1688,19 @@ struct AutoWalkJSStack {
   }
 };
 
-// Merges the profiling stack, native stack, and JS stack, outputting the
-// details to aCollector.
-static void MergeStacks(uint32_t aFeatures, bool aIsSynchronous,
-                        const RegisteredThread& aRegisteredThread,
-                        const Registers& aRegs, const NativeStack& aNativeStack,
-                        ProfilerStackCollector& aCollector,
-                        JsFrameBuffer aJsFrames) {
-  // WARNING: this function runs within the profiler's "critical section".
-  // WARNING: this function might be called while the profiler is inactive, and
-  //          cannot rely on ActivePS.
-
-  const ProfilingStack& profilingStack =
-      aRegisteredThread.RacyRegisteredThread().ProfilingStack();
-  const js::ProfilingStackFrame* profilingStackFrames = profilingStack.frames;
-  uint32_t profilingStackFrameCount = profilingStack.stackSize();
-  JSContext* context = aRegisteredThread.GetJSContext();
-
-  // Make a copy of the JS stack into a JSFrame array. This is necessary since,
-  // like the native stack, the JS stack is iterated youngest-to-oldest and we
-  // need to iterate oldest-to-youngest when adding frames to aInfo.
-
-  // Non-periodic sampling passes Nothing() as the buffer write position to
-  // ProfilingFrameIterator to avoid incorrectly resetting the buffer position
-  // of sampled JIT frames inside the JS engine.
-  Maybe<uint64_t> samplePosInBuffer;
-  if (!aIsSynchronous) {
-    // aCollector.SamplePositionInBuffer() will return Nothing() when
-    // profiler_suspend_and_sample_thread is called from the background hang
-    // reporter.
-    samplePosInBuffer = aCollector.SamplePositionInBuffer();
-  }
-  uint32_t jsCount = 0;
+// Make a copy of the JS stack into a JSFrame array, and return the number of
+// copied frames.
+// This copy is necessary since, like the native stack, the JS stack is iterated
+// youngest-to-oldest and we need to iterate oldest-to-youngest in MergeStacks.
+static uint32_t ExtractJsFrames(bool aIsSynchronous,
+                                const RegisteredThread& aRegisteredThread,
+                                const Registers& aRegs,
+                                ProfilerStackCollector& aCollector,
+                                JsFrameBuffer aJsFrames) {
+  uint32_t jsFramesCount = 0;
 
   // Only walk jit stack if profiling frame iterator is turned on.
+  JSContext* context = aRegisteredThread.GetJSContext();
   if (context && JS::IsProfilingEnabledForContext(context)) {
     AutoWalkJSStack autoWalkJSStack;
 
@@ -1732,26 +1711,58 @@ static void MergeStacks(uint32_t aFeatures, bool aIsSynchronous,
       registerState.lr = aRegs.mLR;
       registerState.fp = aRegs.mFP;
 
-      JS::ProfilingFrameIterator jsIter(context, registerState,
-                                        samplePosInBuffer);
-      for (; jsCount < MAX_JS_FRAMES && !jsIter.done(); ++jsIter) {
+      // Non-periodic sampling passes Nothing() as the buffer write position to
+      // ProfilingFrameIterator to avoid incorrectly resetting the buffer
+      // position of sampled JIT frames inside the JS engine.
+      Maybe<uint64_t> samplePosInBuffer;
+      if (!aIsSynchronous) {
+        // aCollector.SamplePositionInBuffer() will return Nothing() when
+        // profiler_suspend_and_sample_thread is called from the background hang
+        // reporter.
+        samplePosInBuffer = aCollector.SamplePositionInBuffer();
+      }
+
+      for (JS::ProfilingFrameIterator jsIter(context, registerState,
+                                             samplePosInBuffer);
+           !jsIter.done(); ++jsIter) {
         if (aIsSynchronous || jsIter.isWasm()) {
-          uint32_t extracted =
-              jsIter.extractStack(aJsFrames, jsCount, MAX_JS_FRAMES);
-          jsCount += extracted;
-          if (jsCount == MAX_JS_FRAMES) {
+          jsFramesCount +=
+              jsIter.extractStack(aJsFrames, jsFramesCount, MAX_JS_FRAMES);
+          if (jsFramesCount == MAX_JS_FRAMES) {
             break;
           }
         } else {
           Maybe<JS::ProfilingFrameIterator::Frame> frame =
               jsIter.getPhysicalFrameWithoutLabel();
           if (frame.isSome()) {
-            aJsFrames[jsCount++] = frame.value();
+            aJsFrames[jsFramesCount++] = std::move(frame).ref();
+            if (jsFramesCount == MAX_JS_FRAMES) {
+              break;
+            }
           }
         }
       }
     }
   }
+
+  return jsFramesCount;
+}
+
+// Merges the profiling stack, native stack, and JS stack, outputting the
+// details to aCollector.
+static void MergeStacks(uint32_t aFeatures, bool aIsSynchronous,
+                        const RegisteredThread& aRegisteredThread,
+                        const Registers& aRegs, const NativeStack& aNativeStack,
+                        ProfilerStackCollector& aCollector,
+                        JsFrameBuffer aJsFrames, uint32_t aJsFramesCount) {
+  // WARNING: this function runs within the profiler's "critical section".
+  // WARNING: this function might be called while the profiler is inactive, and
+  //          cannot rely on ActivePS.
+
+  const ProfilingStack& profilingStack =
+      aRegisteredThread.RacyRegisteredThread().ProfilingStack();
+  const js::ProfilingStackFrame* profilingStackFrames = profilingStack.frames;
+  uint32_t profilingStackFrameCount = profilingStack.stackSize();
 
   // While the profiling stack array is ordered oldest-to-youngest, the JS and
   // native arrays are ordered youngest-to-oldest. We must add frames to aInfo
@@ -1759,7 +1770,7 @@ static void MergeStacks(uint32_t aFeatures, bool aIsSynchronous,
   // and native arrays backwards. Note: this means the terminating condition
   // jsIndex and nativeIndex is being < 0.
   uint32_t profilingStackIndex = 0;
-  int32_t jsIndex = jsCount - 1;
+  int32_t jsIndex = aJsFramesCount - 1;
   int32_t nativeIndex = aNativeStack.mCount - 1;
 
   uint8_t* lastLabelFrameStackAddr = nullptr;
@@ -1843,6 +1854,13 @@ static void MergeStacks(uint32_t aFeatures, bool aIsSynchronous,
                 !profilingStackFrame.pc(),
             &profilingStackFrame ==
                 &profilingStack.frames[profilingStack.stackSize() - 1]);
+        if (aIsSynchronous && profilingStackFrame.categoryPair() ==
+                                  JS::ProfilingCategoryPair::PROFILER) {
+          // For stacks captured synchronously (ie. marker stacks), stop
+          // walking the stack as soon as we enter the profiler category,
+          // to avoid showing profiler internal code in marker stacks.
+          return;
+        }
         aCollector.CollectProfilingStackFrame(profilingStackFrame);
       }
       profilingStackIndex++;
@@ -1920,9 +1938,15 @@ static void MergeStacks(uint32_t aFeatures, bool aIsSynchronous,
   // synchronous samples, and we also don't want to do it for calls to
   // profiler_suspend_and_sample_thread() from the background hang reporter -
   // in that case, aCollector.BufferRangeStart() will return Nothing().
-  if (!aIsSynchronous && context && aCollector.BufferRangeStart()) {
-    uint64_t bufferRangeStart = *aCollector.BufferRangeStart();
-    JS::SetJSContextProfilerSampleBufferRangeStart(context, bufferRangeStart);
+  if (!aIsSynchronous) {
+    aCollector.BufferRangeStart().apply(
+        [&aRegisteredThread](uint64_t aBufferRangeStart) {
+          JSContext* context = aRegisteredThread.GetJSContext();
+          if (context) {
+            JS::SetJSContextProfilerSampleBufferRangeStart(context,
+                                                           aBufferRangeStart);
+          }
+        });
   }
 }
 
@@ -1960,8 +1984,8 @@ static void DoFramePointerBacktrace(PSLockRef aLock,
 
   const void* stackEnd = aRegisteredThread.StackTop();
   if (aRegs.mFP >= aRegs.mSP && aRegs.mFP <= stackEnd) {
-    FramePointerStackWalk(StackWalkCallback, /* skipFrames */ 0, maxFrames,
-                          &aNativeStack, reinterpret_cast<void**>(aRegs.mFP),
+    FramePointerStackWalk(StackWalkCallback, maxFrames, &aNativeStack,
+                          reinterpret_cast<void**>(aRegs.mFP),
                           const_cast<void*>(stackEnd));
   }
 }
@@ -1986,8 +2010,8 @@ static void DoMozStackWalkBacktrace(PSLockRef aLock,
 
   HANDLE thread = GetThreadHandle(aRegisteredThread.GetPlatformData());
   MOZ_ASSERT(thread);
-  MozStackWalkThread(StackWalkCallback, /* skipFrames */ 0, maxFrames,
-                     &aNativeStack, thread, /* context */ nullptr);
+  MozStackWalkThread(StackWalkCallback, maxFrames, &aNativeStack, thread,
+                     /* context */ nullptr);
 }
 #endif
 
@@ -2219,6 +2243,9 @@ static inline void DoSharedSample(
   MOZ_RELEASE_ASSERT(ActivePS::Exists(aLock));
 
   ProfileBufferCollector collector(aBuffer, aSamplePos, aBufferRangeStart);
+  JsFrameBuffer& jsFrames = CorePS::JsFrames(aLock);
+  const uint32_t jsFramesCount = ExtractJsFrames(
+      aIsSynchronous, aRegisteredThread, aRegs, collector, jsFrames);
   NativeStack nativeStack;
 #if defined(HAVE_NATIVE_UNWIND)
   if (ActivePS::FeatureStackWalk(aLock) &&
@@ -2226,12 +2253,12 @@ static inline void DoSharedSample(
     DoNativeBacktrace(aLock, aRegisteredThread, aRegs, nativeStack);
 
     MergeStacks(ActivePS::Features(aLock), aIsSynchronous, aRegisteredThread,
-                aRegs, nativeStack, collector, CorePS::JsFrames(aLock));
+                aRegs, nativeStack, collector, jsFrames, jsFramesCount);
   } else
 #endif
   {
     MergeStacks(ActivePS::Features(aLock), aIsSynchronous, aRegisteredThread,
-                aRegs, nativeStack, collector, CorePS::JsFrames(aLock));
+                aRegs, nativeStack, collector, jsFrames, jsFramesCount);
 
     // We can't walk the whole native stack, but we can record the top frame.
     if (ActivePS::FeatureLeaf(aLock) &&
@@ -2510,7 +2537,7 @@ static void StreamMetaJSCustomObject(
     const PreRecordedMetaInformation& aPreRecordedMetaInformation) {
   MOZ_RELEASE_ASSERT(CorePS::Exists() && ActivePS::Exists(aLock));
 
-  aWriter.IntProperty("version", 22);
+  aWriter.IntProperty("version", 23);
 
   // The "startTime" field holds the number of milliseconds since midnight
   // January 1, 1970 GMT. This grotty code computes (Now - (Now -
@@ -2608,6 +2635,12 @@ static void StreamMetaJSCustomObject(
                         aPreRecordedMetaInformation.mProcessInfoCpuCount);
   }
 
+#if defined(GP_OS_android)
+  jni::String::LocalRef deviceInformation =
+      java::GeckoJavaSampler::GetDeviceInformation();
+  aWriter.StringProperty("device", deviceInformation->ToCString());
+#endif
+
   aWriter.StartObjectProperty("sampleUnits");
   {
     aWriter.StringProperty("time", "ms");
@@ -2616,9 +2649,9 @@ static void StreamMetaJSCustomObject(
   }
   aWriter.EndObject();
 
-  // We should avoid collecting extension metadata for profiler while XPCOM is
-  // shutting down since it cannot create a new ExtensionPolicyService.
-  if (!gXPCOMShuttingDown) {
+  // We should avoid collecting extension metadata for profiler when there is no
+  // observer service, since a ExtensionPolicyService could not be created then.
+  if (nsCOMPtr<nsIObserverService> os = services::GetObserverService()) {
     aWriter.StartObjectProperty("extensions");
     {
       {
@@ -3021,10 +3054,6 @@ static void PrintUsageThenExit(int aExitCode) {
       "  Ignored if  MOZ_PROFILER_STARTUP_FEATURES_BITFIELD is set.\n"
       "  If unset, the platform default is used.\n"
       "\n"
-      "  MOZ_PROFILER_STARTUP_ACTIVE_BROWSING_CONTEXT_ID=<Number>\n"
-      "  This variable is used to propagate the activeBrowsingContextID of\n"
-      "  the profiler init params to subprocesses.\n"
-      "\n"
       "    Features: (x=unavailable, D/d=default/unavailable,\n"
       "               S/s=MOZ_PROFILER_STARTUP extra default/unavailable)\n",
       unsigned(ActivePS::scMinimumBufferEntries),
@@ -3052,6 +3081,10 @@ static void PrintUsageThenExit(int aExitCode) {
       "  comma-separated list of strings. A given thread will be sampled if\n"
       "  any of the filters is a case-insensitive substring of the thread\n"
       "  name. If unset, a default is used.\n"
+      "\n"
+      "  MOZ_PROFILER_STARTUP_ACTIVE_TAB_ID=<Number>\n"
+      "  This variable is used to propagate the activeTabID of\n"
+      "  the profiler init params to subprocesses.\n"
       "\n"
       "  MOZ_PROFILER_SHUTDOWN\n"
       "  If set, the profiler saves a profile to the named file on shutdown.\n"
@@ -4003,7 +4036,7 @@ static void NotifyProfilerStarted(const PowerOfTwo32& aCapacity,
                                   const Maybe<double>& aDuration,
                                   double aInterval, uint32_t aFeatures,
                                   const char** aFilters, uint32_t aFilterCount,
-                                  uint64_t aActiveBrowsingContextID) {
+                                  uint64_t aActiveTabID) {
   nsTArray<nsCString> filtersArray;
   for (size_t i = 0; i < aFilterCount; ++i) {
     filtersArray.AppendElement(aFilters[i]);
@@ -4011,7 +4044,7 @@ static void NotifyProfilerStarted(const PowerOfTwo32& aCapacity,
 
   nsCOMPtr<nsIProfilerStartParams> params = new nsProfilerStartParams(
       aCapacity.Value(), aDuration, aInterval, aFeatures,
-      std::move(filtersArray), aActiveBrowsingContextID);
+      std::move(filtersArray), aActiveTabID);
 
   ProfilerParent::ProfilerStarted(params);
   NotifyObservers("profiler-started", params);
@@ -4020,7 +4053,7 @@ static void NotifyProfilerStarted(const PowerOfTwo32& aCapacity,
 static void locked_profiler_start(PSLockRef aLock, PowerOfTwo32 aCapacity,
                                   double aInterval, uint32_t aFeatures,
                                   const char** aFilters, uint32_t aFilterCount,
-                                  uint64_t aActiveBrowsingContextID,
+                                  uint64_t aActiveTabID,
                                   const Maybe<double>& aDuration);
 
 // This basically duplicates AutoProfilerLabel's constructor.
@@ -4108,8 +4141,7 @@ void profiler_init(void* aStackTop) {
   PowerOfTwo32 capacity = PROFILER_DEFAULT_ENTRIES;
   Maybe<double> duration = Nothing();
   double interval = PROFILER_DEFAULT_INTERVAL;
-  uint64_t activeBrowsingContextID =
-      PROFILER_DEFAULT_ACTIVE_BROWSING_CONTEXT_ID;
+  uint64_t activeTabID = PROFILER_DEFAULT_ACTIVE_TAB_ID;
 
   {
     PSAutoLock lock(gPSMutex);
@@ -4237,25 +4269,23 @@ void profiler_init(void* aStackTop) {
       LOG("- MOZ_PROFILER_STARTUP_FILTERS = %s", startupFilters);
     }
 
-    const char* startupActiveBrowsingContextID =
-        getenv("MOZ_PROFILER_STARTUP_ACTIVE_BROWSING_CONTEXT_ID");
-    if (startupActiveBrowsingContextID &&
-        startupActiveBrowsingContextID[0] != '\0') {
-      std::istringstream iss(startupActiveBrowsingContextID);
-      iss >> activeBrowsingContextID;
+    const char* startupActiveTabID =
+        getenv("MOZ_PROFILER_STARTUP_ACTIVE_TAB_ID");
+    if (startupActiveTabID && startupActiveTabID[0] != '\0') {
+      std::istringstream iss(startupActiveTabID);
+      iss >> activeTabID;
       if (!iss.fail()) {
-        LOG("- MOZ_PROFILER_STARTUP_ACTIVE_BROWSING_CONTEXT_ID = %" PRIu64,
-            activeBrowsingContextID);
+        LOG("- MOZ_PROFILER_STARTUP_ACTIVE_TAB_ID = %" PRIu64, activeTabID);
       } else {
-        LOG("- MOZ_PROFILER_STARTUP_ACTIVE_BROWSING_CONTEXT_ID not a valid "
+        LOG("- MOZ_PROFILER_STARTUP_ACTIVE_TAB_ID not a valid "
             "uint64_t: %s",
-            startupActiveBrowsingContextID);
+            startupActiveTabID);
         PrintUsageThenExit(1);
       }
     }
 
     locked_profiler_start(lock, capacity, interval, features, filters.begin(),
-                          filters.length(), activeBrowsingContextID, duration);
+                          filters.length(), activeTabID, duration);
   }
 
 #if defined(MOZ_REPLACE_MALLOC) && defined(MOZ_PROFILER_MEMORY)
@@ -4404,7 +4434,7 @@ void profiler_get_profile_json_into_lazily_allocated_buffer(
 void profiler_get_start_params(int* aCapacity, Maybe<double>* aDuration,
                                double* aInterval, uint32_t* aFeatures,
                                Vector<const char*>* aFilters,
-                               uint64_t* aActiveBrowsingContextID) {
+                               uint64_t* aActiveTabID) {
   MOZ_RELEASE_ASSERT(CorePS::Exists());
 
   if (NS_WARN_IF(!aCapacity) || NS_WARN_IF(!aDuration) ||
@@ -4420,7 +4450,7 @@ void profiler_get_start_params(int* aCapacity, Maybe<double>* aDuration,
     *aDuration = Nothing();
     *aInterval = 0;
     *aFeatures = 0;
-    *aActiveBrowsingContextID = 0;
+    *aActiveTabID = 0;
     aFilters->clear();
     return;
   }
@@ -4429,7 +4459,7 @@ void profiler_get_start_params(int* aCapacity, Maybe<double>* aDuration,
   *aDuration = ActivePS::Duration(lock);
   *aInterval = ActivePS::Interval(lock);
   *aFeatures = ActivePS::Features(lock);
-  *aActiveBrowsingContextID = ActivePS::ActiveBrowsingContextID(lock);
+  *aActiveTabID = ActivePS::ActiveTabID(lock);
 
   const Vector<std::string>& filters = ActivePS::Filters(lock);
   MOZ_ALWAYS_TRUE(aFilters->resize(filters.length()));
@@ -4494,10 +4524,8 @@ void GetProfilerEnvVarsForChildProcess(
   }
   aSetEnv("MOZ_PROFILER_STARTUP_FILTERS", filtersString.c_str());
 
-  auto activeBrowsingContextIDString =
-      Smprintf("%" PRIu64, ActivePS::ActiveBrowsingContextID(lock));
-  aSetEnv("MOZ_PROFILER_STARTUP_ACTIVE_BROWSING_CONTEXT_ID",
-          activeBrowsingContextIDString.get());
+  auto activeTabIDString = Smprintf("%" PRIu64, ActivePS::ActiveTabID(lock));
+  aSetEnv("MOZ_PROFILER_STARTUP_ACTIVE_TAB_ID", activeTabIDString.get());
 }
 
 }  // namespace mozilla
@@ -4639,14 +4667,14 @@ static bool HasMinimumLength(const char* aString, size_t aMinimumLength) {
 static void locked_profiler_start(PSLockRef aLock, PowerOfTwo32 aCapacity,
                                   double aInterval, uint32_t aFeatures,
                                   const char** aFilters, uint32_t aFilterCount,
-                                  uint64_t aActiveBrowsingContextID,
+                                  uint64_t aActiveTabID,
                                   const Maybe<double>& aDuration) {
   if (LOG_TEST) {
     LOG("locked_profiler_start");
     LOG("- capacity  = %u", unsigned(aCapacity.Value()));
     LOG("- duration  = %.2f", aDuration ? *aDuration : -1);
     LOG("- interval = %.2f", aInterval);
-    LOG("- browsing context ID = %" PRIu64, aActiveBrowsingContextID);
+    LOG("- tab ID = %" PRIu64, aActiveTabID);
 
 #define LOG_FEATURE(n_, str_, Name_, desc_)     \
   if (ProfilerFeature::Has##Name_(aFeatures)) { \
@@ -4709,7 +4737,7 @@ static void locked_profiler_start(PSLockRef aLock, PowerOfTwo32 aCapacity,
   double interval = aInterval > 0 ? aInterval : PROFILER_DEFAULT_INTERVAL;
 
   ActivePS::Create(aLock, capacity, interval, aFeatures, aFilters, aFilterCount,
-                   aActiveBrowsingContextID, duration);
+                   aActiveTabID, duration);
 
   // ActivePS::Create can only succeed or crash.
   MOZ_ASSERT(ActivePS::Exists(aLock));
@@ -4812,7 +4840,7 @@ static void locked_profiler_start(PSLockRef aLock, PowerOfTwo32 aCapacity,
 
 void profiler_start(PowerOfTwo32 aCapacity, double aInterval,
                     uint32_t aFeatures, const char** aFilters,
-                    uint32_t aFilterCount, uint64_t aActiveBrowsingContextID,
+                    uint32_t aFilterCount, uint64_t aActiveTabID,
                     const Maybe<double>& aDuration) {
   LOG("profiler_start");
 
@@ -4833,7 +4861,7 @@ void profiler_start(PowerOfTwo32 aCapacity, double aInterval,
     }
 
     locked_profiler_start(lock, aCapacity, aInterval, aFeatures, aFilters,
-                          aFilterCount, aActiveBrowsingContextID, aDuration);
+                          aFilterCount, aActiveTabID, aDuration);
   }
 
 #if defined(MOZ_REPLACE_MALLOC) && defined(MOZ_PROFILER_MEMORY)
@@ -4850,13 +4878,12 @@ void profiler_start(PowerOfTwo32 aCapacity, double aInterval,
     delete samplerThread;
   }
   NotifyProfilerStarted(aCapacity, aDuration, aInterval, aFeatures, aFilters,
-                        aFilterCount, aActiveBrowsingContextID);
+                        aFilterCount, aActiveTabID);
 }
 
 void profiler_ensure_started(PowerOfTwo32 aCapacity, double aInterval,
                              uint32_t aFeatures, const char** aFilters,
-                             uint32_t aFilterCount,
-                             uint64_t aActiveBrowsingContextID,
+                             uint32_t aFilterCount, uint64_t aActiveTabID,
                              const Maybe<double>& aDuration) {
   LOG("profiler_ensure_started");
 
@@ -4875,18 +4902,17 @@ void profiler_ensure_started(PowerOfTwo32 aCapacity, double aInterval,
     if (ActivePS::Exists(lock)) {
       // The profiler is active.
       if (!ActivePS::Equals(lock, aCapacity, aDuration, aInterval, aFeatures,
-                            aFilters, aFilterCount, aActiveBrowsingContextID)) {
+                            aFilters, aFilterCount, aActiveTabID)) {
         // Stop and restart with different settings.
         samplerThread = locked_profiler_stop(lock);
         locked_profiler_start(lock, aCapacity, aInterval, aFeatures, aFilters,
-                              aFilterCount, aActiveBrowsingContextID,
-                              aDuration);
+                              aFilterCount, aActiveTabID, aDuration);
         startedProfiler = true;
       }
     } else {
       // The profiler is stopped.
       locked_profiler_start(lock, aCapacity, aInterval, aFeatures, aFilters,
-                            aFilterCount, aActiveBrowsingContextID, aDuration);
+                            aFilterCount, aActiveTabID, aDuration);
       startedProfiler = true;
     }
   }
@@ -4901,7 +4927,7 @@ void profiler_ensure_started(PowerOfTwo32 aCapacity, double aInterval,
 
   if (startedProfiler) {
     NotifyProfilerStarted(aCapacity, aDuration, aInterval, aFeatures, aFilters,
-                          aFilterCount, aActiveBrowsingContextID);
+                          aFilterCount, aActiveTabID);
   }
 }
 
@@ -5324,12 +5350,11 @@ void profiler_unregister_thread() {
   }
 }
 
-void profiler_register_page(uint64_t aBrowsingContextID,
-                            uint64_t aInnerWindowID, const nsCString& aUrl,
+void profiler_register_page(uint64_t aTabID, uint64_t aInnerWindowID,
+                            const nsCString& aUrl,
                             uint64_t aEmbedderInnerWindowID) {
   DEBUG_LOG("profiler_register_page(%" PRIu64 ", %" PRIu64 ", %s, %" PRIu64 ")",
-            aBrowsingContextID, aInnerWindowID, aUrl.get(),
-            aEmbedderInnerWindowID);
+            aTabID, aInnerWindowID, aUrl.get(), aEmbedderInnerWindowID);
 
   MOZ_RELEASE_ASSERT(CorePS::Exists());
 
@@ -5338,8 +5363,8 @@ void profiler_register_page(uint64_t aBrowsingContextID,
   // When a Browsing context is first loaded, the first url loaded in it will be
   // about:blank. Because of that, this call keeps the first non-about:blank
   // registration of window and discards the previous one.
-  RefPtr<PageInformation> pageInfo = new PageInformation(
-      aBrowsingContextID, aInnerWindowID, aUrl, aEmbedderInnerWindowID);
+  RefPtr<PageInformation> pageInfo =
+      new PageInformation(aTabID, aInnerWindowID, aUrl, aEmbedderInnerWindowID);
   CorePS::AppendRegisteredPage(lock, std::move(pageInfo));
 
   // After appending the given page to CorePS, look for the expired
@@ -5511,6 +5536,7 @@ bool profiler_capture_backtrace_into(ProfileChunkedBuffer& aChunkedBuffer,
 
 UniquePtr<ProfileChunkedBuffer> profiler_capture_backtrace() {
   MOZ_RELEASE_ASSERT(CorePS::Exists());
+  AUTO_PROFILER_LABEL("profiler_capture_backtrace", PROFILER);
 
   // Quick is-active check before allocating a buffer.
   if (!profiler_is_active()) {
@@ -5897,6 +5923,10 @@ void profiler_suspend_and_sample_thread(int aThreadId, uint32_t aFeatures,
             // The target thread is now suspended. Collect a native backtrace,
             // and call the callback.
             bool isSynchronous = false;
+            JsFrameBuffer& jsFrames = CorePS::JsFrames(lock);
+            const uint32_t jsFramesCount = ExtractJsFrames(
+                isSynchronous, registeredThread, aRegs, aCollector, jsFrames);
+
 #if defined(HAVE_FASTINIT_NATIVE_UNWIND)
             if (aSampleNative) {
           // We can only use FramePointerStackWalk or MozStackWalk from
@@ -5913,12 +5943,12 @@ void profiler_suspend_and_sample_thread(int aThreadId, uint32_t aFeatures,
 #  endif
 
               MergeStacks(aFeatures, isSynchronous, registeredThread, aRegs,
-                          nativeStack, aCollector, CorePS::JsFrames(lock));
+                          nativeStack, aCollector, jsFrames, jsFramesCount);
             } else
 #endif
             {
               MergeStacks(aFeatures, isSynchronous, registeredThread, aRegs,
-                          nativeStack, aCollector, CorePS::JsFrames(lock));
+                          nativeStack, aCollector, jsFrames, jsFramesCount);
 
               if (ProfilerFeature::HasLeaf(aFeatures)) {
                 aCollector.CollectNativeLeafAddr((void*)aRegs.mPC);

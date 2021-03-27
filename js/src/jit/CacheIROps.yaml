@@ -88,13 +88,6 @@
   args:
     input: ValId
 
-- name: GuardIsObjectOrNull
-  shared: true
-  transpile: false
-  cost_estimate: 1
-  args:
-    input: ValId
-
 - name: GuardIsNullOrUndefined
   shared: true
   transpile: true
@@ -232,14 +225,6 @@
     obj: ObjId
     shape: ShapeField
 
-- name: GuardGroup
-  shared: false
-  transpile: true
-  cost_estimate: 1
-  args:
-    obj: ObjId
-    group: GroupField
-
 - name: GuardProto
   shared: false
   transpile: true
@@ -307,6 +292,14 @@
     regexp: ObjId
     input: StringId
     lastIndex: Int32Id
+
+- name: RegExpFlagResult
+  shared: true
+  transpile: true
+  cost_estimate: 2
+  args:
+    regexp: ObjId
+    flagsMask: Int32Imm
 
 - name: CallSubstringKernelResult
   shared: true
@@ -543,14 +536,6 @@
   transpile: true
   cost_estimate: 1
   args:
-    index: Int32Id
-
-- name: GuardIndexGreaterThanArrayLength
-  shared: true
-  transpile: false
-  cost_estimate: 1
-  args:
-    obj: ObjId
     index: Int32Id
 
 - name: GuardIndexIsValidUpdateOrAdd
@@ -978,21 +963,42 @@
   args:
     obj: ObjId
 
-- name: TypedArrayByteOffsetInt32Result
+- name: ArrayBufferViewByteOffsetInt32Result
   shared: true
   transpile: true
   cost_estimate: 1
   args:
     obj: ObjId
 
-- name: TypedArrayByteOffsetDoubleResult
+- name: ArrayBufferViewByteOffsetDoubleResult
   shared: true
   transpile: true
   cost_estimate: 1
+  args:
+    obj: ObjId
+
+- name: TypedArrayByteLengthInt32Result
+  shared: true
+  transpile: true
+  cost_estimate: 2
+  args:
+    obj: ObjId
+
+- name: TypedArrayByteLengthDoubleResult
+  shared: true
+  transpile: true
+  cost_estimate: 2
   args:
     obj: ObjId
 
 - name: TypedArrayElementSizeResult
+  shared: true
+  transpile: true
+  cost_estimate: 2
+  args:
+    obj: ObjId
+
+- name: GuardHasAttachedArrayBuffer
   shared: true
   transpile: true
   cost_estimate: 2
@@ -1797,14 +1803,14 @@
   args:
     obj: ObjId
 
-- name: LoadTypedArrayLengthInt32Result
+- name: LoadArrayBufferViewLengthInt32Result
   shared: true
   transpile: true
   cost_estimate: 1
   args:
     obj: ObjId
 
-- name: LoadTypedArrayLengthDoubleResult
+- name: LoadArrayBufferViewLengthDoubleResult
   shared: true
   transpile: true
   cost_estimate: 1

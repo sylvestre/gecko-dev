@@ -65,7 +65,6 @@
 
 #include "nsObjectLoadingContent.h"
 #include "mozAutoDocUpdate.h"
-#include "GeckoProfiler.h"
 #include "nsWrapperCacheInlines.h"
 #include "nsDOMJSUtils.h"
 #include "js/Object.h"  // JS::GetClass
@@ -95,6 +94,7 @@
 #include "mozilla/net/UrlClassifierFeatureFactory.h"
 #include "mozilla/LoadInfo.h"
 #include "mozilla/PresShell.h"
+#include "mozilla/ProfilerLabels.h"
 #include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/StaticPrefs_security.h"
 #include "nsChannelClassifier.h"
@@ -2441,6 +2441,14 @@ void nsObjectLoadingContent::Destroy() {
 void nsObjectLoadingContent::Traverse(nsObjectLoadingContent* tmp,
                                       nsCycleCollectionTraversalCallback& cb) {
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFrameLoader);
+}
+
+/* static */
+void nsObjectLoadingContent::Unlink(nsObjectLoadingContent* tmp) {
+  if (tmp->mFrameLoader) {
+    tmp->mFrameLoader->Destroy();
+  }
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mFrameLoader);
 }
 
 void nsObjectLoadingContent::UnloadObject(bool aResetState) {

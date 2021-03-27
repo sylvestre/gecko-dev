@@ -112,6 +112,8 @@ var TabStateInternal = {
 
     tabData.searchMode = tab.ownerGlobal.gURLBar.getSearchMode(browser, true);
 
+    tabData.userContextId = tab.userContextId || 0;
+
     // Save tab attributes.
     tabData.attributes = TabAttributes.get(tab);
 
@@ -190,10 +192,6 @@ var TabStateInternal = {
         // copy.
         tabData.entries = [...value.entries];
 
-        if (value.hasOwnProperty("userContextId")) {
-          tabData.userContextId = value.userContextId;
-        }
-
         if (value.hasOwnProperty("index")) {
           tabData.index = value.index;
         }
@@ -201,18 +199,17 @@ var TabStateInternal = {
         if (value.hasOwnProperty("requestedIndex")) {
           tabData.requestedIndex = value.requestedIndex;
         }
+      } else if (!value && (key == "scroll" || key == "formdata")) {
+        // [Bug 1554512]
+
+        // If scroll or formdata null it indicates that the update to
+        // be performed is to remove them, and not copy a null
+        // value. Scroll will be null when the position is at the top
+        // of the document, formdata will be null when there is only
+        // default data.
+        delete tabData[key];
       } else {
         tabData[key] = value;
-      }
-    }
-
-    // [Bug 1554512]
-    // If the latest scroll position is on the top, we will delete scroll entry.
-    // When scroll entry is deleted in TabStateCache, it cannot be updated.
-    // To prevent losing the scroll position, we need to add a handing here.
-    if (tabData.scroll) {
-      if (!data.scroll) {
-        delete tabData.scroll;
       }
     }
   },

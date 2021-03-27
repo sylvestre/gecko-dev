@@ -100,7 +100,7 @@
 #include "mozilla/SMILAnimationController.h"
 #include "mozilla/SMILTimeContainer.h"
 #include "mozilla/ScopeExit.h"
-#include "mozilla/Services.h"
+#include "mozilla/Components.h"
 #include "mozilla/ServoCSSPropList.h"
 #include "mozilla/ServoStyleConsts.h"
 #include "mozilla/ServoStyleSet.h"
@@ -113,6 +113,7 @@
 #include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/StaticPrefs_docshell.h"
 #include "mozilla/StaticPrefs_dom.h"
+#include "mozilla/StaticPrefs_fission.h"
 #include "mozilla/StaticPrefs_full_screen_api.h"
 #include "mozilla/StaticPrefs_layout.h"
 #include "mozilla/StaticPrefs_network.h"
@@ -429,6 +430,7 @@
 #define NS_MAX_DOCUMENT_WRITE_DEPTH 20
 
 mozilla::LazyLogModule gPageCacheLog("PageCache");
+mozilla::LazyLogModule gSHIPBFCacheLog("SHIPBFCache");
 mozilla::LazyLogModule gTimeoutDeferralLog("TimeoutDefer");
 mozilla::LazyLogModule gUseCountersLog("UseCounters");
 
@@ -526,7 +528,7 @@ void IdentifierMapEntry::FireChangeCallbacks(Element* aOldElement,
                                              bool aImageOnly) {
   if (!mChangeCallbacks) return;
 
-  for (auto iter = mChangeCallbacks->ConstIter(); !iter.Done(); iter.Next()) {
+  for (auto iter = mChangeCallbacks->Iter(); !iter.Done(); iter.Next()) {
     IdentifierMapEntry::ChangeCallbackEntry* entry = iter.Get();
     // Don't fire image changes for non-image observers, and don't fire element
     // changes for image observers when an image override is active.
@@ -693,7 +695,7 @@ void IdentifierMapEntry::RemoveNameElement(Element* aElement) {
   }
 }
 
-bool IdentifierMapEntry::HasIdElementExposedAsHTMLDocumentProperty() {
+bool IdentifierMapEntry::HasIdElementExposedAsHTMLDocumentProperty() const {
   Element* idElement = GetIdElement();
   return idElement &&
          nsGenericHTMLElement::ShouldExposeIdAsHTMLDocumentProperty(idElement);
@@ -812,22 +814,27 @@ Document* ExternalResourceMap::RequestResource(
     return resource->mDocument;
   }
 
-  RefPtr<PendingLoad>& loadEntry = mPendingLoads.GetOrInsert(clone);
-  if (loadEntry) {
-    RefPtr<PendingLoad> load(loadEntry);
-    load.forget(aPendingLoad);
-    return nullptr;
-  }
+  bool loadStartSucceeded =
+      mPendingLoads.WithEntryHandle(clone, [&](auto&& loadEntry) {
+        if (!loadEntry) {
+          loadEntry.Insert(MakeRefPtr<PendingLoad>(aDisplayDocument));
 
-  RefPtr<PendingLoad> load(new PendingLoad(aDisplayDocument));
-  loadEntry = load;
+          if (NS_FAILED(loadEntry.Data()->StartLoad(clone, aReferrerInfo,
+                                                    aRequestingNode))) {
+            return false;
+          }
+        }
 
-  if (NS_FAILED(load->StartLoad(clone, aReferrerInfo, aRequestingNode))) {
+        RefPtr<PendingLoad> load(loadEntry.Data());
+        load.forget(aPendingLoad);
+        return true;
+      });
+  if (!loadStartSucceeded) {
     // Make sure we don't thrash things by trying this load again, since
     // chances are it failed for good reasons (security check, etc).
+    // This must be done outside the WithEntryHandle functor, as it accesses
+    // mPendingLoads.
     AddExternalResource(clone, nullptr, nullptr, aDisplayDocument);
-  } else {
-    load.forget(aPendingLoad);
   }
 
   return nullptr;
@@ -835,8 +842,8 @@ Document* ExternalResourceMap::RequestResource(
 
 void ExternalResourceMap::EnumerateResources(SubDocEnumFunc aCallback) {
   nsTArray<RefPtr<Document>> docs(mMap.Count());
-  for (const auto& entry : mMap) {
-    if (Document* doc = entry.GetData()->mDocument) {
+  for (const auto& entry : mMap.Values()) {
+    if (Document* doc = entry->mDocument) {
       docs.AppendElement(doc);
     }
   }
@@ -852,8 +859,8 @@ void ExternalResourceMap::Traverse(
     nsCycleCollectionTraversalCallback* aCallback) const {
   // mPendingLoads will get cleared out as the requests complete, so
   // no need to worry about those here.
-  for (auto iter = mMap.ConstIter(); !iter.Done(); iter.Next()) {
-    ExternalResourceMap::ExternalResource* resource = iter.UserData();
+  for (const auto& entry : mMap) {
+    ExternalResourceMap::ExternalResource* resource = entry.GetWeak();
 
     NS_CYCLE_COLLECTION_NOTE_EDGE_NAME(*aCallback,
                                        "mExternalResourceMap.mMap entry"
@@ -873,8 +880,8 @@ void ExternalResourceMap::Traverse(
 }
 
 void ExternalResourceMap::HideViewers() {
-  for (auto iter = mMap.Iter(); !iter.Done(); iter.Next()) {
-    nsCOMPtr<nsIContentViewer> viewer = iter.UserData()->mViewer;
+  for (const auto& entry : mMap) {
+    nsCOMPtr<nsIContentViewer> viewer = entry.GetData()->mViewer;
     if (viewer) {
       viewer->Hide();
     }
@@ -882,8 +889,8 @@ void ExternalResourceMap::HideViewers() {
 }
 
 void ExternalResourceMap::ShowViewers() {
-  for (auto iter = mMap.Iter(); !iter.Done(); iter.Next()) {
-    nsCOMPtr<nsIContentViewer> viewer = iter.UserData()->mViewer;
+  for (const auto& entry : mMap) {
+    nsCOMPtr<nsIContentViewer> viewer = entry.GetData()->mViewer;
     if (viewer) {
       viewer->Show();
     }
@@ -933,8 +940,8 @@ nsresult ExternalResourceMap::AddExternalResource(nsIURI* aURI,
     }
   }
 
-  ExternalResource* newResource = new ExternalResource();
-  mMap.Put(aURI, newResource);
+  ExternalResource* newResource =
+      mMap.InsertOrUpdate(aURI, MakeUnique<ExternalResource>()).get();
 
   newResource->mDocument = doc;
   newResource->mViewer = aViewer;
@@ -1284,11 +1291,6 @@ void Document::Shutdown() {
 Document::Document(const char* aContentType)
     : nsINode(nullptr),
       DocumentOrShadowRoot(this),
-      mBlockAllMixedContent(false),
-      mBlockAllMixedContentPreloads(false),
-      mUpgradeInsecureRequests(false),
-      mUpgradeInsecurePreloads(false),
-      mDontWarnAboutMutationEventsAndAllowSlowDOMMutations(false),
       mCharacterSet(WINDOWS_1252_ENCODING),
       mCharacterSetSource(0),
       mParentDocument(nullptr),
@@ -1297,6 +1299,11 @@ Document::Document(const char* aContentType)
 #ifdef DEBUG
       mStyledLinksCleared(false),
 #endif
+      mBlockAllMixedContent(false),
+      mBlockAllMixedContentPreloads(false),
+      mUpgradeInsecureRequests(false),
+      mUpgradeInsecurePreloads(false),
+      mDevToolsWatchingDOMMutations(false),
       mBidiEnabled(false),
       mMayNeedFontPrefsUpdate(true),
       mMathMLEnabled(false),
@@ -1442,7 +1449,9 @@ Document::Document(const char* aContentType)
       mCachedTabSizeGeneration(0),
       mNextFormNumber(0),
       mNextControlNumber(0),
-      mPreloadService(this) {
+      mPreloadService(this),
+      mShouldNotifyFetchSuccess(false),
+      mShouldNotifyFormOrPasswordRemoved(false) {
   MOZ_LOG(gDocumentLeakPRLog, LogLevel::Debug, ("DOCUMENT %p created", this));
 
   SetIsInDocument();
@@ -2258,7 +2267,6 @@ NS_INTERFACE_TABLE_HEAD(Document)
     NS_INTERFACE_TABLE_ENTRY(Document, EventTarget)
     NS_INTERFACE_TABLE_ENTRY(Document, nsISupportsWeakReference)
     NS_INTERFACE_TABLE_ENTRY(Document, nsIRadioGroupContainer)
-    NS_INTERFACE_TABLE_ENTRY(Document, nsIMutationObserver)
     NS_INTERFACE_TABLE_ENTRY(Document, nsIApplicationCacheContainer)
   NS_INTERFACE_TABLE_END
   NS_INTERFACE_TABLE_TO_MAP_SEGUE_CYCLE_COLLECTION(Document)
@@ -2390,6 +2398,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(Document)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPrototypeDocument)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMidasCommandManager)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAll)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDocGroup)
 
   // Traverse all our nsCOMArrays.
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPreloadingImages)
@@ -2438,10 +2447,10 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(Document)
   }
 
   // XXX: This should be not needed once bug 1569185 lands.
-  for (auto it = tmp->mL10nProtoElements.ConstIter(); !it.Done(); it.Next()) {
+  for (const auto& entry : tmp->mL10nProtoElements) {
     NS_CYCLE_COLLECTION_NOTE_EDGE_NAME(cb, "mL10nProtoElements key");
-    cb.NoteXPCOMChild(it.Key());
-    CycleCollectionNoteChild(cb, it.UserData(), "mL10nProtoElements value");
+    cb.NoteXPCOMChild(entry.GetKey());
+    CycleCollectionNoteChild(cb, entry.GetWeak(), "mL10nProtoElements value");
   }
 
   for (size_t i = 0; i < tmp->mPendingFrameStaticClones.Length(); ++i) {
@@ -2521,6 +2530,12 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(Document)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mReferrerInfo)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mPreloadReferrerInfo)
 
+  if (tmp->mDocGroup && tmp->mDocGroup->GetBrowsingContextGroup()) {
+    tmp->mDocGroup->GetBrowsingContextGroup()->RemoveDocument(
+        tmp->mDocGroup->GetKey(), tmp);
+  }
+  tmp->mDocGroup = nullptr;
+
   if (tmp->IsTopLevelContentDocument()) {
     RemoveToplevelLoadingDocument(tmp);
   }
@@ -2598,15 +2613,6 @@ nsresult Document::Init() {
   }
 
   // Force initialization.
-  nsINode::nsSlots* slots = Slots();
-
-  // Prepend self as mutation-observer whether we need it or not (some
-  // subclasses currently do, other don't). This is because the code in
-  // MutationObservers always notifies the first observer first, expecting the
-  // first observer to be the document.
-  slots->mMutationObservers.PrependElementUnlessExists(
-      static_cast<nsIMutationObserver*>(this));
-
   mOnloadBlocker = new OnloadBlocker();
   mStyleImageLoader = new css::ImageLoader(this);
 
@@ -2692,13 +2698,9 @@ void Document::Reset(nsIChannel* aChannel, nsILoadGroup* aLoadGroup) {
   // timeline will have the same global clock time as the old one.
   mDocumentTimeline = nullptr;
 
-  nsCOMPtr<nsIPropertyBag2> bag = do_QueryInterface(aChannel);
-  if (bag) {
-    nsCOMPtr<nsIURI> baseURI;
-    bag->GetPropertyAsInterface(u"baseURI"_ns, NS_GET_IID(nsIURI),
-                                getter_AddRefs(baseURI));
-    if (baseURI) {
-      mDocumentBaseURI = baseURI;
+  if (nsCOMPtr<nsIPropertyBag2> bag = do_QueryInterface(aChannel)) {
+    if (nsCOMPtr<nsIURI> baseURI = do_GetProperty(bag, u"baseURI"_ns)) {
+      mDocumentBaseURI = baseURI.forget();
       mChromeXHRDocBaseURI = nullptr;
     }
   }
@@ -3497,8 +3499,10 @@ void Document::ApplySettingsFromCSP(bool aSpeculative) {
       // Set up 'block-all-mixed-content' if not already inherited
       // from the parent context or set by any other CSP.
       if (!mBlockAllMixedContent) {
-        rv = mCSP->GetBlockAllMixedContent(&mBlockAllMixedContent);
+        bool block = false;
+        rv = mCSP->GetBlockAllMixedContent(&block);
         NS_ENSURE_SUCCESS_VOID(rv);
+        mBlockAllMixedContent = block;
       }
       if (!mBlockAllMixedContentPreloads) {
         mBlockAllMixedContentPreloads = mBlockAllMixedContent;
@@ -3507,8 +3511,10 @@ void Document::ApplySettingsFromCSP(bool aSpeculative) {
       // Set up 'upgrade-insecure-requests' if not already inherited
       // from the parent context or set by any other CSP.
       if (!mUpgradeInsecureRequests) {
-        rv = mCSP->GetUpgradeInsecureRequests(&mUpgradeInsecureRequests);
+        bool upgrade = false;
+        rv = mCSP->GetUpgradeInsecureRequests(&upgrade);
         NS_ENSURE_SUCCESS_VOID(rv);
+        mUpgradeInsecureRequests = upgrade;
       }
       if (!mUpgradeInsecurePreloads) {
         mUpgradeInsecurePreloads = mUpgradeInsecureRequests;
@@ -3525,12 +3531,16 @@ void Document::ApplySettingsFromCSP(bool aSpeculative) {
   // 2) apply settings from speculative csp
   if (mPreloadCSP) {
     if (!mBlockAllMixedContentPreloads) {
-      rv = mPreloadCSP->GetBlockAllMixedContent(&mBlockAllMixedContentPreloads);
+      bool block = false;
+      rv = mPreloadCSP->GetBlockAllMixedContent(&block);
       NS_ENSURE_SUCCESS_VOID(rv);
+      mBlockAllMixedContent = block;
     }
     if (!mUpgradeInsecurePreloads) {
-      rv = mPreloadCSP->GetUpgradeInsecureRequests(&mUpgradeInsecurePreloads);
+      bool upgrade = false;
+      rv = mPreloadCSP->GetUpgradeInsecureRequests(&upgrade);
       NS_ENSURE_SUCCESS_VOID(rv);
+      mUpgradeInsecurePreloads = upgrade;
     }
   }
 }
@@ -4076,7 +4086,7 @@ AbstractThread* Document::AbstractMainThreadFor(
 void Document::NoteScriptTrackingStatus(const nsACString& aURL,
                                         bool aIsTracking) {
   if (aIsTracking) {
-    mTrackingScripts.PutEntry(aURL);
+    mTrackingScripts.Insert(aURL);
   } else {
     MOZ_ASSERT(!mTrackingScripts.Contains(aURL));
   }
@@ -4426,382 +4436,442 @@ void Document::EnsureInitializeInternalCommandDataHashtable() {
   if (sInternalCommandDataHashtable) {
     return;
   }
+  using CommandOnTextEditor = InternalCommandData::CommandOnTextEditor;
   sInternalCommandDataHashtable = new InternalCommandDataHashtable();
   // clang-format off
-  sInternalCommandDataHashtable->Put(
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"bold"_ns,
       InternalCommandData(
           "cmd_bold",
           Command::FormatBold,
           ExecCommandParam::Ignore,
-          StyleUpdatingCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          StyleUpdatingCommand::GetInstance,
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"italic"_ns,
       InternalCommandData(
           "cmd_italic",
           Command::FormatItalic,
           ExecCommandParam::Ignore,
-          StyleUpdatingCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          StyleUpdatingCommand::GetInstance,
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"underline"_ns,
       InternalCommandData(
           "cmd_underline",
           Command::FormatUnderline,
           ExecCommandParam::Ignore,
-          StyleUpdatingCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          StyleUpdatingCommand::GetInstance,
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"strikethrough"_ns,
       InternalCommandData(
           "cmd_strikethrough",
           Command::FormatStrikeThrough,
           ExecCommandParam::Ignore,
-          StyleUpdatingCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          StyleUpdatingCommand::GetInstance,
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"subscript"_ns,
       InternalCommandData(
           "cmd_subscript",
           Command::FormatSubscript,
           ExecCommandParam::Ignore,
-          StyleUpdatingCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          StyleUpdatingCommand::GetInstance,
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"superscript"_ns,
       InternalCommandData(
           "cmd_superscript",
           Command::FormatSuperscript,
           ExecCommandParam::Ignore,
-          StyleUpdatingCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          StyleUpdatingCommand::GetInstance,
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"cut"_ns,
       InternalCommandData(
           "cmd_cut",
           Command::Cut,
           ExecCommandParam::Ignore,
-          CutCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          CutCommand::GetInstance,
+          CommandOnTextEditor::Enabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"copy"_ns,
       InternalCommandData(
           "cmd_copy",
           Command::Copy,
           ExecCommandParam::Ignore,
-          CopyCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          CopyCommand::GetInstance,
+          CommandOnTextEditor::Enabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"paste"_ns,
       InternalCommandData(
           "cmd_paste",
           Command::Paste,
           ExecCommandParam::Ignore,
-          PasteCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          PasteCommand::GetInstance,
+          CommandOnTextEditor::Enabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"delete"_ns,
       InternalCommandData(
           "cmd_deleteCharBackward",
           Command::DeleteCharBackward,
           ExecCommandParam::Ignore,
-          DeleteCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          DeleteCommand::GetInstance,
+          CommandOnTextEditor::Enabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"forwarddelete"_ns,
       InternalCommandData(
           "cmd_deleteCharForward",
           Command::DeleteCharForward,
           ExecCommandParam::Ignore,
-          DeleteCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          DeleteCommand::GetInstance,
+          CommandOnTextEditor::Enabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"selectall"_ns,
       InternalCommandData(
           "cmd_selectAll",
           Command::SelectAll,
           ExecCommandParam::Ignore,
-          SelectAllCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          SelectAllCommand::GetInstance,
+          CommandOnTextEditor::Enabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"undo"_ns,
       InternalCommandData(
           "cmd_undo",
           Command::HistoryUndo,
           ExecCommandParam::Ignore,
-          UndoCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          UndoCommand::GetInstance,
+          CommandOnTextEditor::Enabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"redo"_ns,
       InternalCommandData(
           "cmd_redo",
           Command::HistoryRedo,
           ExecCommandParam::Ignore,
-          RedoCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          RedoCommand::GetInstance,
+          CommandOnTextEditor::Enabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"indent"_ns,
       InternalCommandData("cmd_indent",
           Command::FormatIndent,
           ExecCommandParam::Ignore,
-          IndentCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          IndentCommand::GetInstance,
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"outdent"_ns,
       InternalCommandData(
           "cmd_outdent",
           Command::FormatOutdent,
           ExecCommandParam::Ignore,
-          OutdentCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          OutdentCommand::GetInstance,
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"backcolor"_ns,
       InternalCommandData(
           "cmd_highlight",
           Command::FormatBackColor,
           ExecCommandParam::String,
-          HighlightColorStateCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          HighlightColorStateCommand::GetInstance,
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"hilitecolor"_ns,
       InternalCommandData(
           "cmd_highlight",
           Command::FormatBackColor,
           ExecCommandParam::String,
-          HighlightColorStateCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          HighlightColorStateCommand::GetInstance,
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"forecolor"_ns,
       InternalCommandData(
           "cmd_fontColor",
           Command::FormatFontColor,
           ExecCommandParam::String,
-          FontColorStateCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          FontColorStateCommand::GetInstance,
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"fontname"_ns,
       InternalCommandData(
           "cmd_fontFace",
           Command::FormatFontName,
           ExecCommandParam::String,
-          FontFaceStateCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          FontFaceStateCommand::GetInstance,
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"fontsize"_ns,
       InternalCommandData(
           "cmd_fontSize",
           Command::FormatFontSize,
           ExecCommandParam::String,
-          FontSizeStateCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          FontSizeStateCommand::GetInstance,
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"increasefontsize"_ns,
       InternalCommandData(
           "cmd_increaseFont",
           Command::FormatIncreaseFontSize,
           ExecCommandParam::Ignore,
-          IncreaseFontSizeCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          IncreaseFontSizeCommand::GetInstance,
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"decreasefontsize"_ns,
       InternalCommandData(
           "cmd_decreaseFont",
           Command::FormatDecreaseFontSize,
           ExecCommandParam::Ignore,
-          DecreaseFontSizeCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          DecreaseFontSizeCommand::GetInstance,
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"inserthorizontalrule"_ns,
       InternalCommandData(
           "cmd_insertHR",
           Command::InsertHorizontalRule,
           ExecCommandParam::Ignore,
-          InsertTagCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          InsertTagCommand::GetInstance,
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"createlink"_ns,
       InternalCommandData(
           "cmd_insertLinkNoUI",
           Command::InsertLink,
           ExecCommandParam::String,
-          InsertTagCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          InsertTagCommand::GetInstance,
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"insertimage"_ns,
       InternalCommandData(
           "cmd_insertImageNoUI",
           Command::InsertImage,
           ExecCommandParam::String,
-          InsertTagCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          InsertTagCommand::GetInstance,
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"inserthtml"_ns,
       InternalCommandData(
           "cmd_insertHTML",
           Command::InsertHTML,
           ExecCommandParam::String,
-          InsertHTMLCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          InsertHTMLCommand::GetInstance,
+          // TODO: Chromium inserts text content of the document fragment
+          //       created from the param.
+          //       https://source.chromium.org/chromium/chromium/src/+/master:third_party/blink/renderer/core/editing/commands/insert_commands.cc;l=105;drc=a4708b724062f17824815b896c3aaa43825128f8
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"inserttext"_ns,
       InternalCommandData(
           "cmd_insertText",
           Command::InsertText,
           ExecCommandParam::String,
-          InsertPlaintextCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          InsertPlaintextCommand::GetInstance,
+          CommandOnTextEditor::Enabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"gethtml"_ns,
       InternalCommandData(
           "cmd_getContents",
           Command::GetHTML,
           ExecCommandParam::Ignore,
-          nullptr));  // Not defined in EditorCommands.h
-  sInternalCommandDataHashtable->Put(
+          nullptr,  // Not defined in EditorCommands.h
+          // getHTML command is not supported by Chromium, and we return HTML
+          // source code at selected range.  So, let's return selected text
+          // when `<input>` or `<textarea>` has focus.
+          CommandOnTextEditor::Enabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"justifyleft"_ns,
       InternalCommandData(
           "cmd_align",
           Command::FormatJustifyLeft,
           ExecCommandParam::Ignore,  // Will be set to "left"
-          AlignCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          AlignCommand::GetInstance,
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"justifyright"_ns,
       InternalCommandData(
           "cmd_align",
           Command::FormatJustifyRight,
           ExecCommandParam::Ignore,  // Will be set to "right"
-          AlignCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          AlignCommand::GetInstance,
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"justifycenter"_ns,
       InternalCommandData(
           "cmd_align",
           Command::FormatJustifyCenter,
           ExecCommandParam::Ignore,  // Will be set to "center"
-          AlignCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          AlignCommand::GetInstance,
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"justifyfull"_ns,
       InternalCommandData(
           "cmd_align",
           Command::FormatJustifyFull,
           ExecCommandParam::Ignore,  // Will be set to "justify"
-          AlignCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          AlignCommand::GetInstance,
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"removeformat"_ns,
       InternalCommandData(
           "cmd_removeStyles",
           Command::FormatRemove,
           ExecCommandParam::Ignore,
-          RemoveStylesCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          RemoveStylesCommand::GetInstance,
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"unlink"_ns,
       InternalCommandData(
           "cmd_removeLinks",
           Command::FormatRemoveLink,
           ExecCommandParam::Ignore,
-          StyleUpdatingCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          StyleUpdatingCommand::GetInstance,
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"insertorderedlist"_ns,
       InternalCommandData(
           "cmd_ol",
           Command::InsertOrderedList,
           ExecCommandParam::Ignore,
-          ListCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          ListCommand::GetInstance,
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"insertunorderedlist"_ns,
       InternalCommandData(
           "cmd_ul",
           Command::InsertUnorderedList,
           ExecCommandParam::Ignore,
-          ListCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          ListCommand::GetInstance,
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"insertparagraph"_ns,
       InternalCommandData(
           "cmd_insertParagraph",
           Command::InsertParagraph,
           ExecCommandParam::Ignore,
-          InsertParagraphCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          InsertParagraphCommand::GetInstance,
+          CommandOnTextEditor::Enabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"insertlinebreak"_ns,
       InternalCommandData(
           "cmd_insertLineBreak",
           Command::InsertLineBreak,
           ExecCommandParam::Ignore,
-          InsertLineBreakCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          InsertLineBreakCommand::GetInstance,
+          CommandOnTextEditor::Enabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"formatblock"_ns,
       InternalCommandData(
           "cmd_paragraphState",
           Command::FormatBlock,
           ExecCommandParam::String,
-          ParagraphStateCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          ParagraphStateCommand::GetInstance,
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"heading"_ns,
       InternalCommandData(
           "cmd_paragraphState",
           Command::FormatBlock,
           ExecCommandParam::String,
-          ParagraphStateCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          ParagraphStateCommand::GetInstance,
+          CommandOnTextEditor::Disabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"styleWithCSS"_ns,
       InternalCommandData(
           "cmd_setDocumentUseCSS",
           Command::SetDocumentUseCSS,
           ExecCommandParam::Boolean,
-          SetDocumentStateCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          SetDocumentStateCommand::GetInstance,
+          CommandOnTextEditor::FallThrough));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"usecss"_ns,  // Legacy command
       InternalCommandData(
           "cmd_setDocumentUseCSS",
           Command::SetDocumentUseCSS,
           ExecCommandParam::InvertedBoolean,
-          SetDocumentStateCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          SetDocumentStateCommand::GetInstance,
+          CommandOnTextEditor::FallThrough));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"contentReadOnly"_ns,
       InternalCommandData(
           "cmd_setDocumentReadOnly",
           Command::SetDocumentReadOnly,
           ExecCommandParam::Boolean,
-          SetDocumentStateCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          SetDocumentStateCommand::GetInstance,
+          CommandOnTextEditor::Enabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"readonly"_ns,  // Legacy command
       InternalCommandData(
           "cmd_setDocumentReadOnly",
           Command::SetDocumentReadOnly,
           ExecCommandParam::InvertedBoolean,
-          SetDocumentStateCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          SetDocumentStateCommand::GetInstance,
+          CommandOnTextEditor::Enabled));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"insertBrOnReturn"_ns,
       InternalCommandData(
           "cmd_insertBrOnReturn",
           Command::SetDocumentInsertBROnEnterKeyPress,
           ExecCommandParam::Boolean,
-          SetDocumentStateCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          SetDocumentStateCommand::GetInstance,
+          CommandOnTextEditor::FallThrough));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"defaultParagraphSeparator"_ns,
       InternalCommandData(
           "cmd_defaultParagraphSeparator",
           Command::SetDocumentDefaultParagraphSeparator,
           ExecCommandParam::String,
-          SetDocumentStateCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          SetDocumentStateCommand::GetInstance,
+          CommandOnTextEditor::FallThrough));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"enableObjectResizing"_ns,
       InternalCommandData(
           "cmd_enableObjectResizing",
           Command::ToggleObjectResizers,
           ExecCommandParam::Boolean,
-          SetDocumentStateCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          SetDocumentStateCommand::GetInstance,
+          CommandOnTextEditor::FallThrough));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"enableInlineTableEditing"_ns,
       InternalCommandData(
           "cmd_enableInlineTableEditing",
           Command::ToggleInlineTableEditor,
           ExecCommandParam::Boolean,
-          SetDocumentStateCommand::GetInstance));
-  sInternalCommandDataHashtable->Put(
+          SetDocumentStateCommand::GetInstance,
+          CommandOnTextEditor::FallThrough));
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"enableAbsolutePositionEditing"_ns,
       InternalCommandData(
           "cmd_enableAbsolutePositionEditing",
           Command::ToggleAbsolutePositionEditor,
           ExecCommandParam::Boolean,
-          SetDocumentStateCommand::GetInstance));
+          SetDocumentStateCommand::GetInstance,
+          CommandOnTextEditor::FallThrough));
 #if 0
   // with empty string
-  sInternalCommandDataHashtable->Put(
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"justifynone"_ns,
       InternalCommandData(
           "cmd_align",
           Command::Undefined,
           ExecCommandParam::Ignore,
-          nullptr));  // Not implemented yet.
+          nullptr,
+          CommandOnTextEditor::Disabled));  // Not implemented yet.
   // REQUIRED SPECIAL REVIEW special review
-  sInternalCommandDataHashtable->Put(
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"saveas"_ns,
       InternalCommandData(
           "cmd_saveAs",
           Command::Undefined,
           ExecCommandParam::Boolean,
-          nullptr));  // Not implemented yet.
+          nullptr,
+          CommandOnTextEditor::FallThrough));  // Not implemented yet.
   // REQUIRED SPECIAL REVIEW special review
-  sInternalCommandDataHashtable->Put(
+  sInternalCommandDataHashtable->InsertOrUpdate(
       u"print"_ns,
       InternalCommandData(
           "cmd_print",
           Command::Undefined,
           ExecCommandParam::Boolean,
-          nullptr));  // Not implemented yet.
+          nullptr,
+          CommandOnTextEditor::FallThrough));  // Not implemented yet.
 #endif  // #if 0
   // clang-format on
 }
@@ -4949,6 +5019,157 @@ Document::InternalCommandData Document::ConvertToInternalCommand(
   }
 }
 
+Document::AutoEditorCommandTarget::AutoEditorCommandTarget(
+    nsPresContext* aPresContext, const InternalCommandData& aCommandData)
+    : mCommandData(aCommandData) {
+  // Consider context of command handling which is automatically resolved
+  // by order of controllers in `nsCommandManager::GetControllerForCommand()`.
+  // The order is:
+  //   1. TextEditor if there is an active element and it has TextEditor like
+  //      <input type="text"> or <textarea>.
+  //   2. HTMLEditor for the document, if there is.
+  //   3. Retarget to the DocShell or nsCommandManager as what we've done.
+  if (aPresContext) {
+    if (aCommandData.IsCutOrCopyCommand()) {
+      // Note that we used to use DocShell to handle `cut` and `copy` command
+      // for dispatching corresponding events for making possible web apps to
+      // implement their own editor without editable elements but supports
+      // standard shortcut keys, etc.  In this case, we prefer to use active
+      // element's editor to keep same behavior.
+      mActiveEditor = nsContentUtils::GetActiveEditor(aPresContext);
+    } else {
+      mActiveEditor = nsContentUtils::GetActiveEditor(aPresContext);
+      mHTMLEditor = nsContentUtils::GetHTMLEditor(aPresContext);
+      if (!mActiveEditor) {
+        mActiveEditor = mHTMLEditor;
+      }
+    }
+  }
+
+  // Then, retrieve editor command class instance which should handle it
+  // and can handle it now.
+  if (!mActiveEditor) {
+    // If the command is available without editor, we should redirect the
+    // command to focused descendant with DocShell.
+    if (aCommandData.IsAvailableOnlyWhenEditable()) {
+      mDoNothing = true;
+      return;
+    }
+    return;
+  }
+
+  // Otherwise, we should use EditorCommand instance (which is singleton
+  // instance) when it's enabled.
+  mEditorCommand = aCommandData.mGetEditorCommandFunc
+                       ? aCommandData.mGetEditorCommandFunc()
+                       : nullptr;
+  if (!mEditorCommand) {
+    mDoNothing = true;
+    mActiveEditor = nullptr;
+    mHTMLEditor = nullptr;
+    return;
+  }
+
+  if (IsCommandEnabled()) {
+    return;
+  }
+
+  // If the EditorCommand instance is disabled, we should do nothing if
+  // the command requires an editor.
+  if (aCommandData.IsAvailableOnlyWhenEditable()) {
+    // Do nothing if editor specific commands is disabled (bug 760052).
+    mDoNothing = true;
+    return;
+  }
+
+  // Otherwise, we should redirect it to focused descendant with DocShell.
+  mEditorCommand = nullptr;
+  mActiveEditor = nullptr;
+  mHTMLEditor = nullptr;
+}
+
+TextEditor* Document::AutoEditorCommandTarget::GetTargetEditor() const {
+  using CommandOnTextEditor = InternalCommandData::CommandOnTextEditor;
+  switch (mCommandData.mCommandOnTextEditor) {
+    case CommandOnTextEditor::Enabled:
+      return mActiveEditor;
+    case CommandOnTextEditor::Disabled:
+      return mActiveEditor && mActiveEditor->IsTextEditor()
+                 ? nullptr
+                 : mActiveEditor.get();
+    case CommandOnTextEditor::FallThrough:
+      return mHTMLEditor;
+  }
+  return nullptr;
+}
+
+bool Document::AutoEditorCommandTarget::IsEditable(Document* aDocument) const {
+  if (RefPtr<Document> doc = aDocument->GetInProcessParentDocument()) {
+    // Make sure frames are up to date, since that can affect whether
+    // we're editable.
+    doc->FlushPendingNotifications(FlushType::Frames);
+  }
+  TextEditor* targetEditor = GetTargetEditor();
+  if (targetEditor && targetEditor->IsTextEditor()) {
+    // FYI: When `disabled` attribute is set, `TextEditor` treats it as
+    //      "readonly" too.
+    return !targetEditor->IsReadonly();
+  }
+  return aDocument->IsEditingOn();
+}
+
+bool Document::AutoEditorCommandTarget::IsCommandEnabled() const {
+  TextEditor* targetEditor = GetTargetEditor();
+  if (!targetEditor) {
+    return false;
+  }
+  MOZ_ASSERT(targetEditor == mActiveEditor || targetEditor == mHTMLEditor);
+  return MOZ_KnownLive(mEditorCommand)
+      ->IsCommandEnabled(mCommandData.mCommand, MOZ_KnownLive(targetEditor));
+}
+
+nsresult Document::AutoEditorCommandTarget::DoCommand(
+    nsIPrincipal* aPrincipal) const {
+  MOZ_ASSERT(!DoNothing());
+  MOZ_ASSERT(mEditorCommand);
+  TextEditor* targetEditor = GetTargetEditor();
+  if (!targetEditor) {
+    return NS_SUCCESS_DOM_NO_OPERATION;
+  }
+  MOZ_ASSERT(targetEditor == mActiveEditor || targetEditor == mHTMLEditor);
+  return MOZ_KnownLive(mEditorCommand)
+      ->DoCommand(mCommandData.mCommand, MOZ_KnownLive(*targetEditor),
+                  aPrincipal);
+}
+
+template <typename ParamType>
+nsresult Document::AutoEditorCommandTarget::DoCommandParam(
+    const ParamType& aParam, nsIPrincipal* aPrincipal) const {
+  MOZ_ASSERT(!DoNothing());
+  MOZ_ASSERT(mEditorCommand);
+  TextEditor* targetEditor = GetTargetEditor();
+  if (!targetEditor) {
+    return NS_SUCCESS_DOM_NO_OPERATION;
+  }
+  MOZ_ASSERT(targetEditor == mActiveEditor || targetEditor == mHTMLEditor);
+  return MOZ_KnownLive(mEditorCommand)
+      ->DoCommandParam(mCommandData.mCommand, aParam,
+                       MOZ_KnownLive(*targetEditor), aPrincipal);
+}
+
+nsresult Document::AutoEditorCommandTarget::GetCommandStateParams(
+    nsCommandParams& aParams) const {
+  MOZ_ASSERT(mEditorCommand);
+  TextEditor* targetEditor = GetTargetEditor();
+  if (!targetEditor) {
+    return NS_OK;
+  }
+  MOZ_ASSERT(targetEditor == mActiveEditor || targetEditor == mHTMLEditor);
+  return MOZ_KnownLive(mEditorCommand)
+      ->GetCommandStateParams(mCommandData.mCommand, MOZ_KnownLive(aParams),
+                              MOZ_KnownLive(targetEditor), nullptr);
+}
+
 bool Document::ExecCommand(const nsAString& aHTMLCommandName, bool aShowUI,
                            const nsAString& aValue,
                            nsIPrincipal& aSubjectPrincipal, ErrorResult& aRv) {
@@ -4957,6 +5178,7 @@ bool Document::ExecCommand(const nsAString& aHTMLCommandName, bool aShowUI,
     aRv.Throw(NS_ERROR_DOM_INVALID_STATE_DOCUMENT_EXEC_COMMAND);
     return false;
   }
+  // Otherwise, don't throw exception for compatibility with Chrome.
 
   // if they are requesting UI from us, let's fail since we have no UI
   if (aShowUI) {
@@ -4980,13 +5202,7 @@ bool Document::ExecCommand(const nsAString& aHTMLCommandName, bool aShowUI,
     return false;
   }
 
-  // if editing is not on, bail
-  if (commandData.IsAvailableOnlyWhenEditable() && !IsEditingOnAfterFlush()) {
-    return false;
-  }
-
   if (commandData.mCommand == Command::GetHTML) {
-    aRv.Throw(NS_ERROR_FAILURE);
     return false;
   }
 
@@ -5009,67 +5225,22 @@ bool Document::ExecCommand(const nsAString& aHTMLCommandName, bool aShowUI,
 
   // Next, consider context of command handling which is automatically resolved
   // by order of controllers in `nsCommandManager::GetControllerForCommand()`.
-  // The order is:
-  //   1. HTMLEditor for the document, if there is.
-  //   2. TextEditor if there is an active element and it has TextEditor like
-  //      <input type="text"> or <textarea>.
-  //   3. Retarget to the DocShell or nsCommandManager as what we've done.
-  // XXX Chromium handles `execCommand()` in <input type="text"> or
-  //     <textarea> when it's in an editing host and has focus.  So, our
-  //     traditional behavior is different and does not make sense.
-  RefPtr<TextEditor> maybeHTMLEditor;
-  if (nsPresContext* presContext = GetPresContext()) {
-    if (commandData.IsCutOrCopyCommand()) {
-      // Note that we used to use DocShell to handle `cut` and `copy` command
-      // for dispatching corresponding events for making possible web apps to
-      // implement their own editor without editable elements but supports
-      // standard shortcut keys, etc.  In this case, we prefer to use active
-      // element's editor to keep same behavior.
-      maybeHTMLEditor = nsContentUtils::GetActiveEditor(presContext);
-    } else {
-      maybeHTMLEditor = nsContentUtils::GetHTMLEditor(presContext);
-      if (!maybeHTMLEditor) {
-        maybeHTMLEditor = nsContentUtils::GetActiveEditor(presContext);
-      }
-    }
+  RefPtr<nsPresContext> presContext = GetPresContext();
+  AutoEditorCommandTarget editCommandTarget(presContext, commandData);
+  if (commandData.IsAvailableOnlyWhenEditable() &&
+      !editCommandTarget.IsEditable(this)) {
+    return false;
   }
 
-  // Then, retrieve editor command class instance which should handle it
-  // and can handle it now.
-  RefPtr<EditorCommand> editorCommand;
-  if (!maybeHTMLEditor) {
-    // If the command is available without editor, we should redirect the
-    // command to focused descendant with DocShell.
-    if (commandData.IsAvailableOnlyWhenEditable()) {
-      return false;
-    }
-  } else {
-    // Otherwise, we should use EditorCommand instance (which is singleton
-    // instance) when it's enabled.
-    editorCommand = commandData.mGetEditorCommandFunc();
-    if (NS_WARN_IF(!editorCommand)) {
-      aRv.Throw(NS_ERROR_FAILURE);
-      return false;
-    }
-
-    if (!editorCommand->IsCommandEnabled(commandData.mCommand,
-                                         maybeHTMLEditor)) {
-      // If the EditorCommand instance is disabled, we should do nothing if
-      // the command requires an editor.
-      if (commandData.IsAvailableOnlyWhenEditable()) {
-        // Return false if editor specific commands is disabled (bug 760052).
-        return false;
-      }
-      // Otherwise, we should redirect it to focused descendant with DocShell.
-      editorCommand = nullptr;
-    }
+  if (editCommandTarget.DoNothing()) {
+    return false;
   }
 
   AutoRunningExecCommandMarker markRunningExecCommand(*this);
 
   // If we cannot use EditorCommand instance directly, we need to handle the
   // command with traditional path (i.e., with DocShell or nsCommandManager).
-  if (!editorCommand) {
+  if (!editCommandTarget.IsEditor()) {
     MOZ_ASSERT(!commandData.IsAvailableOnlyWhenEditable());
 
     // Special case clipboard write commands like Command::Cut and
@@ -5106,13 +5277,11 @@ bool Document::ExecCommand(const nsAString& aHTMLCommandName, bool aShowUI,
     // their own editor.
     RefPtr<nsCommandManager> commandManager = GetMidasCommandManager();
     if (!commandManager) {
-      aRv.Throw(NS_ERROR_FAILURE);
       return false;
     }
 
     nsCOMPtr<nsPIDOMWindowOuter> window = GetWindow();
     if (!window) {
-      aRv.Throw(NS_ERROR_FAILURE);
       return false;
     }
 
@@ -5123,14 +5292,13 @@ bool Document::ExecCommand(const nsAString& aHTMLCommandName, bool aShowUI,
     }
 
     MOZ_ASSERT(commandData.IsPasteCommand());
-    aRv =
+    nsresult rv =
         commandManager->DoCommand(commandData.mXULCommandName, nullptr, window);
-    return !aRv.ErrorCodeIs(NS_SUCCESS_DOM_NO_OPERATION) && !aRv.Failed();
+    return NS_SUCCEEDED(rv) && rv != NS_SUCCESS_DOM_NO_OPERATION;
   }
 
   // Now, our target is fixed to the editor.  So, we can use EditorCommand
-  // with the editor directly.
-  MOZ_ASSERT(maybeHTMLEditor);
+  // in EditorCommandTarget directly.
 
   EditorCommandParamType paramType =
       EditorCommand::GetParamType(commandData.mCommand);
@@ -5139,9 +5307,8 @@ bool Document::ExecCommand(const nsAString& aHTMLCommandName, bool aShowUI,
   // require additional parameter, we can use `DoCommand()`.
   if (adjustedValue.IsEmpty() || paramType == EditorCommandParamType::None) {
     MOZ_ASSERT(!(paramType & EditorCommandParamType::Bool));
-    aRv = editorCommand->DoCommand(commandData.mCommand, *maybeHTMLEditor,
-                                   &aSubjectPrincipal);
-    return !aRv.ErrorCodeIs(NS_SUCCESS_DOM_NO_OPERATION) && !aRv.Failed();
+    nsresult rv = editCommandTarget.DoCommand(&aSubjectPrincipal);
+    return NS_SUCCEEDED(rv) && rv != NS_SUCCESS_DOM_NO_OPERATION;
   }
 
   // If the EditorCommand requires `bool` parameter, `adjustedValue` must be
@@ -5150,10 +5317,9 @@ bool Document::ExecCommand(const nsAString& aHTMLCommandName, bool aShowUI,
   if (!!(paramType & EditorCommandParamType::Bool)) {
     MOZ_ASSERT(adjustedValue.EqualsLiteral("true") ||
                adjustedValue.EqualsLiteral("false"));
-    aRv = editorCommand->DoCommandParam(
-        commandData.mCommand, Some(adjustedValue.EqualsLiteral("true")),
-        *maybeHTMLEditor, &aSubjectPrincipal);
-    return !aRv.ErrorCodeIs(NS_SUCCESS_DOM_NO_OPERATION) && !aRv.Failed();
+    nsresult rv = editCommandTarget.DoCommandParam(
+        Some(adjustedValue.EqualsLiteral("true")), &aSubjectPrincipal);
+    return NS_SUCCEEDED(rv) && rv != NS_SUCCESS_DOM_NO_OPERATION;
   }
 
   // Now, the EditorCommand requires `nsAString` or `nsACString` parameter
@@ -5163,9 +5329,9 @@ bool Document::ExecCommand(const nsAString& aHTMLCommandName, bool aShowUI,
   // `String` or not first.
   if (!!(paramType & EditorCommandParamType::String)) {
     MOZ_ASSERT(!adjustedValue.IsVoid());
-    aRv = editorCommand->DoCommandParam(commandData.mCommand, adjustedValue,
-                                        *maybeHTMLEditor, &aSubjectPrincipal);
-    return !aRv.ErrorCodeIs(NS_SUCCESS_DOM_NO_OPERATION) && !aRv.Failed();
+    nsresult rv =
+        editCommandTarget.DoCommandParam(adjustedValue, &aSubjectPrincipal);
+    return NS_SUCCEEDED(rv) && rv != NS_SUCCESS_DOM_NO_OPERATION;
   }
 
   // Finally, `paramType` should have `CString`.  We should use
@@ -5173,9 +5339,9 @@ bool Document::ExecCommand(const nsAString& aHTMLCommandName, bool aShowUI,
   if (!!(paramType & EditorCommandParamType::CString)) {
     NS_ConvertUTF16toUTF8 utf8Value(adjustedValue);
     MOZ_ASSERT(!utf8Value.IsVoid());
-    aRv = editorCommand->DoCommandParam(commandData.mCommand, utf8Value,
-                                        *maybeHTMLEditor, &aSubjectPrincipal);
-    return !aRv.ErrorCodeIs(NS_SUCCESS_DOM_NO_OPERATION) && !aRv.Failed();
+    nsresult rv =
+        editCommandTarget.DoCommandParam(utf8Value, &aSubjectPrincipal);
+    return NS_SUCCEEDED(rv) && rv != NS_SUCCESS_DOM_NO_OPERATION;
   }
 
   MOZ_ASSERT_UNREACHABLE(
@@ -5191,6 +5357,7 @@ bool Document::QueryCommandEnabled(const nsAString& aHTMLCommandName,
     aRv.Throw(NS_ERROR_DOM_INVALID_STATE_DOCUMENT_QUERY_COMMAND_ENABLED);
     return false;
   }
+  // Otherwise, don't throw exception for compatibility with Chrome.
 
   InternalCommandData commandData = ConvertToInternalCommand(aHTMLCommandName);
   if (commandData.mCommand == Command::DoNothing) {
@@ -5207,21 +5374,25 @@ bool Document::QueryCommandEnabled(const nsAString& aHTMLCommandName,
     return false;
   }
 
-  // if editing is not on, bail
-  if (!IsEditingOnAfterFlush()) {
+  RefPtr<nsPresContext> presContext = GetPresContext();
+  AutoEditorCommandTarget editCommandTarget(presContext, commandData);
+  if (commandData.IsAvailableOnlyWhenEditable() &&
+      !editCommandTarget.IsEditable(this)) {
     return false;
+  }
+
+  if (editCommandTarget.IsEditor()) {
+    return editCommandTarget.IsCommandEnabled();
   }
 
   // get command manager and dispatch command to our window if it's acceptable
   RefPtr<nsCommandManager> commandManager = GetMidasCommandManager();
   if (!commandManager) {
-    aRv.Throw(NS_ERROR_FAILURE);
     return false;
   }
 
   nsPIDOMWindowOuter* window = GetWindow();
   if (!window) {
-    aRv.Throw(NS_ERROR_FAILURE);
     return false;
   }
 
@@ -5236,35 +5407,40 @@ bool Document::QueryCommandIndeterm(const nsAString& aHTMLCommandName,
     aRv.Throw(NS_ERROR_DOM_INVALID_STATE_DOCUMENT_QUERY_COMMAND_INDETERM);
     return false;
   }
+  // Otherwise, don't throw exception for compatibility with Chrome.
 
   InternalCommandData commandData = ConvertToInternalCommand(aHTMLCommandName);
   if (commandData.mCommand == Command::DoNothing) {
     return false;
   }
 
-  // if editing is not on, bail
-  if (!IsEditingOnAfterFlush()) {
+  RefPtr<nsPresContext> presContext = GetPresContext();
+  AutoEditorCommandTarget editCommandTarget(presContext, commandData);
+  if (commandData.IsAvailableOnlyWhenEditable() &&
+      !editCommandTarget.IsEditable(this)) {
     return false;
   }
-
-  // get command manager and dispatch command to our window if it's acceptable
-  RefPtr<nsCommandManager> commandManager = GetMidasCommandManager();
-  if (!commandManager) {
-    aRv.Throw(NS_ERROR_FAILURE);
-    return false;
-  }
-
-  nsPIDOMWindowOuter* window = GetWindow();
-  if (!window) {
-    aRv.Throw(NS_ERROR_FAILURE);
-    return false;
-  }
-
   RefPtr<nsCommandParams> params = new nsCommandParams();
-  aRv = commandManager->GetCommandState(commandData.mXULCommandName, window,
-                                        params);
-  if (aRv.Failed()) {
-    return false;
+  if (editCommandTarget.IsEditor()) {
+    if (NS_FAILED(editCommandTarget.GetCommandStateParams(*params))) {
+      return false;
+    }
+  } else {
+    // get command manager and dispatch command to our window if it's acceptable
+    RefPtr<nsCommandManager> commandManager = GetMidasCommandManager();
+    if (!commandManager) {
+      return false;
+    }
+
+    nsPIDOMWindowOuter* window = GetWindow();
+    if (!window) {
+      return false;
+    }
+
+    if (NS_FAILED(commandManager->GetCommandState(commandData.mXULCommandName,
+                                                  window, params))) {
+      return false;
+    }
   }
 
   // If command does not have a state_mixed value, this call fails and sets
@@ -5280,27 +5456,10 @@ bool Document::QueryCommandState(const nsAString& aHTMLCommandName,
     aRv.Throw(NS_ERROR_DOM_INVALID_STATE_DOCUMENT_QUERY_COMMAND_STATE);
     return false;
   }
+  // Otherwise, don't throw exception for compatibility with Chrome.
 
   InternalCommandData commandData = ConvertToInternalCommand(aHTMLCommandName);
   if (commandData.mCommand == Command::DoNothing) {
-    return false;
-  }
-
-  // if editing is not on, bail
-  if (!IsEditingOnAfterFlush()) {
-    return false;
-  }
-
-  // get command manager and dispatch command to our window if it's acceptable
-  RefPtr<nsCommandManager> commandManager = GetMidasCommandManager();
-  if (!commandManager) {
-    aRv.Throw(NS_ERROR_FAILURE);
-    return false;
-  }
-
-  nsPIDOMWindowOuter* window = GetWindow();
-  if (!window) {
-    aRv.Throw(NS_ERROR_FAILURE);
     return false;
   }
 
@@ -5310,11 +5469,33 @@ bool Document::QueryCommandState(const nsAString& aHTMLCommandName,
     return false;
   }
 
-  RefPtr<nsCommandParams> params = new nsCommandParams();
-  aRv = commandManager->GetCommandState(commandData.mXULCommandName, window,
-                                        params);
-  if (aRv.Failed()) {
+  RefPtr<nsPresContext> presContext = GetPresContext();
+  AutoEditorCommandTarget editCommandTarget(presContext, commandData);
+  if (commandData.IsAvailableOnlyWhenEditable() &&
+      !editCommandTarget.IsEditable(this)) {
     return false;
+  }
+  RefPtr<nsCommandParams> params = new nsCommandParams();
+  if (editCommandTarget.IsEditor()) {
+    if (NS_FAILED(editCommandTarget.GetCommandStateParams(*params))) {
+      return false;
+    }
+  } else {
+    // get command manager and dispatch command to our window if it's acceptable
+    RefPtr<nsCommandManager> commandManager = GetMidasCommandManager();
+    if (!commandManager) {
+      return false;
+    }
+
+    nsPIDOMWindowOuter* window = GetWindow();
+    if (!window) {
+      return false;
+    }
+
+    if (NS_FAILED(commandManager->GetCommandState(commandData.mXULCommandName,
+                                                  window, params))) {
+      return false;
+    }
   }
 
   // handle alignment as a special case (possibly other commands too?)
@@ -5326,32 +5507,32 @@ bool Document::QueryCommandState(const nsAString& aHTMLCommandName,
   switch (commandData.mCommand) {
     case Command::FormatJustifyLeft: {
       nsAutoCString currentValue;
-      aRv = params->GetCString("state_attribute", currentValue);
-      if (aRv.Failed()) {
+      nsresult rv = params->GetCString("state_attribute", currentValue);
+      if (NS_FAILED(rv)) {
         return false;
       }
       return currentValue.EqualsLiteral("left");
     }
     case Command::FormatJustifyRight: {
       nsAutoCString currentValue;
-      aRv = params->GetCString("state_attribute", currentValue);
-      if (aRv.Failed()) {
+      nsresult rv = params->GetCString("state_attribute", currentValue);
+      if (NS_FAILED(rv)) {
         return false;
       }
       return currentValue.EqualsLiteral("right");
     }
     case Command::FormatJustifyCenter: {
       nsAutoCString currentValue;
-      aRv = params->GetCString("state_attribute", currentValue);
-      if (aRv.Failed()) {
+      nsresult rv = params->GetCString("state_attribute", currentValue);
+      if (NS_FAILED(rv)) {
         return false;
       }
       return currentValue.EqualsLiteral("center");
     }
     case Command::FormatJustifyFull: {
       nsAutoCString currentValue;
-      aRv = params->GetCString("state_attribute", currentValue);
-      if (aRv.Failed()) {
+      nsresult rv = params->GetCString("state_attribute", currentValue);
+      if (NS_FAILED(rv)) {
         return false;
       }
       return currentValue.EqualsLiteral("justify");
@@ -5373,6 +5554,7 @@ bool Document::QueryCommandSupported(const nsAString& aHTMLCommandName,
     aRv.Throw(NS_ERROR_DOM_INVALID_STATE_DOCUMENT_QUERY_COMMAND_SUPPORTED);
     return false;
   }
+  // Otherwise, don't throw exception for compatibility with Chrome.
 
   InternalCommandData commandData = ConvertToInternalCommand(aHTMLCommandName);
   if (commandData.mCommand == Command::DoNothing) {
@@ -5411,6 +5593,7 @@ void Document::QueryCommandValue(const nsAString& aHTMLCommandName,
     aRv.Throw(NS_ERROR_DOM_INVALID_STATE_DOCUMENT_QUERY_COMMAND_VALUE);
     return;
   }
+  // Otherwise, don't throw exception for compatibility with Chrome.
 
   InternalCommandData commandData = ConvertToInternalCommand(aHTMLCommandName);
   if (commandData.mCommand == Command::DoNothing) {
@@ -5418,54 +5601,61 @@ void Document::QueryCommandValue(const nsAString& aHTMLCommandName,
     return;
   }
 
-  // if editing is not on, bail
-  if (!IsEditingOnAfterFlush()) {
+  RefPtr<nsPresContext> presContext = GetPresContext();
+  AutoEditorCommandTarget editCommandTarget(presContext, commandData);
+  if (commandData.IsAvailableOnlyWhenEditable() &&
+      !editCommandTarget.IsEditable(this)) {
     return;
   }
-
-  // get command manager and dispatch command to our window if it's acceptable
-  RefPtr<nsCommandManager> commandManager = GetMidasCommandManager();
-  if (!commandManager) {
-    aRv.Throw(NS_ERROR_FAILURE);
-    return;
-  }
-
-  nsCOMPtr<nsPIDOMWindowOuter> window = GetWindow();
-  if (!window) {
-    aRv.Throw(NS_ERROR_FAILURE);
-    return;
-  }
-
-  // this is a special command since we are calling DoCommand rather than
-  // GetCommandState like the other commands
   RefPtr<nsCommandParams> params = new nsCommandParams();
-  if (commandData.mCommand == Command::GetHTML) {
-    aRv = params->SetBool("selection_only", true);
-    if (aRv.Failed()) {
+  // FYI: Only GetHTML command is not implemented by editor.  Use window's
+  //      command table instead.
+  if (editCommandTarget.IsEditor()) {
+    MOZ_ASSERT(commandData.mCommand != Command::GetHTML);
+    if (NS_FAILED(params->SetCString("state_attribute", ""_ns))) {
       return;
     }
-    aRv = params->SetCString("format", "text/html"_ns);
-    if (aRv.Failed()) {
-      return;
-    }
-    aRv =
-        commandManager->DoCommand(commandData.mXULCommandName, params, window);
-    if (aRv.Failed()) {
-      return;
-    }
-    params->GetString("result", aValue);
-    return;
-  }
 
-  aRv = params->SetCString("state_attribute", ""_ns);
-  if (aRv.Failed()) {
-    return;
-  }
+    if (NS_FAILED(editCommandTarget.GetCommandStateParams(*params))) {
+      return;
+    }
+  } else {
+    // get command manager and dispatch command to our window if it's acceptable
+    RefPtr<nsCommandManager> commandManager = GetMidasCommandManager();
+    if (!commandManager) {
+      return;
+    }
 
-  aRv = commandManager->GetCommandState(commandData.mXULCommandName, window,
-                                        params);
-  if (aRv.Failed()) {
-    return;
+    nsCOMPtr<nsPIDOMWindowOuter> window = GetWindow();
+    if (!window) {
+      return;
+    }
+
+    // this is a special command since we are calling DoCommand rather than
+    // GetCommandState like the other commands
+    if (commandData.mCommand == Command::GetHTML) {
+      if (NS_FAILED(params->SetBool("selection_only", true))) {
+        return;
+      }
+      if (NS_FAILED(params->SetCString("format", "text/html"_ns))) {
+        return;
+      }
+      if (NS_FAILED(commandManager->DoCommand(commandData.mXULCommandName,
+                                              params, window))) {
+        return;
+      }
+      params->GetString("result", aValue);
+      return;
+    }
+
+    if (NS_FAILED(params->SetCString("state_attribute", ""_ns))) {
+      return;
+    }
+
+    if (NS_FAILED(commandManager->GetCommandState(commandData.mXULCommandName,
+                                                  window, params))) {
+      return;
+    }
   }
 
   // If command does not have a state_attribute value, this call fails, and
@@ -5475,17 +5665,6 @@ void Document::QueryCommandValue(const nsAString& aHTMLCommandName,
   nsAutoCString result;
   params->GetCString("state_attribute", result);
   CopyUTF8toUTF16(result, aValue);
-}
-
-bool Document::IsEditingOnAfterFlush() {
-  RefPtr<Document> doc = GetInProcessParentDocument();
-  if (doc) {
-    // Make sure frames are up to date, since that can affect whether
-    // we're editable.
-    doc->FlushPendingNotifications(FlushType::Frames);
-  }
-
-  return IsEditingOn();
 }
 
 void Document::MaybeEditingStateChanged() {
@@ -5499,6 +5678,22 @@ void Document::MaybeEditingStateChanged() {
                             &Document::MaybeEditingStateChanged));
     }
   }
+}
+
+void Document::NotifyFetchOrXHRSuccess() {
+  if (mShouldNotifyFetchSuccess) {
+    nsContentUtils::DispatchEventOnlyToChrome(
+        this, ToSupports(this), u"DOMDocFetchSuccess"_ns, CanBubble::eNo,
+        Cancelable::eNo, /* DefaultAction */ nullptr);
+  }
+}
+
+void Document::SetNotifyFetchSuccess(bool aShouldNotify) {
+  mShouldNotifyFetchSuccess = aShouldNotify;
+}
+
+void Document::SetNotifyFormOrPasswordRemoved(bool aShouldNotify) {
+  mShouldNotifyFormOrPasswordRemoved = aShouldNotify;
 }
 
 void Document::TearingDownEditor() {
@@ -6607,6 +6802,22 @@ bool Document::RemoveFromBFCacheSync() {
   if (nsCOMPtr<nsIBFCacheEntry> entry = GetBFCacheEntry()) {
     entry->RemoveFromBFCacheSync();
     return true;
+  }
+
+  if (XRE_IsContentProcess()) {
+    if (BrowsingContext* bc = GetBrowsingContext()) {
+      BrowsingContext* top = bc->Top();
+      if (top->GetIsInBFCache()) {
+        ContentChild* cc = ContentChild::GetSingleton();
+        // IPC is asynchronous but the caller is supposed to check the return
+        // value. The reason for 'Sync' in the method name is that the old
+        // implementation may run scripts. There is Async variant in
+        // the old session history implementation for the cases where
+        // synchronous operation isn't safe.
+        cc->SendRemoveFromBFCache(top);
+        return true;
+      }
+    }
   }
   return false;
 }
@@ -8119,8 +8330,7 @@ already_AddRefed<Attr> Document::CreateAttributeNS(
 }
 
 void Document::ResolveScheduledSVGPresAttrs() {
-  for (auto iter = mLazySVGPresElements.Iter(); !iter.Done(); iter.Next()) {
-    SVGElement* svg = iter.Get()->GetKey();
+  for (SVGElement* svg : mLazySVGPresElements) {
     svg->UpdateContentDeclarationBlock();
   }
   mLazySVGPresElements.Clear();
@@ -9562,8 +9772,7 @@ nsINode* Document::AdoptNode(nsINode& aAdoptedNode, ErrorResult& rv) {
   // Scope firing mutation events so that we don't carry any state that
   // might be stale
   {
-    nsINode* parent = adoptedNode->GetParentNode();
-    if (parent) {
+    if (nsINode* parent = adoptedNode->GetParentNode()) {
       nsContentUtils::MaybeFireNodeRemoved(adoptedNode, parent);
     }
   }
@@ -9615,16 +9824,20 @@ nsINode* Document::AdoptNode(nsINode& aAdoptedNode, ErrorResult& rv) {
       // a descendant contentDocument, so we check if the frameElement of this
       // document or any of its parents is the adopted node or one of its
       // descendants.
-      Document* doc = this;
-      do {
-        if (nsPIDOMWindowOuter* win = doc->GetWindow()) {
-          nsCOMPtr<nsINode> node = win->GetFrameElementInternal();
-          if (node && node->IsInclusiveDescendantOf(adoptedNode)) {
-            rv.Throw(NS_ERROR_DOM_HIERARCHY_REQUEST_ERR);
-            return nullptr;
-          }
+      RefPtr<BrowsingContext> bc = GetBrowsingContext();
+      while (bc) {
+        nsCOMPtr<nsINode> node = bc->GetEmbedderElement();
+        if (node && node->IsInclusiveDescendantOf(adoptedNode)) {
+          rv.Throw(NS_ERROR_DOM_HIERARCHY_REQUEST_ERR);
+          return nullptr;
         }
-      } while ((doc = doc->GetInProcessParentDocument()));
+
+        if (XRE_IsParentProcess()) {
+          bc = bc->Canonical()->GetParentCrossChromeBoundary();
+        } else {
+          bc = bc->GetParent();
+        }
+      }
 
       // Remove from parent.
       nsCOMPtr<nsINode> parent = adoptedNode->GetParentNode();
@@ -9820,9 +10033,11 @@ nsViewportInfo Document::GetViewportInfo(const ScreenIntSize& aDisplaySize) {
   CSSToScreenScale defaultScale =
       layoutDeviceScale * LayoutDeviceToScreenScale(1.0);
 
-  // Special behaviour for desktop mode, provided we are not on an about: page
+  // Special behaviour for desktop mode, provided we are not on an about: page,
+  // or fullscreen.
+  const bool fullscreen = Fullscreen();
   nsPIDOMWindowOuter* win = GetWindow();
-  if (win && win->IsDesktopModeViewport() && !IsAboutPage()) {
+  if (win && win->IsDesktopModeViewport() && !IsAboutPage() && !fullscreen) {
     CSSCoord viewportWidth =
         StaticPrefs::browser_viewport_desktopWidth() / fullZoom;
     CSSToScreenScale scaleToFit(aDisplaySize.width / viewportWidth);
@@ -9834,7 +10049,8 @@ nsViewportInfo Document::GetViewportInfo(const ScreenIntSize& aDisplaySize) {
                           nsViewportInfo::ZoomBehaviour::Mobile);
   }
 
-  if (!nsLayoutUtils::ShouldHandleMetaViewport(this)) {
+  // We ignore viewport meta tage etc when in fullscreen, see bug 1696717.
+  if (fullscreen || !nsLayoutUtils::ShouldHandleMetaViewport(this)) {
     return nsViewportInfo(aDisplaySize, defaultScale,
                           nsLayoutUtils::AllowZoomingForDocument(this)
                               ? nsViewportInfo::ZoomFlag::AllowZoom
@@ -10639,7 +10855,8 @@ void Document::CollectDescendantDocuments(
 }
 
 bool Document::CanSavePresentation(nsIRequest* aNewRequest,
-                                   uint16_t& aBFCacheCombo) {
+                                   uint16_t& aBFCacheCombo,
+                                   bool aIncludeSubdocuments) {
   bool ret = true;
 
   if (!IsBFCachingAllowed()) {
@@ -10768,16 +10985,16 @@ bool Document::CanSavePresentation(nsIRequest* aNewRequest,
     ret = false;
   }
 
-  if (mSubDocuments) {
+  if (aIncludeSubdocuments && mSubDocuments) {
     for (auto iter = mSubDocuments->Iter(); !iter.Done(); iter.Next()) {
       auto entry = static_cast<SubDocMapEntry*>(iter.Get());
       Document* subdoc = entry->mSubDocument;
 
       uint16_t subDocBFCacheCombo = 0;
       // The aIgnoreRequest we were passed is only for us, so don't pass it on.
-      bool canCache =
-          subdoc ? subdoc->CanSavePresentation(nullptr, subDocBFCacheCombo)
-                 : false;
+      bool canCache = subdoc ? subdoc->CanSavePresentation(
+                                   nullptr, subDocBFCacheCombo, true)
+                             : false;
       if (!canCache) {
         MOZ_LOG(gPageCacheLog, mozilla::LogLevel::Verbose,
                 ("Save of %s blocked due to subdocument blocked", uri.get()));
@@ -10787,13 +11004,15 @@ bool Document::CanSavePresentation(nsIRequest* aNewRequest,
     }
   }
 
-  // BFCache is currently not compatible with remote subframes (bug 1609324)
-  if (RefPtr<BrowsingContext> browsingContext = GetBrowsingContext()) {
-    for (auto& child : browsingContext->Children()) {
-      if (!child->IsInProcess()) {
-        aBFCacheCombo |= BFCacheStatus::CONTAINS_REMOTE_SUBFRAMES;
-        ret = false;
-        break;
+  if (!mozilla::BFCacheInParent()) {
+    // BFCache is currently not compatible with remote subframes (bug 1609324)
+    if (RefPtr<BrowsingContext> browsingContext = GetBrowsingContext()) {
+      for (auto& child : browsingContext->Children()) {
+        if (!child->IsInProcess()) {
+          aBFCacheCombo |= BFCacheStatus::CONTAINS_REMOTE_SUBFRAMES;
+          ret = false;
+          break;
+        }
       }
     }
   }
@@ -10822,9 +11041,12 @@ bool Document::CanSavePresentation(nsIRequest* aNewRequest,
 void Document::Destroy() {
   // The ContentViewer wants to release the document now.  So, tell our content
   // to drop any references to the document so that it can be destroyed.
-  if (mIsGoingAway) return;
+  if (mIsGoingAway) {
+    return;
+  }
 
   ReportDocumentUseCounters();
+  SetDevToolsWatchingDOMMutations(false);
 
   mIsGoingAway = true;
 
@@ -11112,6 +11334,15 @@ void Document::DispatchPageTransition(EventTarget* aDispatchTarget,
 
 void Document::OnPageShow(bool aPersisted, EventTarget* aDispatchStartTarget,
                           bool aOnlySystemGroup) {
+  if (MOZ_LOG_TEST(gSHIPBFCacheLog, LogLevel::Debug)) {
+    nsCString uri;
+    if (GetDocumentURI()) {
+      uri = GetDocumentURI()->GetSpecOrDefault();
+    }
+    MOZ_LOG(gSHIPBFCacheLog, LogLevel::Debug,
+            ("Document::OnPageShow [%s] persisted=%i", uri.get(), aPersisted));
+  }
+
   const bool inFrameLoaderSwap = !!aDispatchStartTarget;
   MOZ_DIAGNOSTIC_ASSERT(
       inFrameLoaderSwap ==
@@ -11188,6 +11419,15 @@ static void ClearPendingFullscreenRequests(Document* aDoc);
 
 void Document::OnPageHide(bool aPersisted, EventTarget* aDispatchStartTarget,
                           bool aOnlySystemGroup) {
+  if (MOZ_LOG_TEST(gSHIPBFCacheLog, LogLevel::Debug)) {
+    nsCString uri;
+    if (GetDocumentURI()) {
+      uri = GetDocumentURI()->GetSpecOrDefault();
+    }
+    MOZ_LOG(gSHIPBFCacheLog, LogLevel::Debug,
+            ("Document::OnPageHide %s persisted=%i", uri.get(), aPersisted));
+  }
+
   const bool inFrameLoaderSwap = !!aDispatchStartTarget;
   MOZ_DIAGNOSTIC_ASSERT(
       inFrameLoaderSwap ==
@@ -11372,10 +11612,7 @@ void Document::RefreshLinkHrefs() {
   // Get a list of all links we know about.  We will reset them, which will
   // remove them from the document, so we need a copy of what is in the
   // hashtable.
-  LinkArray linksToNotify(mStyledLinks.Count());
-  for (auto iter = mStyledLinks.ConstIter(); !iter.Done(); iter.Next()) {
-    linksToNotify.AppendElement(iter.Get()->GetKey());
-  }
+  const LinkArray linksToNotify = ToArray(mStyledLinks);
 
   // Reset all of our styled links.
   nsAutoScriptBlocker scriptBlocker;
@@ -11756,7 +11993,7 @@ void Document::PreLoadImage(nsIURI* aUri, const nsAString& aCrossOriginAttr,
   // the "real" load occurs. Unpinned in DispatchContentLoadedEvents and
   // unlink
   if (!aLinkPreload && NS_SUCCEEDED(rv)) {
-    mPreloadingImages.Put(aUri, std::move(request));
+    mPreloadingImages.InsertOrUpdate(aUri, std::move(request));
   }
 }
 
@@ -12081,15 +12318,15 @@ Document* Document::GetTemplateContentsOwner() {
         GetScriptHandlingObject(hasHadScriptObject);
 
     nsCOMPtr<Document> document;
-    nsresult rv = NS_NewDOMDocument(getter_AddRefs(document),
-                                    u""_ns,   // aNamespaceURI
-                                    u""_ns,   // aQualifiedName
-                                    nullptr,  // aDoctype
-                                    Document::GetDocumentURI(),
-                                    Document::GetDocBaseURI(), NodePrincipal(),
-                                    true,          // aLoadedAsData
-                                    scriptObject,  // aEventObject
-                                    DocumentFlavorHTML);
+    nsresult rv = NS_NewDOMDocument(
+        getter_AddRefs(document),
+        u""_ns,   // aNamespaceURI
+        u""_ns,   // aQualifiedName
+        nullptr,  // aDoctype
+        Document::GetDocumentURI(), Document::GetDocBaseURI(), NodePrincipal(),
+        true,          // aLoadedAsData
+        scriptObject,  // aEventObject
+        IsHTMLDocument() ? DocumentFlavorHTML : DocumentFlavorXML);
     NS_ENSURE_SUCCESS(rv, nullptr);
 
     mTemplateContentsOwner = document;
@@ -12317,21 +12554,16 @@ void Document::ScrollToRef() {
 
 void Document::RegisterActivityObserver(nsISupports* aSupports) {
   if (!mActivityObservers) {
-    mActivityObservers = MakeUnique<nsTHashtable<nsPtrHashKey<nsISupports>>>();
+    mActivityObservers = MakeUnique<nsTHashSet<nsISupports*>>();
   }
-  mActivityObservers->PutEntry(aSupports);
+  mActivityObservers->Insert(aSupports);
 }
 
 bool Document::UnregisterActivityObserver(nsISupports* aSupports) {
   if (!mActivityObservers) {
     return false;
   }
-  nsPtrHashKey<nsISupports>* entry = mActivityObservers->GetEntry(aSupports);
-  if (!entry) {
-    return false;
-  }
-  mActivityObservers->RemoveEntry(entry);
-  return true;
+  return mActivityObservers->EnsureRemoved(aSupports);
 }
 
 void Document::EnumerateActivityObservers(
@@ -12340,12 +12572,9 @@ void Document::EnumerateActivityObservers(
     return;
   }
 
-  nsTArray<nsCOMPtr<nsISupports>> observers(mActivityObservers->Count());
-  for (auto iter = mActivityObservers->ConstIter(); !iter.Done(); iter.Next()) {
-    observers.AppendElement(iter.Get()->GetKey());
-  }
-
-  for (auto& observer : observers) {
+  const auto keyArray =
+      ToTArray<nsTArray<nsCOMPtr<nsISupports>>>(*mActivityObservers);
+  for (auto& observer : keyArray) {
     aEnumerator(observer.get());
   }
 }
@@ -12786,10 +13015,7 @@ mozilla::dom::ImageTracker* Document::ImageTracker() {
 }
 
 void Document::GetPlugins(nsTArray<nsIObjectLoadingContent*>& aPlugins) {
-  aPlugins.SetCapacity(aPlugins.Length() + mPlugins.Count());
-  for (auto iter = mPlugins.ConstIter(); !iter.Done(); iter.Next()) {
-    aPlugins.AppendElement(iter.Get()->GetKey());
-  }
+  aPlugins.AppendElements(ToArray(mPlugins));
   auto recurse = [&aPlugins](Document& aSubDoc) {
     aSubDoc.GetPlugins(aPlugins);
     return CallState::Continue;
@@ -12806,7 +13032,7 @@ void Document::ScheduleSVGUseElementShadowTreeUpdate(
     return;
   }
 
-  mSVGUseElementsNeedingShadowTreeUpdate.PutEntry(&aUseElement);
+  mSVGUseElementsNeedingShadowTreeUpdate.Insert(&aUseElement);
 
   if (PresShell* presShell = GetPresShell()) {
     presShell->EnsureStyleFlush();
@@ -12815,22 +13041,13 @@ void Document::ScheduleSVGUseElementShadowTreeUpdate(
 
 void Document::DoUpdateSVGUseElementShadowTrees() {
   MOZ_ASSERT(!mSVGUseElementsNeedingShadowTreeUpdate.IsEmpty());
-  nsTArray<RefPtr<SVGUseElement>> useElementsToUpdate;
 
   do {
-    useElementsToUpdate.Clear();
-    useElementsToUpdate.SetCapacity(
-        mSVGUseElementsNeedingShadowTreeUpdate.Count());
+    const auto useElementsToUpdate = ToTArray<nsTArray<RefPtr<SVGUseElement>>>(
+        mSVGUseElementsNeedingShadowTreeUpdate);
+    mSVGUseElementsNeedingShadowTreeUpdate.Clear();
 
-    {
-      for (auto iter = mSVGUseElementsNeedingShadowTreeUpdate.ConstIter();
-           !iter.Done(); iter.Next()) {
-        useElementsToUpdate.AppendElement(iter.Get()->GetKey());
-      }
-      mSVGUseElementsNeedingShadowTreeUpdate.Clear();
-    }
-
-    for (auto& useElement : useElementsToUpdate) {
+    for (const auto& useElement : useElementsToUpdate) {
       if (MOZ_UNLIKELY(!useElement->IsInComposedDoc())) {
         // The element was in another <use> shadow tree which we processed
         // already and also needed an update, and is removed from the document
@@ -12844,8 +13061,7 @@ void Document::DoUpdateSVGUseElementShadowTrees() {
 }
 
 void Document::NotifyMediaFeatureValuesChanged() {
-  for (auto iter = mResponsiveContent.ConstIter(); !iter.Done(); iter.Next()) {
-    RefPtr<HTMLImageElement> imageElement = iter.Get()->GetKey();
+  for (RefPtr<HTMLImageElement> imageElement : mResponsiveContent) {
     imageElement->MediaFeatureValuesChanged();
   }
 }
@@ -13282,6 +13498,80 @@ already_AddRefed<nsINode> Document::GetTooltipNode() {
   }
 
   return nullptr;
+}
+
+namespace {
+
+class DevToolsMutationObserver final : public nsStubMutationObserver {
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSIMUTATIONOBSERVER_ATTRIBUTECHANGED
+  NS_DECL_NSIMUTATIONOBSERVER_CONTENTAPPENDED
+  NS_DECL_NSIMUTATIONOBSERVER_CONTENTINSERTED
+
+  // We handle this in nsContentUtils::MaybeFireNodeRemoved, since devtools
+  // relies on the event firing _before_ the removal happens.
+  // NS_DECL_NSIMUTATIONOBSERVER_CONTENTREMOVED
+
+  // NOTE(emilio, bug 1694627): DevTools doesn't seem to deal with character
+  // data changes right now (maybe intentionally?).
+  // NS_DECL_NSIMUTATIONOBSERVER_CHARACTERDATACHANGED
+
+  DevToolsMutationObserver() = default;
+
+ private:
+  void FireEvent(nsINode* aTarget, const nsAString& aType);
+
+  ~DevToolsMutationObserver() = default;
+};
+
+NS_IMPL_ISUPPORTS(DevToolsMutationObserver, nsIMutationObserver)
+
+void DevToolsMutationObserver::FireEvent(nsINode* aTarget,
+                                         const nsAString& aType) {
+  if (aTarget->ChromeOnlyAccess()) {
+    return;
+  }
+  (new AsyncEventDispatcher(aTarget, aType, CanBubble::eNo,
+                            ChromeOnlyDispatch::eYes, Composed::eYes))
+      ->RunDOMEventWhenSafe();
+}
+
+void DevToolsMutationObserver::AttributeChanged(Element* aElement,
+                                                int32_t aNamespaceID,
+                                                nsAtom* aAttribute,
+                                                int32_t aModType,
+                                                const nsAttrValue* aOldValue) {
+  FireEvent(aElement, u"devtoolsattrmodified"_ns);
+}
+
+void DevToolsMutationObserver::ContentAppended(nsIContent* aFirstNewContent) {
+  for (nsIContent* c = aFirstNewContent; c; c = c->GetNextSibling()) {
+    ContentInserted(c);
+  }
+}
+
+void DevToolsMutationObserver::ContentInserted(nsIContent* aChild) {
+  FireEvent(aChild, u"devtoolschildinserted"_ns);
+}
+
+static StaticRefPtr<DevToolsMutationObserver> sDevToolsMutationObserver;
+
+}  // namespace
+
+void Document::SetDevToolsWatchingDOMMutations(bool aValue) {
+  if (mDevToolsWatchingDOMMutations == aValue || mIsGoingAway) {
+    return;
+  }
+  mDevToolsWatchingDOMMutations = aValue;
+  if (aValue) {
+    if (MOZ_UNLIKELY(!sDevToolsMutationObserver)) {
+      sDevToolsMutationObserver = new DevToolsMutationObserver();
+      ClearOnShutdown(&sDevToolsMutationObserver);
+    }
+    AddMutationObserver(sDevToolsMutationObserver);
+  } else if (sDevToolsMutationObserver) {
+    RemoveMutationObserver(sDevToolsMutationObserver);
+  }
 }
 
 void Document::MaybeWarnAboutZoom() {
@@ -14073,7 +14363,7 @@ Element* Document::GetTopLayerTop() {
   return element;
 }
 
-Element* Document::GetUnretargetedFullScreenElement() {
+Element* Document::GetUnretargetedFullScreenElement() const {
   for (const nsWeakPtr& weakPtr : Reversed(mTopLayer)) {
     nsCOMPtr<Element> element(do_QueryReferent(weakPtr));
     // Per spec, the fullscreen element is the topmost element in the document’s
@@ -14954,10 +15244,7 @@ void Document::InitUseCounters() {
   }
   mUseCountersInitialized = true;
 
-  if (Telemetry::HistogramUseCounterCount == 0) {
-    // No use counters defined.
-    return;
-  }
+  static_assert(Telemetry::HistogramUseCounterCount > 0);
 
   if (!ShouldIncludeInTelemetry(/* aAllowExtensionURIs = */ true)) {
     return;
@@ -15152,11 +15439,8 @@ void Document::UpdateIntersectionObservations(TimeStamp aNowTime) {
     }
   }
 
-  nsTArray<RefPtr<DOMIntersectionObserver>> observers(
-      mIntersectionObservers.Count());
-  for (auto& observer : mIntersectionObservers) {
-    observers.AppendElement(observer.GetKey());
-  }
+  const auto observers = ToTArray<nsTArray<RefPtr<DOMIntersectionObserver>>>(
+      mIntersectionObservers);
   for (const auto& observer : observers) {
     if (observer) {
       observer->Update(this, time);
@@ -15176,21 +15460,12 @@ void Document::ScheduleIntersectionObserverNotification() {
 }
 
 void Document::NotifyIntersectionObservers() {
-  nsTArray<RefPtr<DOMIntersectionObserver>> observers(
-      mIntersectionObservers.Count());
-  for (auto iter = mIntersectionObservers.Iter(); !iter.Done(); iter.Next()) {
-    DOMIntersectionObserver* observer = iter.Get()->GetKey();
-    observers.AppendElement(observer);
-  }
+  const auto observers = ToTArray<nsTArray<RefPtr<DOMIntersectionObserver>>>(
+      mIntersectionObservers);
   for (const auto& observer : observers) {
     if (observer) {
-      // MOZ_KnownLive because 'observers' is guaranteed to
-      // keep it alive.
-      //
-      // Even with https://bugzilla.mozilla.org/show_bug.cgi?id=1620312 fixed
-      // this might need to stay, because 'observers' is not const, so it's not
-      // obvious how to prove via static analysis that it won't change and
-      // release us.
+      // MOZ_KnownLive because the 'observers' array guarantees to keep it
+      // alive.
       MOZ_KnownLive(observer)->Notify();
     }
   }
@@ -15570,6 +15845,17 @@ bool Document::HasValidTransientUserGestureActivation() {
 bool Document::ConsumeTransientUserGestureActivation() {
   RefPtr<WindowContext> wc = GetWindowContext();
   return wc && wc->ConsumeTransientUserGestureActivation();
+}
+
+void Document::IncLazyLoadImageCount() {
+  if (!mLazyLoadImageCount) {
+    if (WindowContext* wc = GetTopLevelWindowContext()) {
+      if (!wc->HadLazyLoadImage()) {
+        MOZ_ALWAYS_SUCCEEDS(wc->SetHadLazyLoadImage(true));
+      }
+    }
+  }
+  ++mLazyLoadImageCount;
 }
 
 void Document::SetDocTreeHadMedia() {
@@ -16656,8 +16942,8 @@ void Document::DoCacheAllKnownLangPrefs() {
   data->GetFontPrefsForLang(nsGkAtoms::x_math);
   // https://bugzilla.mozilla.org/show_bug.cgi?id=1362599#c12
   data->GetFontPrefsForLang(nsGkAtoms::Unicode);
-  for (auto iter = mLanguagesUsed.Iter(); !iter.Done(); iter.Next()) {
-    data->GetFontPrefsForLang(iter.Get()->GetKey());
+  for (const auto& key : mLanguagesUsed) {
+    data->GetFontPrefsForLang(key);
   }
   mMayNeedFontPrefsUpdate = false;
 }
@@ -16757,6 +17043,23 @@ nsIPrincipal* Document::EffectiveStoragePrincipal() const {
   }
 
   return mActiveStoragePrincipal = mPartitionedPrincipal;
+}
+
+nsIPrincipal* Document::GetPrincipalForPrefBasedHacks() const {
+  // If the document is sandboxed document or data: document, we should
+  // get URI of the parent document.
+  for (const Document* document = this;
+       document && document->IsContentDocument();
+       document = document->GetInProcessParentDocument()) {
+    // The document URI may be about:blank even if it comes from actual web
+    // site.  Therefore, we need to check the URI of its principal.
+    nsIPrincipal* principal = document->NodePrincipal();
+    if (principal->GetIsNullPrincipal()) {
+      continue;
+    }
+    return principal;
+  }
+  return nullptr;
 }
 
 void Document::SetIsInitialDocument(bool aIsInitialDocument) {
@@ -16886,7 +17189,7 @@ void Document::AddPendingFrameStaticClone(nsFrameLoaderOwner* aElement,
 }
 
 bool Document::ShouldAvoidNativeTheme() const {
-  return StaticPrefs::widget_disable_native_theme_for_content() &&
+  return StaticPrefs::widget_non_native_theme_enabled() &&
          (!IsInChromeDocShell() || XRE_IsContentProcess());
 }
 
@@ -16900,7 +17203,8 @@ bool Document::HasThirdPartyChannel() {
     // We assume that the channel is a third-party by default.
     bool thirdParty = true;
 
-    nsCOMPtr<mozIThirdPartyUtil> thirdPartyUtil = services::GetThirdPartyUtil();
+    nsCOMPtr<mozIThirdPartyUtil> thirdPartyUtil =
+        components::ThirdPartyUtil::Service();
     if (!thirdPartyUtil) {
       return thirdParty;
     }
@@ -16940,10 +17244,7 @@ bool Document::ShouldIncludeInTelemetry(bool aAllowExtensionURIs) {
 
 void Document::GetConnectedShadowRoots(
     nsTArray<RefPtr<ShadowRoot>>& aOut) const {
-  aOut.SetCapacity(mComposedShadowRoots.Count());
-  for (const auto& entry : mComposedShadowRoots) {
-    aOut.AppendElement(entry.GetKey());
-  }
+  AppendToArray(aOut, mComposedShadowRoots);
 }
 
 bool Document::HasPictureInPictureChildElement() const {

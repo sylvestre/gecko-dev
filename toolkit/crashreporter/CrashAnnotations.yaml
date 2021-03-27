@@ -92,11 +92,6 @@ ApplicationBuildID:
     Product application's build ID.
   type: string
 
-AsyncShutdownModule:
-  description: >
-    Holds the contents of the AsyncShutdown.js script
-  type: string
-
 AsyncShutdownTimeout:
   description: >
     This annotation is present if a shutdown blocker was not released in time
@@ -553,11 +548,6 @@ IsWayland:
     If true then the Wayland windowing system was in use.
   type: boolean
 
-IsWaylandDRM:
-  description: >
-    If true then the Wayland DRM backend was in use.
-  type: boolean
-
 IsWebRenderResourcePathOverridden:
   description: >
     If true then the WebRender resources (i.e. shaders) are loaded from a user specified path.
@@ -982,3 +972,10 @@ Winsock_LSP:
   description: >
     Information on winsock LSPs injected in our networking stack.
   type: string
+
+XPCOMSpinEventLoopStack:
+  description: >
+    If we crash while some code is spinning manually the event
+    loop, we will see the stack of nested annotations here.
+  type: string
+

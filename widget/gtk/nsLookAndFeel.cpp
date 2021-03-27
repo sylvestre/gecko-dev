@@ -19,6 +19,7 @@
 #include <fontconfig/fontconfig.h>
 #include "gfxPlatformGtk.h"
 #include "mozilla/FontPropertyTypes.h"
+#include "mozilla/Preferences.h"
 #include "mozilla/RelativeLuminanceUtils.h"
 #include "mozilla/StaticPrefs_layout.h"
 #include "mozilla/StaticPrefs_widget.h"
@@ -776,7 +777,7 @@ nsresult nsLookAndFeel::NativeGetInt(IntID aID, int32_t& aResult) {
       // Enable transparent titlebar corners for titlebar mode.
       GdkScreen* screen = gdk_screen_get_default();
       aResult = gdk_screen_is_composited(screen)
-                    ? (nsWindow::GetSystemCSDSupportLevel() !=
+                    ? (nsWindow::GtkWindowDecoration() !=
                        nsWindow::GTK_DECORATION_NONE)
                     : false;
       break;
@@ -829,6 +830,9 @@ nsresult nsLookAndFeel::NativeGetFloat(FloatID aID, float& aResult) {
       EnsureInit();
       aResult = mCaretRatio;
       break;
+    case FloatID::TextScaleFactor:
+      aResult = gfxPlatformGtk::GetFontScaleFactor();
+      break;
     default:
       aResult = -1.0;
       rv = NS_ERROR_FAILURE;
@@ -876,18 +880,18 @@ bool nsLookAndFeel::NativeGetFont(FontID aID, nsString& aFontName,
                                   gfxFontStyle& aFontStyle) {
   switch (aID) {
     case FontID::Menu:          // css2
-    case FontID::PullDownMenu:  // css3
+    case FontID::MozPullDownMenu:  // css3
       aFontName = mMenuFontName;
       aFontStyle = mMenuFontStyle;
       break;
 
-    case FontID::Field:  // css3
-    case FontID::List:   // css3
+    case FontID::MozField:  // css3
+    case FontID::MozList:   // css3
       aFontName = mFieldFontName;
       aFontStyle = mFieldFontStyle;
       break;
 
-    case FontID::Button:  // css3
+    case FontID::MozButton:  // css3
       aFontName = mButtonFontName;
       aFontStyle = mButtonFontStyle;
       break;
@@ -897,14 +901,12 @@ bool nsLookAndFeel::NativeGetFont(FontID aID, nsString& aFontName,
     case FontID::MessageBox:    // css2
     case FontID::SmallCaption:  // css2
     case FontID::StatusBar:     // css2
-    case FontID::Window:        // css3
-    case FontID::Document:      // css3
-    case FontID::Workspace:     // css3
-    case FontID::Desktop:       // css3
-    case FontID::Info:          // css3
-    case FontID::Dialog:        // css3
-    case FontID::Tooltips:      // moz
-    case FontID::Widget:        // moz
+    case FontID::MozWindow:     // css3
+    case FontID::MozDocument:   // css3
+    case FontID::MozWorkspace:  // css3
+    case FontID::MozDesktop:    // css3
+    case FontID::MozInfo:       // css3
+    case FontID::MozDialog:     // css3
     default:
       aFontName = mDefaultFontName;
       aFontStyle = mDefaultFontStyle;
@@ -1181,9 +1183,13 @@ void nsLookAndFeel::EnsureInit() {
       mMozScrollbar = mThemedScrollbar = widget::sScrollbarColor.ToABGR();
       mThemedScrollbarInactive = widget::sScrollbarColor.ToABGR();
       mThemedScrollbarThumb = widget::sScrollbarThumbColor.ToABGR();
-      mThemedScrollbarThumbHover = widget::sScrollbarThumbColorHover.ToABGR();
-      mThemedScrollbarThumbActive = widget::sScrollbarThumbColorActive.ToABGR();
-      mThemedScrollbarThumbInactive = widget::sScrollbarThumbColor.ToABGR();
+      mThemedScrollbarThumbHover =
+          nsNativeBasicTheme::AdjustUnthemedScrollbarThumbColor(
+              mThemedScrollbarThumb, NS_EVENT_STATE_HOVER);
+      mThemedScrollbarThumbActive =
+          nsNativeBasicTheme::AdjustUnthemedScrollbarThumbColor(
+              mThemedScrollbarThumb, NS_EVENT_STATE_ACTIVE);
+      mThemedScrollbarThumbInactive = mThemedScrollbarThumb;
     }
   }
 
@@ -1310,7 +1316,7 @@ void nsLookAndFeel::EnsureInit() {
     mAccentColorForeground = mTextSelectedText;
     if (RelativeLuminanceUtils::Compute(mAccentColor) >
         RelativeLuminanceUtils::Compute(mAccentColorForeground)) {
-      std::exchange(mAccentColor, mAccentColorForeground);
+      std::swap(mAccentColor, mAccentColorForeground);
     }
   }
 
@@ -1435,7 +1441,7 @@ void nsLookAndFeel::EnsureInit() {
   g_object_unref(labelWidget);
 
   mCSDAvailable =
-      nsWindow::GetSystemCSDSupportLevel() != nsWindow::GTK_DECORATION_NONE;
+      nsWindow::GtkWindowDecoration() != nsWindow::GTK_DECORATION_NONE;
   mCSDHideTitlebarByDefault = nsWindow::HideTitlebarByDefault();
 
   mCSDCloseButton = false;

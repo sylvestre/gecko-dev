@@ -11,6 +11,43 @@
 @namespace xul url("http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul");
 @namespace html url("http://www.w3.org/1999/xhtml");
 
+:root {
+  /* ::::: Variables ::::: */
+  --default-arrowpanel-background: Field;
+  --default-arrowpanel-color: FieldText;
+  --default-arrowpanel-border-color: ThreeDShadow;
+  --arrowpanel-background: var(--default-arrowpanel-background);
+  --arrowpanel-color: var(--default-arrowpanel-color);
+  --arrowpanel-border-color: var(--default-arrowpanel-border-color);
+  --arrowpanel-border-radius: 8px;
+  --arrowpanel-padding: 16px;
+
+  --arrowpanel-dimmed: color-mix(in srgb, currentColor 17%, transparent);
+  --arrowpanel-dimmed-further: color-mix(in srgb, currentColor 30%, transparent);
+  --arrowpanel-dimmed-even-further: color-mix(in srgb, currentColor 35%, transparent);
+
+  --panel-description-color: GrayText;
+  --panel-disabled-color: GrayText;
+
+  --popup-notification-body-width: calc(31em - calc(2 * var(--arrowpanel-padding)));
+}
+
+@supports not -moz-bool-pref("browser.proton.doorhangers.enabled") {
+:root {
+  --popup-notification-body-width: 25em;
+}
+} /** END not Proton **/
+
+/* Lightweight theme roots */
+
+:root[lwtheme-image]:-moz-lwtheme-darktext {
+  text-shadow: 0 -0.5px 1.5px white;
+}
+
+:root[lwtheme-image]:-moz-lwtheme-brighttext {
+  text-shadow: 1px 1px 1.5px black;
+}
+
 /* General styles */
 
 *|*.plain {
@@ -24,6 +61,68 @@ html|button,
 html|input,
 html|textarea {
   font: inherit;
+}
+
+.header {
+  font-weight: bold;
+}
+
+.indent {
+  margin-inline-start: 23px;
+}
+
+.box-padded {
+  padding: 5px;
+}
+
+/* XUL iframe */
+
+xul|iframe {
+  border: none;
+  width: 100px;
+  height: 100px;
+  min-width: 10px;
+  min-height: 10px;
+}
+
+@supports -moz-bool-pref("layout.css.emulate-moz-box-with-flex") {
+  /* In emulation, <iframe> is block instead of inline, so reset the width/height */
+  xul|iframe {
+    width: auto;
+    height: auto;
+  }
+}
+
+/* Label/description formatting */
+
+xul|description,
+xul|label {
+  cursor: default;
+  margin-block: 1px 2px;
+  margin-inline: 6px 5px;
+}
+
+xul|description {
+  margin-bottom: 4px;
+}
+
+xul|label[disabled="true"] {
+  color: GrayText;
+}
+
+.tooltip-label {
+  margin: 0;
+}
+
+/* Links */
+
+.text-link {
+  color: -moz-nativehyperlinktext;
+  cursor: pointer;
+}
+
+.text-link:hover {
+  text-decoration: underline;
 }
 
 /* Textbox context menu */
@@ -57,6 +156,7 @@ html|textarea {
 
 /* Panel footers */
 
+@supports not -moz-bool-pref("browser.proton.doorhangers.enabled") {
 .panel-footer {
   background-color: var(--arrowpanel-dimmed);
 }
@@ -106,3 +206,4 @@ html|textarea {
 .panel-footer > xul|button > .button-box {
   padding: 0;
 }
+} /** END not Proton **/

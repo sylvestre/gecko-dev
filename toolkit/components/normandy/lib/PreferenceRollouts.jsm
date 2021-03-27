@@ -53,6 +53,10 @@ const log = LogManager.getLogger("recipe-runner");
  *   rollout value, and so Normandy is no longer managing the preference.
  * @property {Array<PreferenceSpec>} preferences
  *   An array of preferences specifications involved in the rollout.
+ * @property {string} enrollmentId
+ *   A random ID generated at time of enrollment. It should be included on all
+ *   telemetry related to this rollout. It should not be re-used by other
+ *   rollouts, or any other purpose. May be null on old rollouts.
  */
 
 /**
@@ -67,10 +71,6 @@ const log = LogManager.getLogger("recipe-runner");
  * @property {string|integer|boolean} previousValue
  *   The value the preference would have on the default branch if this rollout
  *   were not active.
- * @property {string} enrollmentId
- *   A random ID generated at time of enrollment. It should be included on all
- *   telemetry related to this rollout. It should not be re-used by other
- *   rollouts, or any other purpose. May be null on old rollouts.
  */
 
 var EXPORTED_SYMBOLS = ["PreferenceRollouts"];
@@ -130,7 +130,7 @@ var PreferenceRollouts = {
   // applicable, or the feature changing in such a way that Normandy's automatic
   // graduation system cannot detect that the rollout should hand off to the
   // built-in code.
-  GRADUATION_SET: new Set(),
+  GRADUATION_SET: new Set(["pref-webrender-intel-rollout-70-release"]),
 
   /**
    * Update the rollout database with changes that happened during early startup.
@@ -201,18 +201,21 @@ var PreferenceRollouts = {
    * Test wrapper that temporarily replaces the stored rollout data with fake
    * data for testing.
    */
-  withTestMock({ graduationSet = new Set(), rollouts = [] } = {}) {
+  withTestMock({
+    graduationSet = new Set(),
+    rollouts: prefRollouts = [],
+  } = {}) {
     return testFunction => {
-      return async (...args) => {
+      return async args => {
         let db = await getDatabase();
         const oldData = await getStore(db, "readonly").getAll();
         await getStore(db, "readwrite").clear();
-        await Promise.all(rollouts.map(r => this.add(r)));
+        await Promise.all(prefRollouts.map(r => this.add(r)));
         const oldGraduationSet = this.GRADUATION_SET;
         this.GRADUATION_SET = graduationSet;
 
         try {
-          await testFunction(...args);
+          await testFunction({ ...args, prefRollouts });
         } finally {
           this.GRADUATION_SET = oldGraduationSet;
           db = await getDatabase();

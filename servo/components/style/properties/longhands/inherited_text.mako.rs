@@ -57,7 +57,7 @@ ${helpers.single_keyword(
     gecko_ffi_name="mTextSizeAdjust",
     animation_value_type="discrete",
     spec="https://drafts.csswg.org/css-size-adjust/#adjustment-control",
-    alias="-webkit-text-size-adjust",
+    aliases="-webkit-text-size-adjust",
 )}
 
 ${helpers.predefined_type(
@@ -82,7 +82,7 @@ ${helpers.predefined_type(
     servo_2020_pref="layout.2020.unimplemented",
     animation_value_type="discrete",
     spec="https://drafts.csswg.org/css-text/#propdef-overflow-wrap",
-    alias="word-wrap",
+    aliases="word-wrap",
     servo_restyle_damage="rebuild_and_reflow",
 )}
 
@@ -181,7 +181,6 @@ ${helpers.predefined_type(
     name="white-space"
     values="normal pre nowrap pre-wrap pre-line"
     engines="gecko servo-2013 servo-2020",
-    servo_2020_pref="layout.2020.unimplemented",
     extra_gecko_values="break-spaces -moz-pre-space"
     gecko_enum_prefix="StyleWhiteSpace"
     needs_conversion="True"
@@ -331,13 +330,13 @@ ${helpers.single_keyword(
     spec="https://drafts.csswg.org/css-ruby/#ruby-align-property",
 )}
 
-${helpers.single_keyword(
+${helpers.predefined_type(
     "ruby-position",
-    "over under",
+    "RubyPosition",
+    "Default::default()",
     engines="gecko",
-    animation_value_type="discrete",
     spec="https://drafts.csswg.org/css-ruby/#ruby-position-property",
-    gecko_enum_prefix="StyleRubyPosition",
+    animation_value_type="discrete",
 )}
 
 // CSS Writing Modes Module Level 3

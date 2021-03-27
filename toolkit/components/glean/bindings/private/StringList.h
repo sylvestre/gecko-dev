@@ -7,9 +7,11 @@
 #ifndef mozilla_glean_GleanStringList_h
 #define mozilla_glean_GleanStringList_h
 
-#include "mozilla/Maybe.h"
-#include "nsIGleanMetrics.h"
+#include "mozilla/glean/bindings/ScalarGIFFTMap.h"
 #include "mozilla/glean/fog_ffi_generated.h"
+#include "mozilla/Maybe.h"
+#include "nsDebug.h"
+#include "nsIGleanMetrics.h"
 #include "nsString.h"
 #include "nsTArray.h"
 
@@ -29,7 +31,14 @@ class StringListMetric {
    * @param aValue The string to add.
    */
   void Add(const nsACString& aValue) const {
+    auto scalarId = ScalarIdForMetric(mId);
+    if (scalarId) {
+      Telemetry::ScalarSet(scalarId.extract(), NS_ConvertUTF8toUTF16(aValue),
+                           true);
+    }
+#ifndef MOZ_GLEAN_ANDROID
     fog_string_list_add(mId, &aValue);
+#endif
   }
 
   /*
@@ -43,7 +52,13 @@ class StringListMetric {
    * @param aValue The list of strings to set the metric to.
    */
   void Set(const nsTArray<nsCString>& aValue) const {
+    // Calling `Set` on a mirrored labeled_string is likely an error.
+    // We can't remove keys from the mirror scalar and handle this 'properly',
+    // so you shouldn't use this operation at all.
+    (void)NS_WARN_IF(ScalarIdForMetric(mId).isSome());
+#ifndef MOZ_GLEAN_ANDROID
     fog_string_list_set(mId, &aValue);
+#endif
   }
 
   /**
@@ -65,12 +80,17 @@ class StringListMetric {
    */
   Maybe<nsTArray<nsCString>> TestGetValue(
       const nsACString& aPingName = nsCString()) const {
+#ifdef MOZ_GLEAN_ANDROID
+    Unused << mId;
+    return Nothing();
+#else
     if (!fog_string_list_test_has_value(mId, &aPingName)) {
       return Nothing();
     }
     nsTArray<nsCString> ret;
     fog_string_list_test_get_value(mId, &aPingName, &ret);
     return Some(std::move(ret));
+#endif
   }
 
  private:

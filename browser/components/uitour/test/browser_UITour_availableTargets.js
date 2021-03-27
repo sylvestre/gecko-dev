@@ -11,17 +11,15 @@ requestLongerTimeout(2);
 
 function getExpectedTargets() {
   return [
-    "accountStatus",
+    ...(CustomizableUI.protonToolbarEnabled ? [] : ["accountStatus"]),
     "addons",
     "appMenu",
     "backForward",
-    "customize",
     "devtools",
     "help",
-    "home",
+    ...(CustomizableUI.protonToolbarEnabled ? [] : ["home"]),
     "library",
     "logins",
-    "pageActionButton",
     "pageAction-bookmark",
     "pageAction-copyURL",
     "pageAction-emailLink",
@@ -30,7 +28,6 @@ function getExpectedTargets() {
     "privateWindow",
     ...(hasQuit ? ["quit"] : []),
     "readerMode-urlBar",
-    "screenshots",
     "urlbar",
   ];
 }
@@ -38,7 +35,6 @@ function getExpectedTargets() {
 add_task(setup_UITourTest);
 
 add_UITour_task(async function test_availableTargets() {
-  await ensureScreenshotsEnabled();
   let data = await getConfigurationPromise("availableTargets");
   let expecteds = getExpectedTargets();
   ok_targets(data, expecteds);
@@ -91,8 +87,6 @@ add_UITour_task(
     let expecteds = getExpectedTargets();
     ok_targets(data, expecteds);
     let expectedActions = [
-      ["pocket", "pageAction-panel-pocket"],
-      ["screenshots", "pageAction-panel-screenshots_mozilla_org"],
       ["pageAction-bookmark", "pageAction-panel-bookmark"],
       ["pageAction-copyURL", "pageAction-panel-copyURL"],
       ["pageAction-emailLink", "pageAction-panel-emailLink"],
@@ -112,8 +106,6 @@ add_UITour_task(async function test_availableTargets_addUrlbarPageActionsAll() {
   let expecteds = getExpectedTargets();
   ok_targets(data, expecteds);
   let expectedActions = [
-    ["pocket", "pocket-button"],
-    ["screenshots", "pageAction-panel-screenshots_mozilla_org"],
     ["pageAction-bookmark", "star-button-box"],
     ["pageAction-copyURL", "pageAction-urlbar-copyURL"],
     ["pageAction-emailLink", "pageAction-urlbar-emailLink"],
@@ -166,12 +158,3 @@ var pageActionsHelper = {
     this._originalStates = null;
   },
 };
-
-function ensureScreenshotsEnabled() {
-  SpecialPowers.pushPrefEnv({
-    set: [["extensions.screenshots.disabled", false]],
-  });
-  return BrowserTestUtils.waitForCondition(() => {
-    return PageActions.actionForID("screenshots_mozilla_org");
-  }, "Should enable Screenshots");
-}

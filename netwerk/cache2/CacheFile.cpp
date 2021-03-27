@@ -556,7 +556,7 @@ nsresult CacheFile::OnFileOpened(CacheFileHandle* aHandle, nsresult aResult) {
           LOG(("CacheFile::OnFileOpened() - write [this=%p, idx=%u, chunk=%p]",
                this, idx, chunk.get()));
 
-          mChunks.Put(idx, RefPtr{chunk});
+          mChunks.InsertOrUpdate(idx, RefPtr{chunk});
           chunk->mFile = this;
           chunk->mActiveChunk = true;
 
@@ -1441,7 +1441,7 @@ nsresult CacheFile::GetChunkLocked(uint32_t aIndex, ECallerType aCaller,
     // Preloader calls this method to preload only non-loaded chunks.
     MOZ_ASSERT(aCaller != PRELOADER, "Unexpected!");
 
-    mChunks.Put(aIndex, RefPtr{chunk});
+    mChunks.InsertOrUpdate(aIndex, RefPtr{chunk});
     mCachedChunks.Remove(aIndex);
     chunk->mFile = this;
     chunk->mActiveChunk = true;
@@ -1475,7 +1475,7 @@ nsresult CacheFile::GetChunkLocked(uint32_t aIndex, ECallerType aCaller,
     }
 
     chunk = new CacheFileChunk(this, aIndex, aCaller == WRITER);
-    mChunks.Put(aIndex, RefPtr{chunk});
+    mChunks.InsertOrUpdate(aIndex, RefPtr{chunk});
     chunk->mActiveChunk = true;
 
     LOG(
@@ -1508,7 +1508,7 @@ nsresult CacheFile::GetChunkLocked(uint32_t aIndex, ECallerType aCaller,
     if (aCaller == WRITER) {
       // this listener is going to write to the chunk
       chunk = new CacheFileChunk(this, aIndex, true);
-      mChunks.Put(aIndex, RefPtr{chunk});
+      mChunks.InsertOrUpdate(aIndex, RefPtr{chunk});
       chunk->mActiveChunk = true;
 
       LOG(("CacheFile::GetChunkLocked() - Created new empty chunk %p [this=%p]",
@@ -1799,7 +1799,7 @@ void CacheFile::RemoveChunkInternal(CacheFileChunk* aChunk, bool aCacheChunk) {
   ReleaseOutsideLock(RefPtr<CacheFileChunkListener>(std::move(aChunk->mFile)));
 
   if (aCacheChunk) {
-    mCachedChunks.Put(aChunk->Index(), RefPtr{aChunk});
+    mCachedChunks.InsertOrUpdate(aChunk->Index(), RefPtr{aChunk});
   }
 
   mChunks.Remove(aChunk->Index());
@@ -2195,13 +2195,7 @@ void CacheFile::QueueChunkListener(uint32_t aIndex,
   }
   item->mCallback = aCallback;
 
-  ChunkListeners* listeners;
-  if (!mChunkListeners.Get(aIndex, &listeners)) {
-    listeners = new ChunkListeners();
-    mChunkListeners.Put(aIndex, listeners);
-  }
-
-  listeners->mItems.AppendElement(item);
+  mChunkListeners.GetOrInsertNew(aIndex)->mItems.AppendElement(item);
 }
 
 nsresult CacheFile::NotifyChunkListeners(uint32_t aIndex, nsresult aResult,
@@ -2276,12 +2270,12 @@ void CacheFile::NotifyListenersAboutOutputRemoval() {
   }
 
   // Fail all update listeners
-  for (auto iter = mChunks.Iter(); !iter.Done(); iter.Next()) {
-    const RefPtr<CacheFileChunk>& chunk = iter.Data();
+  for (const auto& entry : mChunks) {
+    const RefPtr<CacheFileChunk>& chunk = entry.GetData();
     LOG(
         ("CacheFile::NotifyListenersAboutOutputRemoval() - fail2 "
          "[this=%p, idx=%u]",
-         this, iter.Key()));
+         this, entry.GetKey()));
 
     if (chunk->IsReady()) {
       chunk->NotifyUpdateListeners();
@@ -2557,12 +2551,12 @@ size_t CacheFile::SizeOfExcludingThis(
   size_t n = 0;
   n += mKey.SizeOfExcludingThisIfUnshared(mallocSizeOf);
   n += mChunks.ShallowSizeOfExcludingThis(mallocSizeOf);
-  for (auto iter = mChunks.ConstIter(); !iter.Done(); iter.Next()) {
-    n += iter.Data()->SizeOfIncludingThis(mallocSizeOf);
+  for (const auto& chunk : mChunks.Values()) {
+    n += chunk->SizeOfIncludingThis(mallocSizeOf);
   }
   n += mCachedChunks.ShallowSizeOfExcludingThis(mallocSizeOf);
-  for (auto iter = mCachedChunks.ConstIter(); !iter.Done(); iter.Next()) {
-    n += iter.Data()->SizeOfIncludingThis(mallocSizeOf);
+  for (const auto& chunk : mCachedChunks.Values()) {
+    n += chunk->SizeOfIncludingThis(mallocSizeOf);
   }
   // Ignore metadata if it's still being read. It's not safe to access buffers
   // in CacheFileMetadata because they might be reallocated on another thread

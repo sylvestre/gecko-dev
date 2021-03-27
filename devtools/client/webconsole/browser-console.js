@@ -6,7 +6,6 @@
 
 const Services = require("Services");
 const WebConsole = require("devtools/client/webconsole/webconsole");
-const { TargetList } = require("devtools/shared/resources/target-list");
 const {
   ResourceWatcher,
 } = require("devtools/shared/resources/resource-watcher");
@@ -21,9 +20,10 @@ loader.lazyRequireGetter(
 );
 
 /**
- * A BrowserConsole instance is an interactive console initialized *per target*
+ * A BrowserConsole instance is an interactive console initialized *per commands*
  * that displays console log data as well as provides an interactive terminal to
- * manipulate the target's document content.
+ * manipulate all browser debuggable context and targeted by default at the current
+ * top-level window's document.
  *
  * This object only wraps the iframe that holds the Browser Console UI. This is
  * meant to be an integration point between the Firefox UI and the Browser Console
@@ -34,30 +34,20 @@ loader.lazyRequireGetter(
 class BrowserConsole extends WebConsole {
   /*
    * @constructor
-   * @param object target
-   *        The target that the browser console will connect to.
+   * @param object commands
+   *        The commands object with all interfaces defined from devtools/shared/commands/
    * @param nsIDOMWindow iframeWindow
    *        The window where the browser console UI is already loaded.
    * @param nsIDOMWindow chromeWindow
    *        The window of the browser console owner.
    */
-  constructor(target, iframeWindow, chromeWindow) {
-    super(null, iframeWindow, chromeWindow, true);
+  constructor(commands, iframeWindow, chromeWindow) {
+    super(null, commands, iframeWindow, chromeWindow, true);
 
-    this._browserConsoleTarget = target;
-    this._targetList = new TargetList(target.client.mainRoot, target);
-    this._resourceWatcher = new ResourceWatcher(this._targetList);
+    this._resourceWatcher = new ResourceWatcher(this.targetList);
     this._telemetry = new Telemetry();
     this._bcInitializer = null;
     this._bcDestroyer = null;
-  }
-
-  get currentTarget() {
-    return this._browserConsoleTarget;
-  }
-
-  get targetList() {
-    return this._targetList;
   }
 
   get resourceWatcher() {

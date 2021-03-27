@@ -7,10 +7,12 @@
 #ifndef mozilla_dom_SessionStoreListener_h
 #define mozilla_dom_SessionStoreListener_h
 
+#include "SessionStoreData.h"
 #include "nsIDOMEventListener.h"
+#include "nsIObserver.h"
 #include "nsIPrivacyTransitionObserver.h"
 #include "nsIWebProgressListener.h"
-#include "SessionStoreData.h"
+#include "nsWeakReference.h"
 
 class nsITimer;
 
@@ -30,15 +32,6 @@ class ContentSessionStore {
   nsCString GetDocShellCaps();
   bool IsPrivateChanged() { return mPrivateChanged; }
   bool GetPrivateModeEnabled();
-  void SetScrollPositionChanged() { mScrollChanged = WITH_CHANGE; }
-  bool IsScrollPositionChanged() { return mScrollChanged != NO_CHANGE; }
-  void GetScrollPositions(nsTArray<nsCString>& aPositions,
-                          nsTArray<int32_t>& aPositionDescendants);
-  void SetFormDataChanged() { mFormDataChanged = WITH_CHANGE; }
-  bool IsFormDataChanged() { return mFormDataChanged != NO_CHANGE; }
-  nsTArray<InputFormData> GetInputs(
-      nsTArray<CollectedInputDataValue>& aIdVals,
-      nsTArray<CollectedInputDataValue>& aXPathVals);
 
   // Use "mStorageStatus" to manage the status of storageChanges
   bool IsStorageUpdated() { return mStorageStatus != NO_STORAGE; }
@@ -78,9 +71,8 @@ class ContentSessionStore {
   void OnDocumentStart();
   void OnDocumentEnd();
   bool UpdateNeeded() {
-    return mPrivateChanged || mDocCapChanged || IsScrollPositionChanged() ||
-           IsFormDataChanged() || IsStorageUpdated() || mSHistoryChanged ||
-           mSHistoryChangedFromParent;
+    return mPrivateChanged || mDocCapChanged || IsStorageUpdated() ||
+           mSHistoryChanged || mSHistoryChangedFromParent;
   }
 
  private:
@@ -90,12 +82,6 @@ class ContentSessionStore {
   nsCOMPtr<nsIDocShell> mDocShell;
   bool mPrivateChanged;
   bool mIsPrivate;
-  enum {
-    NO_CHANGE,
-    PAGELOADEDSTART,  // set when the state of document is STATE_START
-    WITH_CHANGE,      // set when the change event is observed
-  } mScrollChanged,
-      mFormDataChanged;
   enum {
     NO_STORAGE,
     RESET,
@@ -130,7 +116,7 @@ class TabListener : public nsIDOMEventListener,
   nsresult Init();
   ContentSessionStore* GetSessionStore() { return mSessionStore; }
   // the function is called only when TabListener is in parent process
-  bool ForceFlushFromParent(uint32_t aFlushId, bool aIsFinal = false);
+  bool ForceFlushFromParent(bool aIsFinal);
   void RemoveListeners();
   void SetEpoch(uint32_t aEpoch) { mEpoch = aEpoch; }
   uint32_t GetEpoch() { return mEpoch; }
@@ -151,7 +137,7 @@ class TabListener : public nsIDOMEventListener,
   void StopTimerForUpdate();
   void AddEventListeners();
   void RemoveEventListeners();
-  bool UpdateSessionStore(uint32_t aFlushId = 0, bool aIsFinal = false);
+  bool UpdateSessionStore(bool aIsFlush = false, bool aIsFinal = false);
   void ResetStorageChangeListener();
   void RemoveStorageChangeListener();
   virtual ~TabListener();

@@ -87,7 +87,7 @@ typedef struct _nsCocoaWindowList {
 // "contents" of this window. All views in the returned array are subviews of
 // this window's content view. However, the array may not include all of the
 // content view's subviews; concretely, the ToolbarWindow implementation will
-// exclude its TitlebarGradientView from the array that is returned here.
+// exclude its MOZTitlebarView from the array that is returned here.
 // In the vast majority of cases, the array will only have a single element:
 // this window's mainChildView.
 - (NSArray<NSView*>*)contentViewContents;
@@ -103,6 +103,7 @@ typedef struct _nsCocoaWindowList {
 - (NSRect)getAndResetNativeDirtyRect;
 
 - (void)setUseMenuStyle:(BOOL)aValue;
+@property(nonatomic) mozilla::StyleWindowShadow shadowStyle;
 
 - (void)releaseJSObjects;
 
@@ -170,21 +171,33 @@ typedef struct _nsCocoaWindowList {
 - (void)sendToplevelDeactivateEvents;
 @end
 
-@interface TitlebarGradientView : NSView
+@interface MOZTitlebarView : NSVisualEffectView
+@end
+
+@interface FullscreenTitlebarTracker : NSTitlebarAccessoryViewController
+- (FullscreenTitlebarTracker*)init;
 @end
 
 // NSWindow subclass for handling windows with toolbars.
 @interface ToolbarWindow : BaseWindow {
-  // This window's titlebar gradient view, if present.
-  // Will be nil if drawsContentsIntoWindowFrame is YES.
+  // This window's titlebar view, if present.
+  // Will be nil if the window has neither a titlebar nor a unified toolbar.
   // This view is a subview of the window's content view and gets created and
-  // destroyed by updateTitlebarGradientViewPresence.
-  TitlebarGradientView* mTitlebarGradientView;  // [STRONG]
+  // destroyed by updateTitlebarView.
+  MOZTitlebarView* mTitlebarView;  // [STRONG]
+  // mFullscreenTitlebarTracker attaches an invisible rectangle to the system
+  // title bar. This allows us to detect when the title bar is showing in
+  // fullscreen.
+  FullscreenTitlebarTracker* mFullscreenTitlebarTracker;
 
   CGFloat mUnifiedToolbarHeight;
   CGFloat mSheetAttachmentPosition;
+  CGFloat mMenuBarHeight;
+  /* Store the height of the titlebar when this window is initialized. The
+     titlebarHeight getter returns 0 when in fullscreen, which is not useful in
+     some cases. */
+  CGFloat mInitialTitlebarHeight;
   NSRect mWindowButtonsRect;
-  NSRect mFullScreenButtonRect;
 }
 - (void)setUnifiedToolbarHeight:(CGFloat)aHeight;
 - (CGFloat)unifiedToolbarHeight;
@@ -195,9 +208,7 @@ typedef struct _nsCocoaWindowList {
 - (void)setSheetAttachmentPosition:(CGFloat)aY;
 - (CGFloat)sheetAttachmentPosition;
 - (void)placeWindowButtons:(NSRect)aRect;
-- (void)placeFullScreenButton:(NSRect)aRect;
 - (NSPoint)windowButtonsPositionWithDefaultPosition:(NSPoint)aDefaultPosition;
-- (NSPoint)fullScreenButtonPositionWithDefaultPosition:(NSPoint)aDefaultPosition;
 - (void)windowMainStateChanged;
 @end
 
@@ -306,8 +317,10 @@ class nsCocoaWindow final : public nsBaseWidget, public nsPIWidgetCocoa {
   virtual nsresult SetNonClientMargins(LayoutDeviceIntMargin& aMargins) override;
   virtual void SetDrawsInTitlebar(bool aState) override;
   virtual void UpdateThemeGeometries(const nsTArray<ThemeGeometry>& aThemeGeometries) override;
-  virtual nsresult SynthesizeNativeMouseEvent(LayoutDeviceIntPoint aPoint, uint32_t aNativeMessage,
-                                              uint32_t aModifierFlags,
+  virtual nsresult SynthesizeNativeMouseEvent(LayoutDeviceIntPoint aPoint,
+                                              NativeMouseMessage aNativeMessage,
+                                              mozilla::MouseButton aButton,
+                                              nsIWidget::Modifiers aModifierFlags,
                                               nsIObserver* aObserver) override;
   virtual nsresult SynthesizeNativeMouseScrollEvent(LayoutDeviceIntPoint aPoint,
                                                     uint32_t aNativeMessage, double aDeltaX,
@@ -327,7 +340,7 @@ class nsCocoaWindow final : public nsBaseWidget, public nsPIWidgetCocoa {
   bool HasModalDescendents() { return mNumModalDescendents > 0; }
   NSWindow* GetCocoaWindow() { return mWindow; }
 
-  void SetMenuBar(nsMenuBarX* aMenuBar);
+  void SetMenuBar(RefPtr<nsMenuBarX>&& aMenuBar);
   nsMenuBarX* GetMenuBar();
 
   virtual void SetInputContext(const InputContext& aContext,
@@ -344,6 +357,8 @@ class nsCocoaWindow final : public nsBaseWidget, public nsPIWidgetCocoa {
   void PauseCompositor();
   void ResumeCompositor();
 
+  bool AsyncPanZoomEnabled() const override;
+
  protected:
   virtual ~nsCocoaWindow();
 
@@ -351,8 +366,6 @@ class nsCocoaWindow final : public nsBaseWidget, public nsPIWidgetCocoa {
                               bool aRectIsFrameRect);
   nsresult CreatePopupContentView(const LayoutDeviceIntRect& aRect, nsWidgetInitData* aInitData);
   void DestroyNativeWindow();
-  void AdjustWindowShadow();
-  void SetWindowBackgroundBlur();
   void UpdateBounds();
   int32_t GetWorkspaceID();
 

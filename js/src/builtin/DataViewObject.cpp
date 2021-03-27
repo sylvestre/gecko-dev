@@ -75,14 +75,13 @@ bool DataViewObject::getAndCheckConstructorArgs(JSContext* cx,
                                                 BufferSize* byteOffsetPtr,
                                                 BufferSize* byteLengthPtr) {
   // Step 3.
-  if (!IsArrayBufferMaybeShared(bufobj)) {
+  if (!bufobj->is<ArrayBufferObjectMaybeShared>()) {
     JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                               JSMSG_NOT_EXPECTED_TYPE, "DataView",
                               "ArrayBuffer", bufobj->getClass()->name);
     return false;
   }
-  Rooted<ArrayBufferObjectMaybeShared*> buffer(
-      cx, &AsArrayBufferMaybeShared(bufobj));
+  auto buffer = bufobj.as<ArrayBufferObjectMaybeShared>();
 
   // Step 4.
   uint64_t offset;
@@ -151,8 +150,7 @@ bool DataViewObject::constructSameCompartment(JSContext* cx,
     return false;
   }
 
-  Rooted<ArrayBufferObjectMaybeShared*> buffer(
-      cx, &AsArrayBufferMaybeShared(bufobj));
+  auto buffer = bufobj.as<ArrayBufferObjectMaybeShared>();
   JSObject* obj =
       DataViewObject::create(cx, byteOffset, byteLength, buffer, proto);
   if (!obj) {
@@ -936,11 +934,6 @@ bool DataViewObject::byteOffsetGetterImpl(JSContext* cx, const CallArgs& args) {
 bool DataViewObject::byteOffsetGetter(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
   return CallNonGenericMethod<is, byteOffsetGetterImpl>(cx, args);
-}
-
-JSObject* DataViewObject::CreatePrototype(JSContext* cx, JSProtoKey key) {
-  return GlobalObject::createBlankPrototype(cx, cx->global(),
-                                            &DataViewObject::protoClass_);
 }
 
 static const JSClassOps DataViewObjectClassOps = {

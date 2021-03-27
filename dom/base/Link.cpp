@@ -22,7 +22,7 @@
 #include "nsString.h"
 #include "mozAutoDocUpdate.h"
 
-#include "mozilla/Services.h"
+#include "mozilla/Components.h"
 #include "nsAttrValueInlines.h"
 #include "HTMLLinkElement.h"
 
@@ -113,7 +113,7 @@ EventStates Link::LinkState() const {
     // Make sure the href attribute has a valid link (bug 23209).
     // If we have a good href, register with History if available.
     if (mHistory && hrefURI) {
-      if (nsCOMPtr<IHistory> history = services::GetHistory()) {
+      if (nsCOMPtr<IHistory> history = components::History::Service()) {
         self->mRegistered = true;
         history->RegisterVisitedCallback(hrefURI, self);
         // And make sure we are in the document's link map.
@@ -323,9 +323,7 @@ void Link::GetOrigin(nsAString& aOrigin) {
 
 void Link::GetProtocol(nsAString& _protocol) {
   nsCOMPtr<nsIURI> uri(GetURI());
-  if (!uri) {
-    _protocol.AssignLiteral("http");
-  } else {
+  if (uri) {
     nsAutoCString scheme;
     (void)uri->GetScheme(scheme);
     CopyASCIItoUTF16(scheme, _protocol);
@@ -516,7 +514,7 @@ void Link::UnregisterFromHistory() {
 
   // And tell History to stop tracking us.
   if (mHistory && mCachedURI) {
-    if (nsCOMPtr<IHistory> history = services::GetHistory()) {
+    if (nsCOMPtr<IHistory> history = components::History::Service()) {
       history->UnregisterVisitedCallback(mCachedURI, this);
       mRegistered = false;
     }

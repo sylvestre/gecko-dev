@@ -5,7 +5,6 @@
 <!-- LOCALIZATION NOTE : FILE This file contains the browser main menu items -->
 <!-- LOCALIZATION NOTE : FILE Do not translate commandkeys -->
 
-<!ENTITY appmenu.tooltip                     "Open menu">
 <!ENTITY navbarOverflow.label                "More tools…">
 
 <!-- Tab context menu -->
@@ -36,7 +35,6 @@ this container is a toolbar. This avoids double-speaking. -->
 <!ENTITY fxa.menu.signin.label "Sign in to &brandProductName;">
 <!ENTITY fxa.menu.turnOnSync.label "Turn on &syncBrand.shortName.label;">
 <!ENTITY fxa.menu.firefoxServices.label "&brandProductName; Services">
-<!ENTITY fxa.menu.account.label "Account">
 <!ENTITY fxa.menu.settings.label "Settings">
 <!ENTITY fxa.menu.accountSettings.label "Account Settings">
 <!ENTITY fxa.menu.manageAccount2.label "Manage Account">
@@ -62,7 +60,6 @@ this container is a toolbar. This avoids double-speaking. -->
 <!-- LOCALIZATION NOTE (libraryDownloads.label): This label is similar to
   -  downloads.label, but used in the Library panel. -->
 <!ENTITY libraryDownloads.label       "Downloads">
-<!ENTITY addons.label                 "Add-ons">
 
 <!ENTITY webDeveloperMenu.label       "Web Developer">
 
@@ -91,9 +88,8 @@ this container is a toolbar. This avoids double-speaking. -->
 <!-- LOCALIZATION NOTE (appMenuRemoteTabs.notabs.label): This is shown beneath
      the name of a device when that device has no open tabs -->
 <!ENTITY appMenuRemoteTabs.notabs.label "No open tabs">
-<!-- LOCALIZATION NOTE (appMenuRemoteTabs.showMore.label, appMenuRemoteTabs.showMore.tooltip):
+<!-- LOCALIZATION NOTE (appMenuRemoteTabs.showMore.tooltip):
      This is shown after the tabs list if we can display more tabs by clicking on the button -->
-<!ENTITY appMenuRemoteTabs.showMore.label "Show More">
 <!ENTITY appMenuRemoteTabs.showMore.tooltip "Show more tabs from this device">
 <!-- LOCALIZATION NOTE (appMenuRemoteTabs.showAll.label, appMenuRemoteTabs.showAll.tooltip):
      This is shown after the tabs list if we can all the remaining tabs by clicking on the button -->
@@ -111,9 +107,6 @@ this container is a toolbar. This avoids double-speaking. -->
 <!ENTITY appMenuRemoteTabs.unverified.label "Your account needs to be verified.">
 <!ENTITY appMenuRemoteTabs.signintosync.label "Sign in to &syncBrand.shortName.label;…">
 <!ENTITY appMenuRemoteTabs.turnonsync.label "Turn on &syncBrand.shortName.label;…">
-<!ENTITY appMenuRemoteTabs.managedevices.label "Manage Devices…">
-<!ENTITY appMenuRemoteTabs.sidebar.label "View Synced Tabs Sidebar">
-<!ENTITY appMenuRemoteTabs.hidesidebar.label "Hide Synced Tabs Sidebar">
 <!ENTITY appMenuRemoteTabs.connectdevice.label "Connect Another Device">
 
 <!ENTITY customizeMenu.addToToolbar.label "Add to Toolbar">
@@ -177,11 +170,6 @@ this container is a toolbar. This avoids double-speaking. -->
 <!ENTITY panicButton.thankyou.msg1                "Your recent history is cleared.">
 <!ENTITY panicButton.thankyou.msg2                "Safe browsing!">
 <!ENTITY panicButton.thankyou.buttonlabel         "Thanks!">
-
-<!ENTITY updateAvailable.panelUI.label "Download &brandShorterName; update">
-<!ENTITY updateManual.panelUI.label "Download a fresh copy of &brandShorterName;">
-<!ENTITY updateUnsupported.panelUI.label "You cannot perform further updates">
-<!ENTITY updateRestart.panelUI.label2 "Restart to update &brandShorterName;">
 
 <!ENTITY sendToDevice.syncNotReady.label "Syncing Devices…">
 

@@ -184,7 +184,6 @@ enum class ExplicitActiveStatus : uint8_t {
   FIELD(UseErrorPages, bool)                                                  \
   FIELD(PlatformOverride, nsString)                                           \
   FIELD(HasLoadedNonInitialDocument, bool)                                    \
-  FIELD(CreatedDynamically, bool)                                             \
   /* Default value for nsIContentViewer::authorStyleDisabled in any new       \
    * browsing contexts created as a descendant of this one.  Valid only for   \
    * top BCs. */                                                              \
@@ -197,7 +196,10 @@ enum class ExplicitActiveStatus : uint8_t {
   FIELD(HasMainMediaController, bool)                                         \
   /* The number of entries added to the session history because of this       \
    * browsing context. */                                                     \
-  FIELD(HistoryEntryCount, uint32_t)
+  FIELD(HistoryEntryCount, uint32_t)                                          \
+  FIELD(IsInBFCache, bool)                                                    \
+  FIELD(HasRestoreData, bool)                                                 \
+  FIELD(SessionStoreEpoch, uint32_t)
 
 // BrowsingContext, in this context, is the cross process replicated
 // environment in which information about documents is stored. In
@@ -223,6 +225,7 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   static void Init();
   static LogModule* GetLog();
+  static LogModule* GetSyncLog();
 
   // Look up a BrowsingContext in the current process by ID.
   static already_AddRefed<BrowsingContext> Get(uint64_t aId);
@@ -232,6 +235,10 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   // Look up the top-level BrowsingContext by BrowserID.
   static already_AddRefed<BrowsingContext> GetCurrentTopByBrowserId(
       uint64_t aBrowserId);
+  static already_AddRefed<BrowsingContext> GetCurrentTopByBrowserId(
+      GlobalObject&, uint64_t aId) {
+    return GetCurrentTopByBrowserId(aId);
+  }
 
   static already_AddRefed<BrowsingContext> GetFromWindow(
       WindowProxyHolder& aProxy);
@@ -385,12 +392,14 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   bool IsInSubtreeOf(BrowsingContext* aContext);
 
   bool IsContentSubframe() const { return IsContent() && IsFrame(); }
+
   // non-zero
   uint64_t Id() const { return mBrowsingContextId; }
 
   BrowsingContext* GetParent() const;
   BrowsingContext* Top();
   const BrowsingContext* Top() const;
+
   int32_t IndexOf(BrowsingContext* aChild);
 
   // NOTE: Unlike `GetEmbedderWindowGlobal`, `GetParentWindowContext` does not
@@ -458,8 +467,38 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   // Helpers to traverse this BrowsingContext subtree. Note that these will only
   // traverse active contexts, and will ignore ones in the BFCache.
-  void PreOrderWalk(const std::function<void(BrowsingContext*)>& aCallback);
+  enum class WalkFlag {
+    Next,
+    Skip,
+    Stop,
+  };
+
+  /**
+   * Walk the browsing context tree in pre-order and call `aCallback`
+   * for every node in the tree. PreOrderWalk accepts two types of
+   * callbacks, either of the type `void(BrowsingContext*)` or
+   * `WalkFlag(BrowsingContext*)`. The former traverses the entire
+   * tree, but the latter let's you control if a sub-tree should be
+   * skipped by returning `WalkFlag::Skip`, completely abort traversal
+   * by returning `WalkFlag::Stop` or continue as normal with
+   * `WalkFlag::Next`.
+   */
+  template <typename F>
+  void PreOrderWalk(F&& aCallback) {
+    if constexpr (std::is_void_v<
+                      typename std::invoke_result_t<F, BrowsingContext*>>) {
+      PreOrderWalkVoid(std::forward<F>(aCallback));
+    } else {
+      PreOrderWalkFlag(std::forward<F>(aCallback));
+    }
+  }
+
+  void PreOrderWalkVoid(const std::function<void(BrowsingContext*)>& aCallback);
+  WalkFlag PreOrderWalkFlag(
+      const std::function<WalkFlag(BrowsingContext*)>& aCallback);
+
   void PostOrderWalk(const std::function<void(BrowsingContext*)>& aCallback);
+
   void GetAllBrowsingContextsInSubtree(
       nsTArray<RefPtr<BrowsingContext>>& aBrowsingContexts);
 
@@ -672,6 +711,7 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
     bool mUseRemoteTabs = false;
     bool mUseRemoteSubframes = false;
     bool mCreatedDynamically = false;
+    int32_t mChildOffset = 0;
     int32_t mSessionHistoryIndex = -1;
     int32_t mSessionHistoryCount = 0;
     OriginAttributes mOriginAttributes;
@@ -710,6 +750,8 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   bool CreatedDynamically() const { return mCreatedDynamically; }
 
+  int32_t ChildOffset() const { return mChildOffset; }
+
   const OriginAttributes& OriginAttributesRef() { return mOriginAttributes; }
   nsresult SetOriginAttributes(const OriginAttributes& aAttrs);
 
@@ -724,8 +766,6 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   ChildSHistory* GetChildSessionHistory();
 
   bool CrossOriginIsolated();
-
-  void SessionHistoryChanged(int32_t aIndexDelta, int32_t aLengthDelta);
 
   // Check if it is allowed to open a popup from the current browsing
   // context or any of its ancestors.
@@ -807,6 +847,8 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
     return GetPrefersColorSchemeOverride();
   }
 
+  void FlushSessionStore();
+
  protected:
   virtual ~BrowsingContext();
   BrowsingContext(WindowContext* aParentWindow, BrowsingContextGroup* aGroup,
@@ -885,6 +927,13 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   void SendCommitTransaction(ContentChild* aChild, const BaseTransaction& aTxn,
                              uint64_t aEpoch);
 
+  bool CanSet(FieldIndex<IDX_SessionStoreEpoch>, uint32_t aEpoch,
+              ContentParent* aSource) {
+    return IsTop() && !aSource;
+  }
+
+  using CanSetResult = syncedcontext::CanSetResult;
+
   // Ensure that opener is in the same BrowsingContextGroup.
   bool CanSet(FieldIndex<IDX_OpenerId>, const uint64_t& aValue,
               ContentParent* aSource) {
@@ -940,15 +989,15 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   // volume of all media elements.
   void DidSet(FieldIndex<IDX_Muted>);
 
-  bool CanSet(FieldIndex<IDX_OverrideDPPX>, const float& aValue,
-              ContentParent* aSource);
+  CanSetResult CanSet(FieldIndex<IDX_OverrideDPPX>, const float& aValue,
+                      ContentParent* aSource);
   void DidSet(FieldIndex<IDX_OverrideDPPX>, float aOldValue);
 
   bool CanSet(FieldIndex<IDX_EmbedderInnerWindowId>, const uint64_t& aValue,
               ContentParent* aSource);
 
-  bool CanSet(FieldIndex<IDX_CurrentInnerWindowId>, const uint64_t& aValue,
-              ContentParent* aSource);
+  CanSetResult CanSet(FieldIndex<IDX_CurrentInnerWindowId>,
+                      const uint64_t& aValue, ContentParent* aSource);
 
   void DidSet(FieldIndex<IDX_CurrentInnerWindowId>);
 
@@ -965,12 +1014,13 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   void DidSet(FieldIndex<IDX_AncestorLoading>);
 
   void DidSet(FieldIndex<IDX_PlatformOverride>);
-  bool CanSet(FieldIndex<IDX_PlatformOverride>,
-              const nsString& aPlatformOverride, ContentParent* aSource);
+  CanSetResult CanSet(FieldIndex<IDX_PlatformOverride>,
+                      const nsString& aPlatformOverride,
+                      ContentParent* aSource);
 
   void DidSet(FieldIndex<IDX_UserAgentOverride>);
-  bool CanSet(FieldIndex<IDX_UserAgentOverride>, const nsString& aUserAgent,
-              ContentParent* aSource);
+  CanSetResult CanSet(FieldIndex<IDX_UserAgentOverride>,
+                      const nsString& aUserAgent, ContentParent* aSource);
   bool CanSet(FieldIndex<IDX_OrientationLock>,
               const mozilla::hal::ScreenOrientation& aOrientationLock,
               ContentParent* aSource);
@@ -981,11 +1031,12 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   bool CanSet(FieldIndex<IDX_MessageManagerGroup>,
               const nsString& aMessageManagerGroup, ContentParent* aSource);
 
-  bool CanSet(FieldIndex<IDX_AllowContentRetargeting>,
-              const bool& aAllowContentRetargeting, ContentParent* aSource);
-  bool CanSet(FieldIndex<IDX_AllowContentRetargetingOnChildren>,
-              const bool& aAllowContentRetargetingOnChildren,
-              ContentParent* aSource);
+  CanSetResult CanSet(FieldIndex<IDX_AllowContentRetargeting>,
+                      const bool& aAllowContentRetargeting,
+                      ContentParent* aSource);
+  CanSetResult CanSet(FieldIndex<IDX_AllowContentRetargetingOnChildren>,
+                      const bool& aAllowContentRetargetingOnChildren,
+                      ContentParent* aSource);
   bool CanSet(FieldIndex<IDX_AllowPlugins>, const bool& aAllowPlugins,
               ContentParent* aSource);
   bool CanSet(FieldIndex<IDX_FullscreenAllowedByOwner>, const bool&,
@@ -993,8 +1044,9 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   bool CanSet(FieldIndex<IDX_WatchedByDevToolsInternal>,
               const bool& aWatchedByDevToolsInternal, ContentParent* aSource);
 
-  bool CanSet(FieldIndex<IDX_DefaultLoadFlags>,
-              const uint32_t& aDefaultLoadFlags, ContentParent* aSource);
+  CanSetResult CanSet(FieldIndex<IDX_DefaultLoadFlags>,
+                      const uint32_t& aDefaultLoadFlags,
+                      ContentParent* aSource);
   void DidSet(FieldIndex<IDX_DefaultLoadFlags>);
 
   bool CanSet(FieldIndex<IDX_UseGlobalHistory>, const bool& aUseGlobalHistory,
@@ -1015,6 +1067,9 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
               ContentParent* aSource);
   void DidSet(FieldIndex<IDX_HasMainMediaController>, bool aOldValue);
 
+  bool CanSet(FieldIndex<IDX_HasRestoreData>, bool aNewValue,
+              ContentParent* aSource);
+
   template <size_t I, typename T>
   bool CanSet(FieldIndex<I>, const T&, ContentParent*) {
     return true;
@@ -1032,10 +1087,15 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   void DidSet(FieldIndex<IDX_TextZoom>, float aOldValue);
   void DidSet(FieldIndex<IDX_AuthorStyleDisabledDefault>);
 
+  bool CanSet(FieldIndex<IDX_IsInBFCache>, bool, ContentParent* aSource);
+  void DidSet(FieldIndex<IDX_IsInBFCache>);
+
   // True if the process attemping to set field is the same as the owning
   // process. Deprecated. New code that might use this should generally be moved
   // to WindowContext or be settable only by the parent process.
   bool LegacyCheckOnlyOwningProcessCanSet(ContentParent* aSource);
+
+  CanSetResult LegacyRevertIfNotOwningOrParentProcess(ContentParent* aSource);
 
   // True if the process attempting to set field is the same as the embedder's
   // process.
@@ -1119,6 +1179,10 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   // True if this BrowsingContext is for a frame that was added dynamically.
   bool mCreatedDynamically : 1;
+
+  // The original offset of this context in its container. This property is -1
+  // if this BrowsingContext is for a frame that was added dynamically.
+  int32_t mChildOffset;
 
   // The start time of user gesture, this is only available if the browsing
   // context is in process.

@@ -12,7 +12,7 @@
 #include "nsISHEntry.h"
 #include "nsSHEntryShared.h"
 #include "nsStructuredCloneContainer.h"
-#include "nsDataHashtable.h"
+#include "nsTHashMap.h"
 
 class nsDocShellLoadState;
 class nsIChannel;
@@ -134,6 +134,8 @@ class SessionHistoryInfo {
   void FillLoadInfo(nsDocShellLoadState& aLoadState) const;
 
   uint32_t LoadType() { return mLoadType; }
+
+  void SetSaveLayoutStateFlag(bool aSaveLayoutStateFlag);
 
  private:
   friend class SessionHistoryEntry;
@@ -340,6 +342,9 @@ class SessionHistoryEntry : public nsISHEntry {
 
   SHEntrySharedParentState* SharedInfo() const;
 
+  void SetFrameLoader(nsFrameLoader* aFrameLoader);
+  nsFrameLoader* GetFrameLoader();
+
   void AddChild(SessionHistoryEntry* aChild, int32_t aOffset,
                 bool aUseRemoteSubframes);
   void RemoveChild(SessionHistoryEntry* aChild);
@@ -390,7 +395,7 @@ class SessionHistoryEntry : public nsISHEntry {
 
   HistoryEntryCounterForBrowsingContext mBCHistoryLength;
 
-  static nsDataHashtable<nsUint64HashKey, SessionHistoryEntry*>* sLoadIdToEntry;
+  static nsTHashMap<nsUint64HashKey, SessionHistoryEntry*>* sLoadIdToEntry;
 };
 
 NS_DEFINE_STATIC_IID_ACCESSOR(SessionHistoryEntry, NS_SESSIONHISTORYENTRY_IID)

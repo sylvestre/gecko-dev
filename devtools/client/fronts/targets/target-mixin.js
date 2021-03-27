@@ -47,7 +47,7 @@ function TargetMixin(parentClass) {
 
       // This flag will be set to true from:
       // - TabDescriptorFront getTarget(), for local tab targets
-      // - targetFromURL(), for local targets (about:debugging)
+      // - descriptorFromURL(), for local targets (about:debugging)
       // - initToolbox(), for some test-only targets
       this.shouldCloseClient = false;
 
@@ -98,14 +98,16 @@ function TargetMixin(parentClass) {
      */
     get descriptorFront() {
       if (this.isDestroyed()) {
-        // If the target was already destroyed, parentFront will be null.
-        return null;
+        throw new Error("Descriptor already destroyed for target: " + this);
       }
 
+      if (this.isWorkerTarget) {
+        return this;
+      }
       if (this.parentFront.typeName.endsWith("Descriptor")) {
         return this.parentFront;
       }
-      return null;
+      throw new Error("Missing descriptor for target: " + this);
     }
 
     get targetType() {
@@ -113,7 +115,10 @@ function TargetMixin(parentClass) {
     }
 
     get isTopLevel() {
-      return this._isTopLevel;
+      if (!this.getTrait("supportsTopLevelTargetFlag")) {
+        return this._isTopLevel;
+      }
+      return this.targetForm.isTopLevelTarget;
     }
 
     setTargetType(type) {
@@ -121,7 +126,9 @@ function TargetMixin(parentClass) {
     }
 
     setIsTopLevel(isTopLevel) {
-      this._isTopLevel = isTopLevel;
+      if (!this.getTrait("supportsTopLevelTargetFlag")) {
+        this._isTopLevel = isTopLevel;
+      }
     }
 
     /**
@@ -241,10 +248,20 @@ function TargetMixin(parentClass) {
     }
 
     get isLocalTab() {
+      // Worker Target is also the Descriptor,
+      // so avoid infinite loop.
+      if (this.isWorkerTarget) {
+        return false;
+      }
       return !!this.descriptorFront?.isLocalTab;
     }
 
     get localTab() {
+      // Worker Target is also the Descriptor,
+      // so avoid infinite loop.
+      if (this.isWorkerTarget) {
+        return null;
+      }
       return this.descriptorFront?.localTab || null;
     }
 
@@ -299,7 +316,6 @@ function TargetMixin(parentClass) {
         this.isAddon ||
         this.isContentProcess ||
         this.isParentProcess ||
-        this.isWindowTarget ||
         this._forceChrome
       );
     }
@@ -377,14 +393,6 @@ function TargetMixin(parentClass) {
         this.targetForm &&
         this.targetForm.actor &&
         this.targetForm.actor.match(/conn\d+\.parentProcessTarget\d+/)
-      );
-    }
-
-    get isWindowTarget() {
-      return !!(
-        this.targetForm &&
-        this.targetForm.actor &&
-        this.targetForm.actor.match(/conn\d+\.chromeWindowTarget\d+/)
       );
     }
 
@@ -481,9 +489,9 @@ function TargetMixin(parentClass) {
         return;
       }
 
-      // Avoid attaching the thread actor in the browser console
+      // Avoid attaching any thread actor in the browser console
       // in order to avoid trigerring any type of breakpoint.
-      if (targetList.targetFront.isBrowserConsoleTarget) {
+      if (targetList.descriptorFront.createdForBrowserConsole) {
         return;
       }
 
@@ -522,6 +530,24 @@ function TargetMixin(parentClass) {
         );
       }
       this.threadFront = await this.getFront("thread");
+
+      // Avoid attaching if the thread actor was already attached on target creation from the server side.
+      // This doesn't include:
+      // * targets that aren't yet supported by the Watcher (like web extensions),
+      // * workers, which still use a unique codepath for thread actor attach
+      // * all targets when connecting to an older server
+      // @backward-compat { version 87 } If all targets are supported by watcher actor, and workers no longer use
+      //                                 its unique attach sequence, we can assume the thread front is always attached.
+      const isAttached =
+        this.getTrait("supportsThreadActorIsAttached") &&
+        (await this.threadFront.isAttached());
+      if (isAttached) {
+        // If the Thread actor has already been attached from the server side
+        // by the Watcher Actor, we still have to pass options that aren't yet managed via
+        // the Watcher actor's addWatcherDataEntry codepath (bug 1687261).
+        await this.threadFront.reconfigure(options);
+        return this.threadFront;
+      }
       if (
         this.isDestroyedOrBeingDestroyed() ||
         this.threadFront.isDestroyed()
@@ -590,9 +616,6 @@ function TargetMixin(parentClass) {
     }
 
     async _destroyTarget() {
-      // Before taking any action, notify listeners that destruction is imminent.
-      this.emit("close");
-
       // If the target is being attached, try to wait until it's done, to prevent having
       // pending connection to the server when the toolbox is destroyed.
       if (this._onThreadInitialized) {

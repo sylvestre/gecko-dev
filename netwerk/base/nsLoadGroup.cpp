@@ -968,6 +968,35 @@ void nsLoadGroup::TelemetryReportChannel(nsITimedChannel* aTimedChannel,
     }
   }
 
+  bool hasHTTPSRR = false;
+  if (httpChannel && NS_SUCCEEDED(httpChannel->GetHasHTTPSRR(&hasHTTPSRR)) &&
+      cacheReadStart.IsNull() && cacheReadEnd.IsNull() &&
+      !requestStart.IsNull()) {
+    nsCString key = (hasHTTPSRR) ? ((aDefaultRequest) ? "uses_https_rr_page"_ns
+                                                      : "uses_https_rr_sub"_ns)
+                                 : ((aDefaultRequest) ? "no_https_rr_page"_ns
+                                                      : "no_https_rr_sub"_ns);
+    Telemetry::AccumulateTimeDelta(Telemetry::HTTPS_RR_OPEN_TO_FIRST_SENT, key,
+                                   asyncOpen, requestStart);
+  }
+
+  if (StaticPrefs::network_trr_odoh_enabled() && !domainLookupStart.IsNull() &&
+      !domainLookupEnd.IsNull()) {
+    nsCOMPtr<nsIDNSService> dns = do_GetService(NS_DNSSERVICE_CONTRACTID);
+    bool ODoHActivated = false;
+    if (dns && NS_SUCCEEDED(dns->GetODoHActivated(&ODoHActivated)) &&
+        ODoHActivated) {
+      if (aDefaultRequest) {
+        Telemetry::AccumulateTimeDelta(
+            Telemetry::HTTP_PAGE_DNS_ODOH_LOOKUP_TIME, domainLookupStart,
+            domainLookupEnd);
+      } else {
+        Telemetry::AccumulateTimeDelta(Telemetry::HTTP_SUB_DNS_ODOH_LOOKUP_TIME,
+                                       domainLookupStart, domainLookupEnd);
+      }
+    }
+  }
+
 #undef HTTP_REQUEST_HISTOGRAMS
 }
 

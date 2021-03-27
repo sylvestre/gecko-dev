@@ -158,9 +158,20 @@ var gIdentityHandler = {
     );
   },
 
+  get _isPDFViewer() {
+    return gBrowser.contentPrincipal?.originNoSuffix == "resource://pdf.js";
+  },
+
   get _isPotentiallyTrustworthy() {
+    // For PDF viewer pages (pdf.js) we can't rely on the isSecureContext
+    // field. The backend will return isSecureContext = true, because the
+    // content principal has a resource:// URI. Since we don't check
+    // isSecureContext for PDF viewer pages anymore, otherwise secure
+    // contexts, such as a localhost, will me marked as insecure when showing
+    // PDFs.
     return (
       !this._isBrokenConnection &&
+      !this._isPDFViewer &&
       (this._isSecureContext ||
         (gBrowser.selectedBrowser.documentURI &&
           gBrowser.selectedBrowser.documentURI.scheme == "chrome"))
@@ -879,20 +890,15 @@ var gIdentityHandler = {
       return;
     }
 
-    // If this condition is true, the URL bar will have an "invalid"
-    // pageproxystate, which will hide the security indicators. Thus, we can
-    // safely avoid updating the security UI.
-    //
-    // This will also filter out intermediate about:blank loads to avoid
-    // flickering the identity block and doing unnecessary work.
-    if (this._hasInvalidPageProxyState()) {
-      gPermissionPanel.hidePermissionIcons();
-      return;
-    }
-
     this._refreshIdentityIcons();
 
-    gPermissionPanel.refreshPermissionIcons();
+    // If this condition is true, the URL bar will have an "invalid"
+    // pageproxystate, so we should hide the permission icons.
+    if (this._hasInvalidPageProxyState()) {
+      gPermissionPanel.hidePermissionIcons();
+    } else {
+      gPermissionPanel.refreshPermissionIcons();
+    }
 
     // Hide the shield icon if it is a chrome page.
     gProtectionsHandler._trackingProtectionIconContainer.classList.toggle(

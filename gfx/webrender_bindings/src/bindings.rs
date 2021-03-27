@@ -1238,7 +1238,7 @@ extern "C" {
     fn wr_compositor_end_frame(compositor: *mut c_void);
     fn wr_compositor_enable_native_compositor(compositor: *mut c_void, enable: bool);
     fn wr_compositor_deinit(compositor: *mut c_void);
-    fn wr_compositor_get_capabilities(compositor: *mut c_void) -> CompositorCapabilities;
+    fn wr_compositor_get_capabilities(compositor: *mut c_void, caps: *mut CompositorCapabilities);
     fn wr_compositor_map_tile(
         compositor: *mut c_void,
         id: NativeTileId,
@@ -1376,7 +1376,11 @@ impl Compositor for WrCompositor {
     }
 
     fn get_capabilities(&self) -> CompositorCapabilities {
-        unsafe { wr_compositor_get_capabilities(self.0) }
+        unsafe {
+            let mut caps: CompositorCapabilities = Default::default();
+            wr_compositor_get_capabilities(self.0, &mut caps);
+            caps
+        }
     }
 }
 
@@ -1496,27 +1500,22 @@ pub extern "C" fn wr_window_new(
 ) -> bool {
     assert!(unsafe { is_in_render_thread() });
 
-    let native_gl = if gl_context == ptr::null_mut() {
-        None
-    } else if unsafe { is_glcontext_gles(gl_context) } {
-        unsafe { Some(gl::GlesFns::load_with(|symbol| get_proc_address(gl_context, symbol))) }
-    } else {
-        unsafe { Some(gl::GlFns::load_with(|symbol| get_proc_address(gl_context, symbol))) }
-    };
-
     let software = swgl_context != ptr::null_mut();
     let (gl, sw_gl) = if software {
         let ctx = swgl::Context::from(swgl_context);
         ctx.make_current();
         (Rc::new(ctx) as Rc<dyn gl::Gl>, Some(ctx))
     } else {
-        (
-            native_gl
-                .as_ref()
-                .expect("Native GL context required when not using SWGL!")
-                .clone(),
-            None,
-        )
+        let gl = unsafe {
+            if gl_context == ptr::null_mut() {
+                panic!("Native GL context required when not using SWGL!");
+            } else if is_glcontext_gles(gl_context) {
+                gl::GlesFns::load_with(|symbol| get_proc_address(gl_context, symbol))
+            } else {
+                gl::GlFns::load_with(|symbol| get_proc_address(gl_context, symbol))
+            }
+        };
+        (gl, None)
     };
 
     let version = gl.get_string(gl::VERSION);
@@ -1561,7 +1560,6 @@ pub extern "C" fn wr_window_new(
             max_update_rects: 1,
             compositor: Box::new(SwCompositor::new(
                 sw_gl.unwrap(),
-                native_gl,
                 Box::new(WrCompositor(compositor)),
                 use_native_compositor,
             )),
@@ -1633,7 +1631,7 @@ pub extern "C" fn wr_window_new(
         upload_method,
         scene_builder_hooks: Some(Box::new(APZCallbacks::new(window_id))),
         sampler: Some(Box::new(SamplerCallback::new(window_id))),
-        max_texture_size: Some(8192), // Moz2D doesn't like textures bigger than this
+        max_texture_size: Some(11180), // Moz2D won't accept textures bigger than this squared
         clear_color: Some(color),
         precache_flags,
         namespace_alloc_by_client: true,
@@ -2424,7 +2422,6 @@ pub extern "C" fn wr_dp_clear_save(state: &mut WrState) {
 pub enum WrReferenceFrameKind {
     Transform,
     Perspective,
-    Zoom,
 }
 
 #[repr(u8)]
@@ -2446,6 +2443,8 @@ pub struct WrStackingContextParams {
     pub computed_transform: *const WrComputedTransformData,
     pub transform_style: TransformStyle,
     pub reference_frame_kind: WrReferenceFrameKind,
+    pub is_2d_scale_translation: bool,
+    pub should_snap: bool,
     pub scrolling_relative_to: *const u64,
     pub prim_flags: PrimitiveFlags,
     pub mix_blend_mode: MixBlendMode,
@@ -2538,6 +2537,8 @@ pub extern "C" fn wr_dp_push_stacking_context(
     // This is resolved into proper `Maybe<WrSpatialId>` inside `WebRenderAPI::PushStackingContext`.
     let mut result = WrSpatialId { id: 0 };
     if let Some(transform_binding) = transform_binding {
+        let is_2d_scale_translation = params.is_2d_scale_translation;
+        let should_snap = params.should_snap;
         let scrolling_relative_to = match unsafe { params.scrolling_relative_to.as_ref() } {
             Some(scroll_id) => {
                 debug_assert_eq!(params.reference_frame_kind, WrReferenceFrameKind::Perspective);
@@ -2547,9 +2548,11 @@ pub extern "C" fn wr_dp_push_stacking_context(
         };
 
         let reference_frame_kind = match params.reference_frame_kind {
-            WrReferenceFrameKind::Transform => ReferenceFrameKind::Transform,
+            WrReferenceFrameKind::Transform => ReferenceFrameKind::Transform {
+                is_2d_scale_translation,
+                should_snap
+            },
             WrReferenceFrameKind::Perspective => ReferenceFrameKind::Perspective { scrolling_relative_to },
-            WrReferenceFrameKind::Zoom => ReferenceFrameKind::Zoom,
         };
         wr_spatial_id = state.frame_builder.dl_builder.push_reference_frame(
             bounds.origin,

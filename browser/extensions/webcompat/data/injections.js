@@ -82,21 +82,6 @@ const AVAILABLE_INJECTIONS = [
     },
   },
   {
-    id: "bug1570856",
-    platform: "android",
-    domain: "medium.com",
-    bug: "1570856",
-    contentScripts: {
-      matches: ["*://medium.com/*"],
-      js: [
-        {
-          file: "injections/js/bug1570856-medium.com-menu-isTier1.js",
-        },
-      ],
-      allFrames: true,
-    },
-  },
-  {
     id: "bug1579159",
     platform: "android",
     domain: "m.tailieu.vn",
@@ -261,17 +246,6 @@ const AVAILABLE_INJECTIONS = [
     },
   },
   {
-    id: "bug1622062",
-    platform: "android",
-    domain: "$.detectSwipe fix",
-    bug: "1622062",
-    data: {
-      urls: ["https://eu.stemwijzer.nl/public/js/votematch.vendors.js"],
-      types: ["script"],
-    },
-    customFunc: "detectSwipeFix",
-  },
-  {
     id: "bug1644830",
     platform: "desktop",
     domain: "usps.com",
@@ -325,20 +299,6 @@ const AVAILABLE_INJECTIONS = [
       css: [
         {
           file: "injections/css/bug1653075-livescience.com-scrollbar-width.css",
-        },
-      ],
-    },
-  },
-  {
-    id: "bug1654865",
-    platform: "android",
-    domain: "sports.ndtv.com",
-    bug: "1654865",
-    contentScripts: {
-      matches: ["*://sports.ndtv.com/*"],
-      css: [
-        {
-          file: "injections/css/bug1654865-sports.ndtv.com-float-fix.css",
         },
       ],
     },
@@ -416,24 +376,6 @@ const AVAILABLE_INJECTIONS = [
     },
   },
   {
-    id: "bug1665035",
-    platform: "desktop",
-    domain: "dckids.com",
-    bug: "1665035",
-    contentScripts: {
-      matches: [
-        "https://d3qlaywcwingl6.cloudfront.net/content/*/Html5Game/*",
-        "https://d3qlaywcwingl6.cloudfront.net/*/game/content/*",
-      ],
-      js: [
-        {
-          file: "injections/js/bug1665035-dckids.com-cookieEnabled.js",
-        },
-      ],
-      allFrames: true,
-    },
-  },
-  {
     id: "bug1677442",
     platform: "desktop",
     domain: "store.hp.com",
@@ -449,15 +391,43 @@ const AVAILABLE_INJECTIONS = [
     },
   },
   {
-    id: "bug1682238",
+    id: "bug1690158",
     platform: "desktop",
-    domain: "gamearter.com",
-    bug: "1682238",
+    domain: "slack.com",
+    bug: "1690158",
     contentScripts: {
-      matches: ["*://*.gamearter.com/*"],
-      js: [
+      matches: ["*://app.slack.com/*"],
+      css: [
         {
-          file: "injections/js/bug1682238-gamearter.com-ua-change.js",
+          file: "injections/css/bug1690158-slack.com-webkit-scrollbar.css",
+        },
+      ],
+    },
+  },
+  {
+    id: "bug1690091",
+    platform: "desktop",
+    domain: "binance.com",
+    bug: "1690091",
+    contentScripts: {
+      matches: ["*://*.binance.com/*"],
+      css: [
+        {
+          file: "injections/css/bug1690091-binance.com-page-overflow.css",
+        },
+      ],
+    },
+  },
+  {
+    id: "bug1694470",
+    platform: "android",
+    domain: "m.myvidster.com",
+    bug: "1694470",
+    contentScripts: {
+      matches: ["https://m.myvidster.com/*"],
+      css: [
+        {
+          file: "injections/css/bug1694470-myvidster.com-content-not-shown.css",
         },
       ],
     },

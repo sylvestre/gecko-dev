@@ -84,6 +84,7 @@ class ClonedMessageData;
 class CoalescedMouseData;
 class CoalescedWheelData;
 class ContentSessionStore;
+class SessionStoreChangeListener;
 class TabListener;
 class RequestData;
 class WebProgressData;
@@ -329,6 +330,13 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
       const mozilla::WidgetMouseEvent& aEvent, const ScrollableLayerGuid& aGuid,
       const uint64_t& aInputBlockId);
 
+  mozilla::ipc::IPCResult RecvRealMouseEnterExitWidgetEvent(
+      const mozilla::WidgetMouseEvent& aEvent, const ScrollableLayerGuid& aGuid,
+      const uint64_t& aInputBlockId);
+  mozilla::ipc::IPCResult RecvNormalPriorityRealMouseEnterExitWidgetEvent(
+      const mozilla::WidgetMouseEvent& aEvent, const ScrollableLayerGuid& aGuid,
+      const uint64_t& aInputBlockId);
+
   MOZ_CAN_RUN_SCRIPT_BOUNDARY
   mozilla::ipc::IPCResult RecvRealDragEvent(const WidgetDragEvent& aEvent,
                                             const uint32_t& aDragAction,
@@ -379,9 +387,6 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
     return RecvNormalPriorityRealTouchMoveEvent(aEvent, aGuid, aInputBlockId,
                                                 aApzResponse);
   }
-
-  mozilla::ipc::IPCResult RecvFlushTabState(const uint32_t& aFlushId,
-                                            const bool& aIsFinal);
 
   mozilla::ipc::IPCResult RecvUpdateEpoch(const uint32_t& aEpoch);
 
@@ -675,7 +680,7 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
     mCancelContentJSEpoch = aEpoch;
   }
 
-  bool UpdateSessionStore(uint32_t aFlushId, bool aIsFinal = false);
+  bool UpdateSessionStore(bool aIsFinal = false);
 
 #ifdef XP_WIN
   // Check if the window this BrowserChild is associated with supports
@@ -734,12 +739,6 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   void HandleDoubleTap(const CSSPoint& aPoint, const Modifiers& aModifiers,
                        const ScrollableLayerGuid& aGuid);
 
-  // Notify others that our TabContext has been updated.
-  //
-  // You should call this after calling TabContext::SetTabContext().  We also
-  // call this during Init().
-  void NotifyTabContextUpdated();
-
   void ActorDestroy(ActorDestroyReason why) override;
 
   bool InitBrowserChildMessageManager();
@@ -755,8 +754,6 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   void ApplyParentShowInfo(const ParentShowInfo&);
 
   bool HasValidInnerSize();
-
-  void SetTabId(const TabId& aTabId);
 
   ScreenIntRect GetOuterRect();
 
@@ -789,9 +786,10 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   bool CreateRemoteLayerManager(
       mozilla::layers::PCompositorBridgeChild* aCompositorChild);
 
+  nsresult PrepareRequestData(nsIRequest* aRequest, RequestData& aRequestData);
   nsresult PrepareProgressListenerData(nsIWebProgress* aWebProgress,
                                        nsIRequest* aRequest,
-                                       Maybe<WebProgressData>& aWebProgressData,
+                                       WebProgressData& aWebProgressData,
                                        RequestData& aRequestData);
   already_AddRefed<nsIWebBrowserChrome3> GetWebBrowserChromeActor();
 
@@ -878,6 +876,7 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
 
   RefPtr<layers::IAPZCTreeManager> mApzcTreeManager;
   RefPtr<TabListener> mSessionStoreListener;
+  RefPtr<SessionStoreChangeListener> mSessionStoreChangeListener;
 
   // The most recently seen layer observer epoch in RecvSetDocShellIsActive.
   layers::LayersObserverEpoch mLayersObserverEpoch;

@@ -34,7 +34,8 @@ void GTest_FOG_ExpectFailure(const char* aMessage) {
 TEST(FOG, FogInitDoesntCrash)
 {
   Preferences::SetInt("telemetry.fog.test.localhost_port", -1);
-  ASSERT_EQ(NS_OK, fog_init());
+  const nsCString empty;
+  ASSERT_EQ(NS_OK, fog_init(&empty));
 }
 
 extern "C" void Rust_MeasureInitializeTime();
@@ -135,7 +136,16 @@ TEST(FOG, TestCppEventWorks)
   extra.AppendElement(MakeTuple(AnEventKeys::Extra1, val));
 
   test_only_ipc::an_event.Record(std::move(extra));
-  ASSERT_TRUE(test_only_ipc::an_event.TestGetValue("store1"_ns).isSome());
+  auto optEvents = test_only_ipc::an_event.TestGetValue("store1"_ns);
+  ASSERT_TRUE(optEvents.isSome());
+
+  auto events = optEvents.extract();
+  ASSERT_EQ(1UL, events.Length());
+  ASSERT_STREQ("test_only.ipc", events[0].mCategory.get());
+  ASSERT_STREQ("an_event", events[0].mName.get());
+  ASSERT_EQ(1UL, events[0].mExtra.Length());
+  ASSERT_STREQ("extra1", mozilla::Get<0>(events[0].mExtra[0]).get());
+  ASSERT_STREQ("can set extras", mozilla::Get<1>(events[0].mExtra[0]).get());
 }
 
 TEST(FOG, TestCppMemoryDistWorks)
@@ -148,9 +158,9 @@ TEST(FOG, TestCppMemoryDistWorks)
   // Sum is in bytes, test_only::do_you_remember is in megabytes. So
   // multiplication ahoy!
   ASSERT_EQ(data.sum, 24UL * 1024 * 1024);
-  for (auto iter = data.values.Iter(); !iter.Done(); iter.Next()) {
-    const uint64_t bucket = iter.Key();
-    const uint64_t count = iter.UserData();
+  for (const auto& entry : data.values) {
+    const uint64_t bucket = entry.GetKey();
+    const uint64_t count = entry.GetData();
     ASSERT_TRUE(count == 0 ||
                 (count == 1 && (bucket == 17520006 || bucket == 7053950)))
     << "Only two occupied buckets";
@@ -209,8 +219,8 @@ TEST(FOG, TestCppTimingDistWorks)
 
   // We also can't guarantee the buckets, but we can guarantee two samples.
   uint64_t sampleCount = 0;
-  for (auto iter = data.values.Iter(); !iter.Done(); iter.Next()) {
-    sampleCount += iter.UserData();
+  for (const auto& value : data.values.Values()) {
+    sampleCount += value;
   }
   ASSERT_EQ(sampleCount, (uint64_t)2);
 }

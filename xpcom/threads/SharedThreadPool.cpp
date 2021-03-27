@@ -10,7 +10,7 @@
 #include "mozilla/Services.h"
 #include "mozilla/SpinEventLoopUntil.h"
 #include "mozilla/StaticPtr.h"
-#include "nsDataHashtable.h"
+#include "nsTHashMap.h"
 #include "nsXPCOMCIDInternal.h"
 #include "nsComponentManagerUtils.h"
 #include "nsIObserver.h"
@@ -28,8 +28,7 @@ static StaticAutoPtr<ReentrantMonitor> sMonitor;
 
 // Hashtable, maps thread pool name to SharedThreadPool instance.
 // Modified only on the main thread.
-static StaticAutoPtr<nsDataHashtable<nsCStringHashKey, SharedThreadPool*>>
-    sPools;
+static StaticAutoPtr<nsTHashMap<nsCStringHashKey, SharedThreadPool*>> sPools;
 
 static already_AddRefed<nsIThreadPool> CreateThreadPool(const nsCString& aName);
 
@@ -51,10 +50,10 @@ SharedThreadPoolShutdownObserver::Observe(nsISupports* aSubject,
 #ifdef EARLY_BETA_OR_EARLIER
   {
     ReentrantMonitorAutoEnter mon(*sMonitor);
-    if (!sPools->Iter().Done()) {
+    if (!sPools->IsEmpty()) {
       nsAutoCString str;
-      for (auto i = sPools->Iter(); !i.Done(); i.Next()) {
-        str.AppendPrintf("\"%s\" ", nsAutoCString(i.Key()).get());
+      for (const auto& key : sPools->Keys()) {
+        str.AppendPrintf("\"%s\" ", nsAutoCString(key).get());
       }
       printf_stderr(
           "SharedThreadPool in xpcom-shutdown-threads. Waiting for "
@@ -73,7 +72,7 @@ void SharedThreadPool::InitStatics() {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!sMonitor && !sPools);
   sMonitor = new ReentrantMonitor("SharedThreadPool");
-  sPools = new nsDataHashtable<nsCStringHashKey, SharedThreadPool*>();
+  sPools = new nsTHashMap<nsCStringHashKey, SharedThreadPool*>();
   nsCOMPtr<nsIObserverService> obsService =
       mozilla::services::GetObserverService();
   nsCOMPtr<nsIObserver> obs = new SharedThreadPoolShutdownObserver();

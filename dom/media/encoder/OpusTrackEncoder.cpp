@@ -4,8 +4,8 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 #include "OpusTrackEncoder.h"
 #include "nsString.h"
-#include "GeckoProfiler.h"
 #include "mozilla/CheckedInt.h"
+#include "mozilla/ProfilerLabels.h"
 #include "VideoUtils.h"
 
 #include <opus/opus.h>
@@ -177,8 +177,9 @@ nsresult OpusTrackEncoder::Init(int aChannels) {
   }
 
   if (mAudioBitrate) {
-    error = opus_encoder_ctl(mEncoder,
-                             OPUS_SET_BITRATE(static_cast<int>(mAudioBitrate)));
+    int bps = static_cast<int>(
+        std::min<uint32_t>(mAudioBitrate, std::numeric_limits<int>::max()));
+    error = opus_encoder_ctl(mEncoder, OPUS_SET_BITRATE(bps));
     if (error != OPUS_OK) {
       return NS_ERROR_FAILURE;
     }

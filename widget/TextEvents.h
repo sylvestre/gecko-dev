@@ -22,6 +22,7 @@
 #include "mozilla/dom/StaticRange.h"
 #include "mozilla/widget/IMEData.h"
 #include "nsCOMPtr.h"
+#include "nsHashtablesFwd.h"
 #include "nsISelectionListener.h"
 #include "nsITransferable.h"
 #include "nsRect.h"
@@ -29,8 +30,6 @@
 #include "nsTArray.h"
 
 class nsStringHashKey;
-template <class, class>
-class nsDataHashtable;
 
 /******************************************************************************
  * virtual keycode values
@@ -777,9 +776,8 @@ class WidgetKeyboardEvent : public WidgetInputEvent {
  private:
   static const char16_t* const kKeyNames[];
   static const char16_t* const kCodeNames[];
-  typedef nsDataHashtable<nsStringHashKey, KeyNameIndex> KeyNameIndexHashtable;
-  typedef nsDataHashtable<nsStringHashKey, CodeNameIndex>
-      CodeNameIndexHashtable;
+  typedef nsTHashMap<nsStringHashKey, KeyNameIndex> KeyNameIndexHashtable;
+  typedef nsTHashMap<nsStringHashKey, CodeNameIndex> CodeNameIndexHashtable;
   static KeyNameIndexHashtable* sKeyNameIndexHashtable;
   static CodeNameIndexHashtable* sCodeNameIndexHashtable;
 
@@ -1435,7 +1433,7 @@ class InternalEditorInputEvent : public InternalUIEvent {
 
  private:
   static const char16_t* const kInputTypeNames[];
-  typedef nsDataHashtable<nsStringHashKey, EditorInputType> InputTypeHashtable;
+  typedef nsTHashMap<nsStringHashKey, EditorInputType> InputTypeHashtable;
   static InputTypeHashtable* sInputTypeHashtable;
 };
 

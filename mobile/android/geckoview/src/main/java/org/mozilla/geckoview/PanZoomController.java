@@ -17,6 +17,7 @@ import android.content.Context;
 import android.content.res.Configuration;
 import android.graphics.Rect;
 import android.os.SystemClock;
+import androidx.annotation.AnyThread;
 import androidx.annotation.NonNull;
 import androidx.annotation.UiThread;
 import androidx.annotation.IntDef;
@@ -91,6 +92,104 @@ public class PanZoomController {
     @WrapForJNI
     public static final int INPUT_RESULT_IGNORED = 3;
 
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef(flag = true,
+            value = { SCROLLABLE_FLAG_NONE, SCROLLABLE_FLAG_TOP, SCROLLABLE_FLAG_RIGHT,
+                      SCROLLABLE_FLAG_BOTTOM, SCROLLABLE_FLAG_LEFT })
+    /* package */ @interface ScrollableDirections {}
+    /**
+     * Represents which directions can be scrolled in the scroll container where
+     * an input event was handled.
+     * This value is only useful in the case of {@link PanZoomController#INPUT_RESULT_HANDLED}.
+     */
+    /* The container cannot be scrolled. */
+    @WrapForJNI
+    public static final int SCROLLABLE_FLAG_NONE = 0;
+    /* The container cannot be scrolled to top */
+    @WrapForJNI
+    public static final int SCROLLABLE_FLAG_TOP = 1 << 0;
+    /* The container cannot be scrolled to right */
+    @WrapForJNI
+    public static final int SCROLLABLE_FLAG_RIGHT = 1 << 1;
+    /* The container cannot be scrolled to bottom */
+    @WrapForJNI
+    public static final int SCROLLABLE_FLAG_BOTTOM = 1 << 2;
+    /* The container cannot be scrolled to left */
+    @WrapForJNI
+    public static final int SCROLLABLE_FLAG_LEFT = 1 << 3;
+
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef(flag = true,
+            value = { OVERSCROLL_FLAG_NONE, OVERSCROLL_FLAG_HORIZONTAL, OVERSCROLL_FLAG_VERTICAL })
+    /* package */ @interface OverscrollDirections {}
+    /**
+     * Represents which directions can be over-scrolled in the scroll container where
+     * an input event was handled.
+     * This value is only useful in the case of {@link PanZoomController#INPUT_RESULT_HANDLED}.
+     */
+    /* the container cannot be over-scrolled. */
+    @WrapForJNI
+    public static final int OVERSCROLL_FLAG_NONE = 0;
+    /* the container can be over-scrolled horizontally. */
+    @WrapForJNI
+    public static final int OVERSCROLL_FLAG_HORIZONTAL = 1 << 0;
+    /* the container can be over-scrolled vertically. */
+    @WrapForJNI
+    public static final int OVERSCROLL_FLAG_VERTICAL = 1 << 1;
+
+    /**
+     * Represents how a {@link MotionEvent} was handled in Gecko.
+     * This value can be used by browser apps to implement features like pull-to-refresh. Failing
+     * to account this value might break some websites expectations about touch events.
+     *
+     * For example, a {@link PanZoomController.InputResultDetail#handledResult} value of
+     * {@link PanZoomController#INPUT_RESULT_HANDLED} and
+     * {@link PanZoomController.InputResultDetail#overscrollDirections} of
+     * {@link PanZoomController#OVERSCROLL_FLAG_NONE} indicates that the event was consumed for a panning
+     * or zooming operation and that the website does not expect the browser to react to the touch
+     * event (say, by triggering the pull-to-refresh feature) even though the scroll container reached
+     * to the edge.
+     */
+    @WrapForJNI
+    public static class InputResultDetail {
+        protected InputResultDetail(final @InputResult int handledResult,
+                                    final @ScrollableDirections int scrollableDirections,
+                                    final @OverscrollDirections int overscrollDirections) {
+            mHandledResult = handledResult;
+            mScrollableDirections = scrollableDirections;
+            mOverscrollDirections = overscrollDirections;
+        }
+
+        /**
+         * @return One of the {@link #INPUT_RESULT_UNHANDLED INPUT_RESULT_*} indicating how
+         * the event was handled.
+         */
+        @AnyThread
+        public @InputResult int handledResult() {
+            return mHandledResult;
+        }
+        /**
+         * @return an OR-ed value of {@link #SCROLLABLE_FLAG_NONE SCROLLABLE_FLAG_*} indicating which
+         * directions can be scrollable.
+         */
+        @AnyThread
+        public @ScrollableDirections int scrollableDirections() {
+            return mScrollableDirections;
+        }
+        /**
+         * @return an OR-ed value of {@link #OVERSCROLL_FLAG_NONE OVERSCROLL_FLAG_*} indicating which
+         * directions can be over-scrollable.
+         */
+        @AnyThread
+        public @OverscrollDirections int overscrollDirections() {
+            return mOverscrollDirections;
+        }
+
+        private final @InputResult int mHandledResult;
+        private final @ScrollableDirections int mScrollableDirections;
+        private final @OverscrollDirections int mOverscrollDirections;
+    }
+
     private SynthesizedEventState mPointerState;
 
     private ArrayList<Pair<Integer, MotionEvent>> mQueuedEvents;
@@ -153,7 +252,7 @@ public class PanZoomController {
                 for (int historyIndex = 0; historyIndex < historySize; historyIndex++) {
                     event.getHistoricalPointerCoords(i, historyIndex, coords);
 
-                    int historicalI = historyIndex * count + i;
+                    final int historicalI = historyIndex * count + i;
                     historicalX[historicalI] = coords.x;
                     historicalY[historicalI] = coords.y;
 
@@ -190,7 +289,7 @@ public class PanZoomController {
         @WrapForJNI(calledFrom = "ui")
         private native void handleMotionEvent(
                MotionEventData eventData, float screenX, float screenY,
-               GeckoResult<Integer> result);
+               GeckoResult<InputResultDetail> result);
 
         @WrapForJNI(calledFrom = "ui")
         private native @InputResult int handleScrollEvent(
@@ -214,15 +313,15 @@ public class PanZoomController {
                 throw new IllegalArgumentException("Pointer ID reserved for mouse");
             }
             synthesizeNativePointer(InputDevice.SOURCE_TOUCHSCREEN, pointerId,
-                    eventType, clientX, clientY, pressure, orientation);
+                    eventType, clientX, clientY, pressure, orientation, 0);
         }
 
         @WrapForJNI(calledFrom = "ui")
         private void synthesizeNativeMouseEvent(final int eventType, final int clientX,
-                                                final int clientY) {
+                                                final int clientY, final int button) {
             synthesizeNativePointer(InputDevice.SOURCE_MOUSE,
                     PointerInfo.RESERVED_MOUSE_POINTER_ID,
-                    eventType, clientX, clientY, 0, 0);
+                    eventType, clientX, clientY, 0, 0, button);
         }
 
         @WrapForJNI(calledFrom = "ui")
@@ -243,11 +342,12 @@ public class PanZoomController {
         handleMotionEvent(event, null);
     }
 
-    private void handleMotionEvent(final MotionEvent event, final GeckoResult<Integer> result) {
+    private void handleMotionEvent(final MotionEvent event, final GeckoResult<InputResultDetail> result) {
         if (!mAttached) {
             mQueuedEvents.add(new Pair<>(EVENT_SOURCE_MOTION, event));
             if (result != null) {
-                result.complete(INPUT_RESULT_HANDLED);
+                result.complete(
+                    new InputResultDetail(INPUT_RESULT_HANDLED, SCROLLABLE_FLAG_NONE, OVERSCROLL_FLAG_NONE));
             }
             return;
         }
@@ -258,7 +358,8 @@ public class PanZoomController {
             mLastDownTime = event.getDownTime();
         } else if (mLastDownTime != event.getDownTime()) {
             if (result != null) {
-                result.complete(INPUT_RESULT_UNHANDLED);
+                result.complete(
+                    new InputResultDetail(INPUT_RESULT_UNHANDLED, SCROLLABLE_FLAG_NONE, OVERSCROLL_FLAG_NONE));
             }
             return;
         }
@@ -337,7 +438,7 @@ public class PanZoomController {
     }
 
     private static void initMouseAsTouch() {
-        PrefsHelper.PrefHandler prefHandler = new PrefsHelper.PrefHandlerBase() {
+        final PrefsHelper.PrefHandler prefHandler = new PrefsHelper.PrefHandlerBase() {
             @Override
             public void prefValue(final String pref, final int value) {
                 if (!PREF_MOUSE_AS_TOUCH.equals(pref)) {
@@ -348,8 +449,8 @@ public class PanZoomController {
                 } else if (value == 1) {
                     sTreatMouseAsTouch = true;
                 } else if (value == 2) {
-                    Context c = GeckoAppShell.getApplicationContext();
-                    UiModeManager m = (UiModeManager)c.getSystemService(Context.UI_MODE_SERVICE);
+                    final Context c = GeckoAppShell.getApplicationContext();
+                    final UiModeManager m = (UiModeManager)c.getSystemService(Context.UI_MODE_SERVICE);
                     // on TV devices, treat mouse as touch. everywhere else, don't
                     sTreatMouseAsTouch = (m.getCurrentModeType() == Configuration.UI_MODE_TYPE_TELEVISION);
                 }
@@ -412,14 +513,33 @@ public class PanZoomController {
      *         {@link PanZoomController#INPUT_RESULT_UNHANDLED INPUT_RESULT_*}) constants indicating
      *         how the event was handled.
      */
+    @Deprecated @DeprecationSchedule(version = 90, id = "on-touch-event-for-result")
     public @NonNull GeckoResult<Integer> onTouchEventForResult(final @NonNull MotionEvent event) {
+        return onTouchEventForDetailResult(event).map(detail -> detail.handledResult());
+    }
+
+    /**
+     * Process a touch event through the pan-zoom controller. Treat any mouse events as
+     * "touch" rather than as "mouse". Pointer coordinates should be relative to the
+     * display surface.
+     *
+     * NOTE: It is highly recommended to only call this with ACTION_DOWN or in otherwise
+     * limited capacity. Returning a GeckoResult for every touch event will generate
+     * a lot of allocations and unnecessary GC pressure. Instead, prefer to call
+     * {@link #onTouchEvent(MotionEvent)}.
+     *
+     * @param event MotionEvent to process.
+     * @return A GeckoResult resolving to {@link PanZoomController.InputResultDetail}).
+     */
+    public @NonNull GeckoResult<InputResultDetail> onTouchEventForDetailResult(final @NonNull MotionEvent event) {
         ThreadUtils.assertOnUiThread();
 
         if (!sTreatMouseAsTouch && event.getToolType(0) == MotionEvent.TOOL_TYPE_MOUSE) {
-            return GeckoResult.fromValue(handleMouseEvent(event));
+            return GeckoResult.fromValue(
+                new InputResultDetail(handleMouseEvent(event), SCROLLABLE_FLAG_NONE, OVERSCROLL_FLAG_NONE));
         }
 
-        final GeckoResult<Integer> result = new GeckoResult<>();
+        final GeckoResult<InputResultDetail> result = new GeckoResult<>();
         handleMotionEvent(event, result);
         return result;
     }
@@ -484,9 +604,9 @@ public class PanZoomController {
             return;
         }
 
-        ArrayList<Pair<Integer, MotionEvent>> events = mQueuedEvents;
+        final ArrayList<Pair<Integer, MotionEvent>> events = mQueuedEvents;
         mQueuedEvents = null;
-        for (Pair<Integer, MotionEvent> pair : events) {
+        for (final Pair<Integer, MotionEvent> pair : events) {
             switch (pair.first) {
                 case EVENT_SOURCE_MOTION:
                     handleMotionEvent(pair.second);
@@ -527,9 +647,10 @@ public class PanZoomController {
         public int surfaceY;
         public double pressure;
         public int orientation;
+        public int buttonState;
 
         public MotionEvent.PointerCoords getCoords() {
-            MotionEvent.PointerCoords coords = new MotionEvent.PointerCoords();
+            final MotionEvent.PointerCoords coords = new MotionEvent.PointerCoords();
             coords.orientation = orientation;
             coords.pressure = (float)pressure;
             coords.x = surfaceX;
@@ -556,7 +677,7 @@ public class PanZoomController {
         }
 
         int addPointer(final int pointerId, final int source) {
-            PointerInfo info = new PointerInfo();
+            final PointerInfo info = new PointerInfo();
             info.pointerId = pointerId;
             info.source = source;
             pointers.add(info);
@@ -573,13 +694,22 @@ public class PanZoomController {
             return count;
         }
 
+        int getPointerButtonState(final int source) {
+            for (int i = 0; i < pointers.size(); i++) {
+                if (pointers.get(i).source == source) {
+                    return pointers.get(i).buttonState;
+                }
+            }
+            return 0;
+        }
+
         MotionEvent.PointerProperties[] getPointerProperties(final int source) {
-            MotionEvent.PointerProperties[] props =
+            final MotionEvent.PointerProperties[] props =
                     new MotionEvent.PointerProperties[getPointerCount(source)];
             int index = 0;
             for (int i = 0; i < pointers.size(); i++) {
                 if (pointers.get(i).source == source) {
-                    MotionEvent.PointerProperties p = new MotionEvent.PointerProperties();
+                    final MotionEvent.PointerProperties p = new MotionEvent.PointerProperties();
                     p.id = pointers.get(i).pointerId;
                     switch (source) {
                         case InputDevice.SOURCE_TOUCHSCREEN:
@@ -596,7 +726,7 @@ public class PanZoomController {
         }
 
         MotionEvent.PointerCoords[] getPointerCoords(final int source) {
-            MotionEvent.PointerCoords[] coords =
+            final MotionEvent.PointerCoords[] coords =
                     new MotionEvent.PointerCoords[getPointerCount(source)];
             int index = 0;
             for (int i = 0; i < pointers.size(); i++) {
@@ -611,7 +741,8 @@ public class PanZoomController {
     private void synthesizeNativePointer(final int source, final int pointerId,
                                          final int originalEventType,
                                          final int clientX, final int clientY,
-                                         final double pressure, final int orientation) {
+                                         final double pressure, final int orientation,
+                                         final int button) {
         if (mPointerState == null) {
             mPointerState = new SynthesizedEventState();
         }
@@ -672,11 +803,19 @@ public class PanZoomController {
         final int surfaceY = clientY + mTempRect.top;
 
         // Update the pointer with the new info
-        PointerInfo info = mPointerState.pointers.get(pointerIndex);
+        final PointerInfo info = mPointerState.pointers.get(pointerIndex);
         info.surfaceX = surfaceX;
         info.surfaceY = surfaceY;
         info.pressure = pressure;
         info.orientation = orientation;
+        if (source == InputDevice.SOURCE_MOUSE) {
+            if (eventType == MotionEvent.ACTION_DOWN ||
+                eventType == MotionEvent.ACTION_MOVE) {
+                info.buttonState |= button;
+            } else if (eventType == MotionEvent.ACTION_UP) {
+                info.buttonState &= button;
+            }
+        }
 
         // Dispatch the event
         int action = 0;
@@ -688,9 +827,6 @@ public class PanZoomController {
             action &= MotionEvent.ACTION_POINTER_INDEX_MASK;
         }
         action |= (eventType & MotionEvent.ACTION_MASK);
-        boolean isButtonDown = (source == InputDevice.SOURCE_MOUSE) &&
-                               (eventType == MotionEvent.ACTION_DOWN ||
-                                eventType == MotionEvent.ACTION_MOVE);
         final MotionEvent event = MotionEvent.obtain(
             /*downTime*/ mPointerState.downTime,
             /*eventTime*/ SystemClock.uptimeMillis(),
@@ -699,7 +835,7 @@ public class PanZoomController {
             /*pointerProperties*/ mPointerState.getPointerProperties(source),
             /*pointerCoords*/ mPointerState.getPointerCoords(source),
             /*metaState*/ 0,
-            /*buttonState*/ (isButtonDown ? MotionEvent.BUTTON_PRIMARY : 0),
+            /*buttonState*/ mPointerState.getPointerButtonState(source),
             /*xPrecision*/ 0,
             /*yPrecision*/ 0,
             /*deviceId*/ 0,

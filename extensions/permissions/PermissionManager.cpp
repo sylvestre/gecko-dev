@@ -435,7 +435,7 @@ nsresult UpgradeHostToOriginAndInsert(
     rv = histResultContainer->GetChildCount(&childCount);
     NS_ENSURE_SUCCESS(rv, rv);
 
-    nsTHashtable<nsCStringHashKey> insertedOrigins;
+    nsTHashSet<nsCString> insertedOrigins;
     for (uint32_t i = 0; i < childCount; i++) {
       nsCOMPtr<nsINavHistoryResultNode> child;
       histResultContainer->GetChild(i, getter_AddRefs(child));
@@ -484,7 +484,7 @@ nsresult UpgradeHostToOriginAndInsert(
       rv = aCallback(origin, aType, aPermission, aExpireType, aExpireTime,
                      aModificationTime);
       NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "Insert failed");
-      insertedOrigins.PutEntry(origin);
+      insertedOrigins.Insert(origin);
     }
 
     rv = histResultContainer->SetContainerOpen(false);
@@ -627,9 +627,9 @@ PermissionManager::PermissionManager()
 PermissionManager::~PermissionManager() {
   // NOTE: Make sure to reject each of the promises in mPermissionKeyPromiseMap
   // before destroying.
-  for (auto iter = mPermissionKeyPromiseMap.Iter(); !iter.Done(); iter.Next()) {
-    if (iter.Data()) {
-      iter.Data()->Reject(NS_ERROR_FAILURE, __func__);
+  for (const auto& promise : mPermissionKeyPromiseMap.Values()) {
+    if (promise) {
+      promise->Reject(NS_ERROR_FAILURE, __func__);
     }
   }
   mPermissionKeyPromiseMap.Clear();
@@ -1946,16 +1946,15 @@ nsresult PermissionManager::RemovePermissionEntries(T aCondition) {
   EnsureReadCompleted();
 
   Vector<Tuple<nsCOMPtr<nsIPrincipal>, nsCString, nsCString>, 10> array;
-  for (auto iter = mPermissionTable.Iter(); !iter.Done(); iter.Next()) {
-    PermissionHashKey* entry = iter.Get();
-    for (const auto& permEntry : entry->GetPermissions()) {
+  for (const PermissionHashKey& entry : mPermissionTable) {
+    for (const auto& permEntry : entry.GetPermissions()) {
       if (!aCondition(permEntry)) {
         continue;
       }
 
       nsCOMPtr<nsIPrincipal> principal;
       nsresult rv = GetPrincipalFromOrigin(
-          entry->GetKey()->mOrigin,
+          entry.GetKey()->mOrigin,
           IsOAForceStripPermission(mTypeArray[permEntry.mType]),
           getter_AddRefs(principal));
       if (NS_FAILED(rv)) {
@@ -1963,7 +1962,7 @@ nsresult PermissionManager::RemovePermissionEntries(T aCondition) {
       }
 
       if (!array.emplaceBack(principal, mTypeArray[permEntry.mType],
-                             entry->GetKey()->mOrigin)) {
+                             entry.GetKey()->mOrigin)) {
         continue;
       }
     }
@@ -2259,9 +2258,8 @@ nsresult PermissionManager::GetPermissionEntries(
 
   EnsureReadCompleted();
 
-  for (auto iter = mPermissionTable.Iter(); !iter.Done(); iter.Next()) {
-    PermissionHashKey* entry = iter.Get();
-    for (const auto& permEntry : entry->GetPermissions()) {
+  for (const PermissionHashKey& entry : mPermissionTable) {
+    for (const auto& permEntry : entry.GetPermissions()) {
       // Given how "default" permissions work and the possibility of them being
       // overridden with UNKNOWN_ACTION, we might see this value here - but we
       // do *not* want to return them via the enumerator.
@@ -2282,7 +2280,7 @@ nsresult PermissionManager::GetPermissionEntries(
 
       nsCOMPtr<nsIPrincipal> principal;
       nsresult rv = GetPrincipalFromOrigin(
-          entry->GetKey()->mOrigin,
+          entry.GetKey()->mOrigin,
           IsOAForceStripPermission(mTypeArray[permEntry.mType]),
           getter_AddRefs(principal));
       if (NS_FAILED(rv)) {
@@ -2462,11 +2460,9 @@ nsresult PermissionManager::RemovePermissionsWithAttributes(
   EnsureReadCompleted();
 
   Vector<Tuple<nsCOMPtr<nsIPrincipal>, nsCString, nsCString>, 10> permissions;
-  for (auto iter = mPermissionTable.Iter(); !iter.Done(); iter.Next()) {
-    PermissionHashKey* entry = iter.Get();
-
+  for (const PermissionHashKey& entry : mPermissionTable) {
     nsCOMPtr<nsIPrincipal> principal;
-    nsresult rv = GetPrincipalFromOrigin(entry->GetKey()->mOrigin, false,
+    nsresult rv = GetPrincipalFromOrigin(entry.GetKey()->mOrigin, false,
                                          getter_AddRefs(principal));
     if (NS_FAILED(rv)) {
       continue;
@@ -2476,9 +2472,9 @@ nsresult PermissionManager::RemovePermissionsWithAttributes(
       continue;
     }
 
-    for (const auto& permEntry : entry->GetPermissions()) {
+    for (const auto& permEntry : entry.GetPermissions()) {
       if (!permissions.emplaceBack(principal, mTypeArray[permEntry.mType],
-                                   entry->GetKey()->mOrigin)) {
+                                   entry.GetKey()->mOrigin)) {
         continue;
       }
     }
@@ -2977,14 +2973,12 @@ bool PermissionManager::GetPermissionsFromOriginOrKey(
     return false;
   }
 
-  for (auto iter = mPermissionTable.Iter(); !iter.Done(); iter.Next()) {
-    PermissionHashKey* entry = iter.Get();
-
+  for (const PermissionHashKey& entry : mPermissionTable) {
     nsAutoCString permissionKey;
     if (aOrigin.IsEmpty()) {
       // We can't check for individual OA strip perms here.
       // Don't force strip origin attributes.
-      GetKeyForOrigin(entry->GetKey()->mOrigin, false, permissionKey);
+      GetKeyForOrigin(entry.GetKey()->mOrigin, false, permissionKey);
 
       // If the keys don't match, and we aren't getting the default "" key, then
       // we can exit early. We have to keep looking if we're getting the default
@@ -2992,14 +2986,14 @@ bool PermissionManager::GetPermissionsFromOriginOrKey(
       if (aKey != permissionKey && !aKey.IsEmpty()) {
         continue;
       }
-    } else if (aOrigin != entry->GetKey()->mOrigin) {
+    } else if (aOrigin != entry.GetKey()->mOrigin) {
       // If the origins don't match, then we can exit early. We have to keep
       // looking if we're getting the default origin, as we may see a preload
       // permission which should be transmitted.
       continue;
     }
 
-    for (const auto& permEntry : entry->GetPermissions()) {
+    for (const auto& permEntry : entry.GetPermissions()) {
       // Given how "default" permissions work and the possibility of them
       // being overridden with UNKNOWN_ACTION, we might see this value here -
       // but we do not want to send it to the content process.
@@ -3013,11 +3007,11 @@ bool PermissionManager::GetPermissionsFromOriginOrKey(
         shouldAppend = (isPreload && aKey.IsEmpty()) ||
                        (!isPreload && aKey == permissionKey);
       } else {
-        shouldAppend = (!isPreload && aOrigin == entry->GetKey()->mOrigin);
+        shouldAppend = (!isPreload && aOrigin == entry.GetKey()->mOrigin);
       }
       if (shouldAppend) {
         aPerms.AppendElement(
-            IPC::Permission(entry->GetKey()->mOrigin,
+            IPC::Permission(entry.GetKey()->mOrigin,
                             mTypeArray[permEntry.mType], permEntry.mPermission,
                             permEntry.mExpireType, permEntry.mExpireTime));
       }
@@ -3047,8 +3041,8 @@ void PermissionManager::SetPermissionsWithKey(
     // key, but it's possible.
     return;
   }
-  mPermissionKeyPromiseMap.Put(aPermissionKey,
-                               RefPtr<GenericNonExclusivePromise::Private>{});
+  mPermissionKeyPromiseMap.InsertOrUpdate(
+      aPermissionKey, RefPtr<GenericNonExclusivePromise::Private>{});
 
   // Add the permissions locally to our process
   for (IPC::Permission& perm : aPerms) {
@@ -3229,7 +3223,7 @@ void PermissionManager::WhenPermissionsAvailable(nsIPrincipal* aPrincipal,
       // promise, and send the request to the parent (if we have not already
       // done so).
       promise = new GenericNonExclusivePromise::Private(__func__);
-      mPermissionKeyPromiseMap.Put(pair.first, RefPtr{promise});
+      mPermissionKeyPromiseMap.InsertOrUpdate(pair.first, RefPtr{promise});
     }
 
     if (promise) {

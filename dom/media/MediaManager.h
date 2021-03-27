@@ -15,6 +15,7 @@
 #include "nsHashKeys.h"
 #include "nsClassHashtable.h"
 #include "nsRefPtrHashtable.h"
+#include "nsIMemoryReporter.h"
 #include "nsIObserver.h"
 
 #include "nsIDOMNavigatorUserMedia.h"
@@ -134,7 +135,9 @@ typedef nsRefPtrHashtable<nsUint64HashKey, GetUserMediaWindowListener>
     WindowTable;
 typedef MozPromise<RefPtr<AudioDeviceInfo>, nsresult, true> SinkInfoPromise;
 
-class MediaManager final : public nsIMediaManagerService, public nsIObserver {
+class MediaManager final : public nsIMediaManagerService,
+                           public nsIMemoryReporter,
+                           public nsIObserver {
   friend SourceListener;
 
  public:
@@ -169,11 +172,17 @@ class MediaManager final : public nsIMediaManagerService, public nsIObserver {
 
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIOBSERVER
+  NS_DECL_NSIMEMORYREPORTER
   NS_DECL_NSIMEDIAMANAGERSERVICE
 
   media::Parent<media::NonE10s>* GetNonE10sParent();
   MediaEngine* GetBackend();
 
+  // If the window has not been destroyed, then return the
+  // GetUserMediaWindowListener for this window.
+  // If the window has been destroyed, then return null.
+  RefPtr<GetUserMediaWindowListener> GetOrMakeWindowListener(
+      nsPIDOMWindowInner* aWindow);
   WindowTable* GetActiveWindows() {
     MOZ_ASSERT(NS_IsMainThread());
     return &mActiveWindows;
@@ -302,7 +311,7 @@ class MediaManager final : public nsIMediaManagerService, public nsIObserver {
       const RefPtr<MediaDeviceSetRefCnt>& aOutDevices);
 
   RefPtr<MgrPromise> EnumerateDevicesImpl(
-      uint64_t aWindowId, dom::MediaSourceEnum aVideoInputType,
+      nsPIDOMWindowInner* aWindow, dom::MediaSourceEnum aVideoInputType,
       dom::MediaSourceEnum aAudioInputType, MediaSinkEnum aAudioOutputType,
       DeviceEnumerationType aVideoInputEnumType,
       DeviceEnumerationType aAudioInputEnumType, bool aForceNoPermRequest,
@@ -329,24 +338,14 @@ class MediaManager final : public nsIMediaManagerService, public nsIObserver {
   void RemoveMediaDevicesCallback(uint64_t aWindowID);
   void DeviceListChanged();
 
-  // ONLY access from MainThread so we don't need to lock
-  WindowTable mActiveWindows;
-  nsRefPtrHashtable<nsStringHashKey, GetUserMediaTask> mActiveCallbacks;
-  nsClassHashtable<nsUint64HashKey, nsTArray<nsString>> mCallIds;
-  nsTArray<RefPtr<dom::GetUserMediaRequest>> mPendingGUMRequest;
-  RefPtr<MediaTimer> mDeviceChangeTimer;
-  bool mCamerasMuted = false;
-  bool mMicrophonesMuted = false;
+  // Returns the number of incomplete tasks associated with this window,
+  // including the newly added task.
+  size_t AddTaskAndGetCount(uint64_t aWindowID, const nsAString& aCallID,
+                            RefPtr<GetUserMediaTask> aTask);
+  // Finds the task corresponding to aCallID and removes it from tracking.
+  RefPtr<GetUserMediaTask> TakeGetUserMediaTask(const nsAString& aCallID);
 
-  // Always exists
-  const RefPtr<TaskQueue> mMediaThread;
-  nsCOMPtr<nsIAsyncShutdownBlocker> mShutdownBlocker;
-
-  // ONLY accessed from MediaManagerThread
-  RefPtr<MediaEngine> mBackend;
-
-  static StaticRefPtr<MediaManager> sSingleton;
-  static StaticMutex sSingletonMutex;
+  MOZ_DEFINE_MALLOC_SIZE_OF(MallocSizeOf);
 
   struct nsStringHasher {
     using Key = nsString;
@@ -361,8 +360,26 @@ class MediaManager final : public nsIMediaManagerService, public nsIObserver {
     }
   };
 
+  // ONLY access from MainThread so we don't need to lock
+  WindowTable mActiveWindows;
+  nsRefPtrHashtable<nsStringHashKey, GetUserMediaTask> mActiveCallbacks;
+  nsClassHashtable<nsUint64HashKey, nsTArray<nsString>> mCallIds;
+  nsTArray<RefPtr<dom::GetUserMediaRequest>> mPendingGUMRequest;
   using DeviceIdSet = HashSet<nsString, nsStringHasher, InfallibleAllocPolicy>;
   DeviceIdSet mDeviceIDs;
+  RefPtr<MediaTimer> mDeviceChangeTimer;
+  bool mCamerasMuted = false;
+  bool mMicrophonesMuted = false;
+
+  // Always exists
+  const RefPtr<TaskQueue> mMediaThread;
+  nsCOMPtr<nsIAsyncShutdownBlocker> mShutdownBlocker;
+
+  // ONLY accessed from MediaManagerThread
+  RefPtr<MediaEngine> mBackend;
+
+  static StaticRefPtr<MediaManager> sSingleton;
+  static StaticMutex sSingletonMutex;
 
   // Connect/Disconnect on media thread only
   MediaEventListener mDeviceListChangeListener;

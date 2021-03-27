@@ -42,9 +42,16 @@ extern const GUID CLSID_WebmMfVpxDec;
 namespace mozilla {
 
 // Helper function to add a profile marker and log at the same time.
-static void MOZ_FORMAT_PRINTF(2, 3)
-    WmfDecoderModuleMarkerAndLog(const ProfilerString8View& aMarkerTag,
-                                 const char* aFormat, ...) {
+static void MOZ_FORMAT_PRINTF(2, 3) WmfDecoderModuleMarkerAndLog(
+#ifdef MOZ_GECKO_PROFILER
+    const ProfilerString8View&
+#else
+    // ProfilerString8View is not defined in non-MOZ_GECKO_PROFILER builds, but
+    // we still need to accept the given marker tag, though it won't be used.
+    const char*
+#endif
+        aMarkerTag,
+    const char* aFormat, ...) {
   va_list ap;
   va_start(ap, aFormat);
   const nsVprintfCString markerString(aFormat, ap);
@@ -58,7 +65,8 @@ static Atomic<bool> sUsableVPXMFT(false);
 
 /* static */
 already_AddRefed<PlatformDecoderModule> WMFDecoderModule::Create() {
-  return MakeAndAddRef<WMFDecoderModule>();
+  RefPtr<WMFDecoderModule> wmf = new WMFDecoderModule();
+  return wmf.forget();
 }
 
 WMFDecoderModule::~WMFDecoderModule() {
@@ -177,6 +185,8 @@ nsresult WMFDecoderModule::Startup() {
 
 already_AddRefed<MediaDataDecoder> WMFDecoderModule::CreateVideoDecoder(
     const CreateDecoderParams& aParams) {
+  ReportUsageForTelemetry();
+
   // In GPU process, only support decoding if an accelerated compositor is
   // known.
   if (XRE_IsGPUProcess() &&
@@ -213,6 +223,8 @@ already_AddRefed<MediaDataDecoder> WMFDecoderModule::CreateVideoDecoder(
 
 already_AddRefed<MediaDataDecoder> WMFDecoderModule::CreateAudioDecoder(
     const CreateDecoderParams& aParams) {
+  ReportUsageForTelemetry();
+
   if (XRE_IsGPUProcess()) {
     // Only allow video in the GPU process.
     return nullptr;
@@ -287,6 +299,8 @@ bool WMFDecoderModule::SupportsMimeType(
 
 bool WMFDecoderModule::Supports(const SupportDecoderParams& aParams,
                                 DecoderDoctorDiagnostics* aDiagnostics) const {
+  ReportUsageForTelemetry();
+
   // In GPU process, only support decoding if video. This only gives a hint of
   // what the GPU decoder *may* support. The actual check will occur in
   // CreateVideoDecoder.
@@ -308,16 +322,6 @@ bool WMFDecoderModule::Supports(const SupportDecoderParams& aParams,
   if ((trackInfo.mMimeType.EqualsLiteral("audio/mp4a-latm") ||
        trackInfo.mMimeType.EqualsLiteral("audio/mp4")) &&
       WMFDecoderModule::HasAAC()) {
-    const auto audioInfo = trackInfo.GetAsAudioInfo();
-    if (audioInfo && audioInfo->mRate > 0) {
-      // Supported sampling rates per:
-      // https://msdn.microsoft.com/en-us/library/windows/desktop/dd742784(v=vs.85).aspx
-      const std::vector<uint32_t> frequencies = {
-          8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000,
-      };
-      return std::find(frequencies.begin(), frequencies.end(),
-                       audioInfo->mRate) != frequencies.end();
-    }
     return true;
   }
   if (MP4Decoder::IsH264(trackInfo.mMimeType) && WMFDecoderModule::HasH264()) {
@@ -338,6 +342,12 @@ bool WMFDecoderModule::Supports(const SupportDecoderParams& aParams,
 
   // Some unsupported codec.
   return false;
+}
+
+void WMFDecoderModule::ReportUsageForTelemetry() const {
+  if (XRE_IsParentProcess() || XRE_IsContentProcess()) {
+    Telemetry::ScalarSet(Telemetry::ScalarID::MEDIA_WMF_PROCESS_USAGE, true);
+  }
 }
 
 }  // namespace mozilla

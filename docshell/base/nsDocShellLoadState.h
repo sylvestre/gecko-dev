@@ -182,7 +182,11 @@ class nsDocShellLoadState final {
     return mSourceBrowsingContext;
   }
 
-  void SetSourceBrowsingContext(BrowsingContext* aSourceBrowsingContext);
+  void SetSourceBrowsingContext(BrowsingContext*);
+
+  void SetAllowFocusMove(bool aAllow) { mAllowFocusMove = aAllow; }
+
+  bool AllowFocusMove() const { return mAllowFocusMove; }
 
   const MaybeDiscarded<BrowsingContext>& TargetBrowsingContext() const {
     return mTargetBrowsingContext;
@@ -289,6 +293,10 @@ class nsDocShellLoadState final {
   }
 
   bool GetChannelInitialized() const { return mChannelInitialized; }
+
+  void SetIsMetaRefresh(bool aMetaRefresh) { mIsMetaRefresh = aMetaRefresh; }
+
+  bool IsMetaRefresh() const { return mIsMetaRefresh; }
 
   // When loading a document through nsDocShell::LoadURI(), a special set of
   // flags needs to be set based on other values in nsDocShellLoadState. This
@@ -453,6 +461,9 @@ class nsDocShellLoadState final {
   // Is this load triggered by a user gesture?
   bool mHasValidUserGestureActivation;
 
+  // Whether this load can steal the focus from the source browsing context.
+  bool mAllowFocusMove;
+
   // A hint as to the content-type of the resulting data. If no hint, IsVoid()
   // should return true.
   nsCString mTypeHint;
@@ -493,6 +504,9 @@ class nsDocShellLoadState final {
   // Optional value to indicate that a channel has been
   // pre-initialized in the parent process.
   bool mChannelInitialized;
+
+  // True if the load was triggered by a meta refresh.
+  bool mIsMetaRefresh;
 };
 
 #endif /* nsDocShellLoadState_h__ */

@@ -47,9 +47,7 @@ void nsHttpConnectionMgr::OnMsgPrintDiagnostics(int32_t, ARefBase*) {
   mLogData.AppendPrintf("mNumActiveConns = %d\n", mNumActiveConns);
   mLogData.AppendPrintf("mNumIdleConns = %d\n", mNumIdleConns);
 
-  for (auto iter = mCT.Iter(); !iter.Done(); iter.Next()) {
-    RefPtr<ConnectionEntry> ent = iter.Data();
-
+  for (RefPtr<ConnectionEntry> ent : mCT.Values()) {
     mLogData.AppendPrintf(
         "   AtActiveConnectionLimit = %d\n",
         AtActiveConnectionLimit(ent, NS_HTTP_ALLOW_KEEPALIVE));
@@ -100,12 +98,13 @@ void ConnectionEntry::PrintDiagnostics(nsCString& log,
 
 void PendingTransactionQueue::PrintDiagnostics(nsCString& log) {
   uint32_t i = 0;
-  for (auto it = mPendingTransactionTable.Iter(); !it.Done(); it.Next()) {
-    log.AppendPrintf(
-        "   :: Pending Transactions with Window ID = %" PRIu64 "\n", it.Key());
-    for (uint32_t j = 0; j < it.UserData()->Length(); ++j) {
+  for (const auto& entry : mPendingTransactionTable) {
+    log.AppendPrintf("   :: Pending Transactions with Window ID = %" PRIu64
+                     "\n",
+                     entry.GetKey());
+    for (uint32_t j = 0; j < entry.GetData()->Length(); ++j) {
       log.AppendPrintf("     ::: Pending Transaction #%u\n", i);
-      it.UserData()->ElementAt(j)->PrintDiagnostics(log);
+      entry.GetData()->ElementAt(j)->PrintDiagnostics(log);
       ++i;
     }
   }
@@ -173,12 +172,9 @@ void HttpConnectionUDP::PrintDiagnostics(nsCString& log) {
 
   log.AppendPrintf("    dontReuse = %d isReused = %d\n", mDontReuse, mIsReused);
 
-  PRIntervalTime now = PR_IntervalNow();
-  log.AppendPrintf("    time since last read = %ums\n",
-                   PR_IntervalToMilliseconds(now - mLastReadTime));
-
   log.AppendPrintf("    read/written %" PRId64 "/%" PRId64 "\n",
-                   mTotalBytesRead, mTotalBytesWritten);
+                   mHttp3Session ? mHttp3Session->BytesRead() : 0,
+                   mHttp3Session ? mHttp3Session->GetBytesWritten() : 0);
 
   log.AppendPrintf("    rtt = %ums\n", PR_IntervalToMilliseconds(mRtt));
 }

@@ -23,13 +23,6 @@ this.AppConstants = Object.freeze({
   false,
 #endif
 
-  FENNEC_NIGHTLY:
-#ifdef FENNEC_NIGHTLY
-  true,
-#else
-  false,
-#endif
-
   RELEASE_OR_BETA:
 #ifdef RELEASE_OR_BETA
   true,
@@ -337,6 +330,7 @@ this.AppConstants = Object.freeze({
   MOZ_APP_VERSION_DISPLAY: "@MOZ_APP_VERSION_DISPLAY@",
   MOZ_BUILDID: "@MOZ_BUILDID@",
   MOZ_BUILD_APP: "@MOZ_BUILD_APP@",
+  MOZ_MACBUNDLE_ID: "@MOZ_MACBUNDLE_ID@",
   MOZ_MACBUNDLE_NAME: "@MOZ_MACBUNDLE_NAME@",
   MOZ_UPDATE_CHANNEL: "@MOZ_UPDATE_CHANNEL@",
   MOZ_WIDGET_TOOLKIT: "@MOZ_WIDGET_TOOLKIT@",
@@ -420,8 +414,8 @@ this.AppConstants = Object.freeze({
     true,
 #endif
 
-  MOZ_GLEAN:
-#ifdef MOZ_GLEAN
+  MOZ_GLEAN_ANDROID:
+#ifdef MOZ_GLEAN_ANDROID
     true,
 #else
     false,

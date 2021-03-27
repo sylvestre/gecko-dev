@@ -26,7 +26,18 @@ class TimespanMetric {
    * called with no corresponding [stop]): in that case the original
    * start time will be preserved.
    */
-  void Start() const { fog_timespan_start(mId); }
+  void Start() const {
+    auto optScalarId = ScalarIdForMetric(mId);
+    if (optScalarId) {
+      auto scalarId = optScalarId.extract();
+      auto map = gTimespanStarts.Lock();
+      (void)NS_WARN_IF(map->Remove(scalarId));
+      map->InsertOrUpdate(scalarId, TimeStamp::Now());
+    }
+#ifndef MOZ_GLEAN_ANDROID
+    fog_timespan_start(mId);
+#endif
+  }
 
   /**
    * Stop tracking time for the provided metric.
@@ -36,7 +47,22 @@ class TimespanMetric {
    * This will record an error if no [start] was called or there is an already
    * existing value.
    */
-  void Stop() const { fog_timespan_stop(mId); }
+  void Stop() const {
+    auto optScalarId = ScalarIdForMetric(mId);
+    if (optScalarId) {
+      auto scalarId = optScalarId.extract();
+      auto map = gTimespanStarts.Lock();
+      auto optStart = map->Extract(scalarId);
+      if (!NS_WARN_IF(!optStart)) {
+        uint32_t delta = static_cast<uint32_t>(
+            (TimeStamp::Now() - optStart.extract()).ToMilliseconds());
+        Telemetry::ScalarSet(scalarId, delta);
+      }
+    }
+#ifndef MOZ_GLEAN_ANDROID
+    fog_timespan_stop(mId);
+#endif
+  }
 
   /**
    * **Test-only API**
@@ -56,10 +82,15 @@ class TimespanMetric {
    * @return value of the stored metric, or Nothing() if there is no value.
    */
   Maybe<int64_t> TestGetValue(const nsACString& aPingName = nsCString()) const {
+#ifdef MOZ_GLEAN_ANDROID
+    Unused << mId;
+    return Nothing();
+#else
     if (!fog_timespan_test_has_value(mId, &aPingName)) {
       return Nothing();
     }
     return Some(fog_timespan_test_get_value(mId, &aPingName));
+#endif
   }
 
  private:

@@ -266,6 +266,70 @@ void LIRGenerator::visitCreateArgumentsObject(MCreateArgumentsObject* ins) {
   assignSafepoint(lir, ins);
 }
 
+void LIRGenerator::visitCreateInlinedArgumentsObject(
+    MCreateInlinedArgumentsObject* ins) {
+  LAllocation callObj = useRegisterAtStart(ins->getCallObject());
+  LAllocation callee = useRegisterAtStart(ins->getCallee());
+  uint32_t numActuals = ins->numActuals();
+  uint32_t numOperands = numActuals * BOX_PIECES +
+                         LCreateInlinedArgumentsObject::NumNonArgumentOperands;
+
+  auto* lir = allocateVariadic<LCreateInlinedArgumentsObject>(
+      numOperands, tempFixed(CallTempReg0));
+  if (!lir) {
+    abort(AbortReason::Alloc,
+          "OOM: LIRGenerator::visitCreateInlinedArgumentsObject");
+    return;
+  }
+
+  lir->setOperand(LCreateInlinedArgumentsObject::CallObj, callObj);
+  lir->setOperand(LCreateInlinedArgumentsObject::Callee, callee);
+  for (uint32_t i = 0; i < numActuals; i++) {
+    MDefinition* arg = ins->getArg(i);
+    uint32_t index = LCreateInlinedArgumentsObject::ArgIndex(i);
+    lir->setBoxOperand(index, useBoxOrTypedOrConstant(arg,
+                                                      /*useConstant = */ true,
+                                                      /*useAtStart = */ true));
+  }
+
+  defineReturn(lir, ins);
+  assignSafepoint(lir, ins);
+}
+
+void LIRGenerator::visitGetInlinedArgument(MGetInlinedArgument* ins) {
+#if defined(JS_CODEGEN_X64) || defined(JS_CODEGEN_MIPS64)
+  // On some 64-bit architectures, we don't support boxing a typed
+  // register in-place without using a scratch register, so the result
+  // register can't be the same as any of the inputs. Fortunately,
+  // those architectures have registers to spare.
+  const bool useAtStart = false;
+#else
+  const bool useAtStart = true;
+#endif
+
+  LAllocation index =
+      useAtStart ? useRegisterAtStart(ins->index()) : useRegister(ins->index());
+  uint32_t numActuals = ins->numActuals();
+  uint32_t numOperands =
+      numActuals * BOX_PIECES + LGetInlinedArgument::NumNonArgumentOperands;
+
+  auto* lir = allocateVariadic<LGetInlinedArgument>(numOperands);
+  if (!lir) {
+    abort(AbortReason::Alloc, "OOM: LIRGenerator::visitGetInlinedArgument");
+    return;
+  }
+
+  lir->setOperand(LGetInlinedArgument::Index, index);
+  for (uint32_t i = 0; i < numActuals; i++) {
+    MDefinition* arg = ins->getArg(i);
+    uint32_t index = LGetInlinedArgument::ArgIndex(i);
+    lir->setBoxOperand(
+        index, useBoxOrTypedOrConstant(arg,
+                                       /*useConstant = */ true, useAtStart));
+  }
+  defineBox(lir, ins);
+}
+
 void LIRGenerator::visitGetArgumentsObjectArg(MGetArgumentsObjectArg* ins) {
   LAllocation argsObj = useRegister(ins->getArgsObject());
   LGetArgumentsObjectArg* lir =
@@ -724,10 +788,7 @@ void LIRGenerator::visitTest(MTest* test) {
     if (comp->compareType() == MCompare::Compare_Int64 ||
         comp->compareType() == MCompare::Compare_UInt64) {
       JSOp op = ReorderComparison(comp->jsop(), &left, &right);
-      LCompareI64AndBranch* lir = new (alloc())
-          LCompareI64AndBranch(comp, op, useInt64Register(left),
-                               useInt64OrConstant(right), ifTrue, ifFalse);
-      add(lir, test);
+      lowerForCompareI64AndBranch(test, comp, op, left, right, ifTrue, ifFalse);
       return;
     }
 
@@ -2301,6 +2362,32 @@ void LIRGenerator::visitNonNegativeIntPtrToInt32(
 #endif
 }
 
+void LIRGenerator::visitWasmExtendU32Index(MWasmExtendU32Index* ins) {
+#ifdef JS_64BIT
+  MDefinition* input = ins->input();
+  MOZ_ASSERT(input->type() == MIRType::Int32);
+  MOZ_ASSERT(ins->type() == MIRType::Int64);
+
+  auto* lir = new (alloc()) LWasmExtendU32Index(useRegisterAtStart(input));
+  defineReuseInput(lir, ins, 0);
+#else
+  MOZ_CRASH("64-bit only");
+#endif
+}
+
+void LIRGenerator::visitWasmWrapU32Index(MWasmWrapU32Index* ins) {
+#ifdef JS_64BIT
+  MDefinition* input = ins->input();
+  MOZ_ASSERT(input->type() == MIRType::Int64);
+  MOZ_ASSERT(ins->type() == MIRType::Int32);
+
+  auto* lir = new (alloc()) LWasmWrapU32Index(useRegisterAtStart(input));
+  defineReuseInput(lir, ins, 0);
+#else
+  MOZ_CRASH("64-bit only");
+#endif
+}
+
 void LIRGenerator::visitIntPtrToDouble(MIntPtrToDouble* ins) {
   MDefinition* input = ins->input();
   MOZ_ASSERT(input->type() == MIRType::IntPtr);
@@ -3005,6 +3092,17 @@ void LIRGenerator::visitTypedArrayElementSize(MTypedArrayElementSize* ins) {
   define(new (alloc())
              LTypedArrayElementSize(useRegisterAtStart(ins->object())),
          ins);
+}
+
+void LIRGenerator::visitGuardHasAttachedArrayBuffer(
+    MGuardHasAttachedArrayBuffer* ins) {
+  MOZ_ASSERT(ins->object()->type() == MIRType::Object);
+
+  auto* lir = new (alloc())
+      LGuardHasAttachedArrayBuffer(useRegister(ins->object()), temp());
+  assignSnapshot(lir, ins->bailoutKind());
+  add(lir, ins);
+  redefine(ins, ins->object());
 }
 
 void LIRGenerator::visitGuardNumberToIntPtrIndex(
@@ -3886,7 +3984,7 @@ void LIRGenerator::visitGuardNoDenseElements(MGuardNoDenseElements* ins) {
 void LIRGenerator::visitGuardShape(MGuardShape* ins) {
   MOZ_ASSERT(ins->object()->type() == MIRType::Object);
 
-  if (JitOptions.spectreObjectMitigationsMisc) {
+  if (JitOptions.spectreObjectMitigations) {
     auto* lir =
         new (alloc()) LGuardShape(useRegisterAtStart(ins->object()), temp());
     assignSnapshot(lir, ins->bailoutKind());
@@ -4082,23 +4180,6 @@ void LIRGenerator::visitNurseryObject(MNurseryObject* ins) {
 
   auto* lir = new (alloc()) LNurseryObject();
   define(lir, ins);
-}
-
-void LIRGenerator::visitGuardObjectGroup(MGuardObjectGroup* ins) {
-  MOZ_ASSERT(ins->object()->type() == MIRType::Object);
-
-  if (JitOptions.spectreObjectMitigationsMisc) {
-    auto* lir = new (alloc())
-        LGuardObjectGroup(useRegisterAtStart(ins->object()), temp());
-    assignSnapshot(lir, ins->bailoutKind());
-    defineReuseInput(lir, ins, 0);
-  } else {
-    auto* lir = new (alloc())
-        LGuardObjectGroup(useRegister(ins->object()), LDefinition::BogusTemp());
-    assignSnapshot(lir, ins->bailoutKind());
-    add(lir, ins);
-    redefine(ins, ins->object());
-  }
 }
 
 void LIRGenerator::visitGuardValue(MGuardValue* ins) {
@@ -4561,19 +4642,33 @@ void LIRGenerator::visitWasmBoundsCheck(MWasmBoundsCheck* ins) {
   MOZ_ASSERT(!ins->isRedundant());
 
   MDefinition* index = ins->index();
-  MOZ_ASSERT(index->type() == MIRType::Int32);
-
   MDefinition* boundsCheckLimit = ins->boundsCheckLimit();
-  MOZ_ASSERT(boundsCheckLimit->type() == MIRType::Int32);
 
-  if (JitOptions.spectreIndexMasking) {
-    auto* lir = new (alloc()) LWasmBoundsCheck(useRegisterAtStart(index),
-                                               useRegister(boundsCheckLimit));
-    defineReuseInput(lir, ins, 0);
+  MOZ_ASSERT(boundsCheckLimit->type() == index->type());
+
+  if (index->type() == MIRType::Int64) {
+    if (JitOptions.spectreIndexMasking) {
+      auto* lir = new (alloc()) LWasmBoundsCheck64(
+          useInt64RegisterAtStart(index), useInt64Register(boundsCheckLimit));
+      defineInt64ReuseInput(lir, ins, 0);
+    } else {
+      auto* lir = new (alloc())
+          LWasmBoundsCheck64(useInt64RegisterAtStart(index),
+                             useInt64RegisterAtStart(boundsCheckLimit));
+      add(lir, ins);
+    }
   } else {
-    auto* lir = new (alloc()) LWasmBoundsCheck(
-        useRegisterAtStart(index), useRegisterAtStart(boundsCheckLimit));
-    add(lir, ins);
+    MOZ_ASSERT(index->type() == MIRType::Int32);
+
+    if (JitOptions.spectreIndexMasking) {
+      auto* lir = new (alloc()) LWasmBoundsCheck(useRegisterAtStart(index),
+                                                 useRegister(boundsCheckLimit));
+      defineReuseInput(lir, ins, 0);
+    } else {
+      auto* lir = new (alloc()) LWasmBoundsCheck(
+          useRegisterAtStart(index), useRegisterAtStart(boundsCheckLimit));
+      add(lir, ins);
+    }
   }
 }
 
@@ -5641,19 +5736,11 @@ void LIRGenerator::updateResumeState(MInstruction* ins) {
 }
 
 void LIRGenerator::updateResumeState(MBasicBlock* block) {
-  // As Value Numbering phase can remove edges from the entry basic block to a
-  // code paths reachable from the OSR entry point, we have to add fixup
-  // blocks to keep the dominator tree organized the same way. These fixup
-  // blocks are flaged as unreachable, and should only exist iff the graph has
-  // an OSR block.
-  //
   // Note: RangeAnalysis can flag blocks as unreachable, but they are only
   // removed iff GVN (including UCE) is enabled.
   MOZ_ASSERT_IF(!mir()->compilingWasm() && !block->unreachable(),
                 block->entryResumePoint());
-  MOZ_ASSERT_IF(
-      block->unreachable(),
-      block->graph().osrBlock() || !mir()->optimizationInfo().gvnEnabled());
+  MOZ_ASSERT_IF(block->unreachable(), !mir()->optimizationInfo().gvnEnabled());
   lastResumePoint_ = block->entryResumePoint();
 #ifdef JS_JITSPEW
   if (JitSpewEnabled(JitSpew_IonSnapshots) && lastResumePoint_) {
@@ -5668,14 +5755,7 @@ bool LIRGenerator::visitBlock(MBasicBlock* block) {
 
   definePhis();
 
-  // See fixup blocks added by Value Numbering, to keep the dominator relation
-  // modified by the presence of the OSR block.
-  MOZ_ASSERT_IF(block->unreachable(),
-                *block->begin() == block->lastIns() ||
-                    !mir()->optimizationInfo().gvnEnabled());
-  MOZ_ASSERT_IF(
-      block->unreachable(),
-      block->graph().osrBlock() || !mir()->optimizationInfo().gvnEnabled());
+  MOZ_ASSERT_IF(block->unreachable(), !mir()->optimizationInfo().gvnEnabled());
   for (MInstructionIterator iter = block->begin(); *iter != block->lastIns();
        iter++) {
     if (!visitInstruction(*iter)) {
@@ -5867,9 +5947,17 @@ void LIRGenerator::visitWasmSelect(MWasmSelect* ins) {
   }
 
   if (ins->type() == MIRType::Int64) {
+#if defined(JS_CODEGEN_ARM64)
+    // arm64 needs all three arguments forced into registers, but for x86, it
+    // may be beneficial to be more relaxed.  Hence special-case arm64.
+    auto* lir = new (alloc()) LWasmSelectI64(
+        useInt64RegisterAtStart(ins->trueExpr()),
+        useInt64Register(ins->falseExpr()), useRegister(ins->condExpr()));
+#else
     auto* lir = new (alloc()) LWasmSelectI64(
         useInt64RegisterAtStart(ins->trueExpr()), useInt64(ins->falseExpr()),
         useRegister(ins->condExpr()));
+#endif
 
     defineInt64ReuseInput(lir, ins, LWasmSelectI64::TrueExprIndex);
     return;

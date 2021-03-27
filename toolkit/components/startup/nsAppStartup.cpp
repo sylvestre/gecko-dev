@@ -64,6 +64,8 @@ static NS_DEFINE_CID(kAppShellCID, NS_APPSHELL_CID);
 #define kNanosecondsPerSecond 1000000000.0
 
 #if defined(XP_WIN)
+#  include "mozilla/PreXULSkeletonUI.h"
+
 #  include "mozilla/perfprobe.h"
 /**
  * Events sent to the system for profiling purposes
@@ -441,11 +443,10 @@ nsAppStartup::Quit(uint32_t aMode, int aExitCode, bool* aUserAllowedQuit) {
 
     // No chance of the shutdown being cancelled from here on; tell people
     // we're shutting down for sure while all services are still available.
-    if (obsService) {
-      bool isRestarting = mozilla::AppShutdown::IsRestarting();
-      obsService->NotifyObservers(nullptr, "quit-application",
-                                  isRestarting ? u"restart" : u"shutdown");
-    }
+    bool isRestarting = mozilla::AppShutdown::IsRestarting();
+    mozilla::AppShutdown::AdvanceShutdownPhase(
+        mozilla::ShutdownPhase::AppShutdownConfirmed,
+        isRestarting ? u"restart" : u"shutdown");
 
     if (!mRunning) {
       postedExitEvent = true;
@@ -578,6 +579,16 @@ nsAppStartup::GetSecondsSinceLastOSRestart(int64_t* aResult) {
 #else
   return NS_ERROR_NOT_IMPLEMENTED;
 #endif
+}
+
+NS_IMETHODIMP
+nsAppStartup::GetShowedPreXULSkeletonUI(bool* aResult) {
+#if defined(XP_WIN)
+  *aResult = GetPreXULSkeletonUIWasShown();
+#else
+  *aResult = false;
+#endif
+  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -1006,7 +1017,7 @@ nsAppStartup::CreateInstanceWithProfile(nsIToolkitProfile* aProfile) {
 
   NS_ConvertUTF8toUTF16 wideName(profileName);
 
-  const char16_t* args[] = {u"-no-remote", u"-P", wideName.get()};
+  const char16_t* args[] = {u"-P", wideName.get()};
   rv = process->Runw(false, args, 3);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;

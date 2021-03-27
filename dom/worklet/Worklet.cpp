@@ -7,6 +7,7 @@
 #include "Worklet.h"
 #include "WorkletThread.h"
 
+#include "mozilla/dom/AutoEntryScript.h"
 #include "mozilla/dom/WorkletBinding.h"
 #include "mozilla/dom/WorkletGlobalScope.h"
 #include "mozilla/dom/BlobBinding.h"
@@ -485,7 +486,7 @@ void Worklet::AddImportFetchHandler(const nsACString& aURI,
   MOZ_ASSERT(!mImportHandlers.GetWeak(aURI));
   MOZ_ASSERT(NS_IsMainThread());
 
-  mImportHandlers.Put(aURI, RefPtr{aHandler});
+  mImportHandlers.InsertOrUpdate(aURI, RefPtr{aHandler});
 }
 
 }  // namespace dom

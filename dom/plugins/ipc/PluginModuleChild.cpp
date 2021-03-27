@@ -13,6 +13,7 @@
 #include "mozilla/ipc/MessageChannel.h"
 
 #ifdef MOZ_WIDGET_GTK
+#  include "mozilla/WidgetUtilsGtk.h"
 #  include <gtk/gtk.h>
 #  include <gdk/gdkx.h>
 #endif
@@ -1551,7 +1552,7 @@ NPError PluginModuleChild::DoNP_Initialize(const PluginSettings& aSettings) {
 
 #ifdef MOZ_X11
 #  ifdef MOZ_WIDGET_GTK
-  if (!GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
+  if (!GdkIsX11Display()) {
     // We don't support NPAPI plugins on Wayland.
     return NPERR_GENERIC_ERROR;
   }
@@ -1926,10 +1927,10 @@ NPError PluginModuleChild::PluginRequiresAudioDeviceChanges(
       }
     }
     if (rv == NPERR_NO_ERROR) {
-      mAudioNotificationSet.PutEntry(aInstance);
+      mAudioNotificationSet.Insert(aInstance);
     }
   } else if (!mAudioNotificationSet.IsEmpty()) {
-    mAudioNotificationSet.RemoveEntry(aInstance);
+    mAudioNotificationSet.Remove(aInstance);
     if (mAudioNotificationSet.IsEmpty()) {
       // We released the last plugin.  Unregister from the PluginModuleParent.
       if (!CallNPN_SetValue_NPPVpluginRequiresAudioDeviceChanges(
@@ -1953,9 +1954,7 @@ PluginModuleChild::RecvNPP_SetValue_NPNVaudioDeviceChangeDetails(
   details.flow = detailsIPC.flow;
   details.role = detailsIPC.role;
   details.defaultDevice = detailsIPC.defaultDevice.c_str();
-  for (auto iter = mAudioNotificationSet.ConstIter(); !iter.Done();
-       iter.Next()) {
-    PluginInstanceChild* pluginInst = iter.Get()->GetKey();
+  for (PluginInstanceChild* pluginInst : mAudioNotificationSet) {
     pluginInst->DefaultAudioDeviceChanged(details);
   }
   return IPC_OK();
@@ -1972,9 +1971,7 @@ PluginModuleChild::RecvNPP_SetValue_NPNVaudioDeviceStateChanged(
   NPAudioDeviceStateChanged stateChange;
   stateChange.newState = aDeviceStateIPC.state;
   stateChange.device = aDeviceStateIPC.device.c_str();
-  for (auto iter = mAudioNotificationSet.ConstIter(); !iter.Done();
-       iter.Next()) {
-    PluginInstanceChild* pluginInst = iter.Get()->GetKey();
+  for (PluginInstanceChild* pluginInst : mAudioNotificationSet) {
     pluginInst->AudioDeviceStateChanged(stateChange);
   }
   return IPC_OK();

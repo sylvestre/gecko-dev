@@ -62,6 +62,13 @@ void CodeGenerator::visitBox(LBox* box) {
   ValueOperand result = ToOutValue(box);
 
   masm.moveValue(TypedOrValueRegister(box->type(), ToAnyRegister(in)), result);
+
+  if (JitOptions.spectreValueMasking && IsFloatingPointType(box->type())) {
+    ScratchRegisterScope scratch(masm);
+    masm.movePtr(ImmWord(JSVAL_SHIFTED_TAG_MAX_DOUBLE), scratch);
+    masm.cmpPtrMovePtr(Assembler::Below, scratch, result.valueReg(), scratch,
+                       result.valueReg());
+  }
 }
 
 void CodeGenerator::visitUnbox(LUnbox* unbox) {
@@ -760,6 +767,22 @@ void CodeGenerator::visitExtendInt32ToInt64(LExtendInt32ToInt64* lir) {
   } else {
     masm.movslq(ToOperand(input), output);
   }
+}
+
+void CodeGenerator::visitWasmExtendU32Index(LWasmExtendU32Index* lir) {
+  // Generates no code on this platform because the input is assumed to have
+  // canonical form.
+  Register output = ToRegister(lir->output());
+  MOZ_ASSERT(ToRegister(lir->input()) == output);
+  masm.assertCanonicalInt32(output);
+}
+
+void CodeGenerator::visitWasmWrapU32Index(LWasmWrapU32Index* lir) {
+  // Generates no code on this platform because the input is assumed to have
+  // canonical form.
+  Register output = ToRegister(lir->output());
+  MOZ_ASSERT(ToRegister(lir->input()) == output);
+  masm.assertCanonicalInt32(output);
 }
 
 void CodeGenerator::visitSignExtendInt64(LSignExtendInt64* ins) {

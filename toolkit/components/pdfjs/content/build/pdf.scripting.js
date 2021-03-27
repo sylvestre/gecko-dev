@@ -2,7 +2,7 @@
  * @licstart The following is the entire license notice for the
  * Javascript code in this page
  *
- * Copyright 2020 Mozilla Foundation
+ * Copyright 2021 Mozilla Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,27 +33,7 @@
 return /******/ (() => { // webpackBootstrap
 /******/ 	"use strict";
 /******/ 	var __webpack_modules__ = ([
-/* 0 */
-/***/ ((__unused_webpack_module, exports, __w_pdfjs_require__) => {
-
-
-
-Object.defineProperty(exports, "__esModule", ({
-  value: true
-}));
-Object.defineProperty(exports, "initSandbox", ({
-  enumerable: true,
-  get: function () {
-    return _initialization.initSandbox;
-  }
-}));
-
-var _initialization = __w_pdfjs_require__(1);
-
-const pdfjsVersion = '2.8.61';
-const pdfjsBuild = '884c65c60';
-
-/***/ }),
+/* 0 */,
 /* 1 */
 /***/ ((__unused_webpack_module, exports, __w_pdfjs_require__) => {
 
@@ -122,7 +102,8 @@ function initSandbox(params) {
       const obj = objs[0];
       obj.send = send;
       obj.globalEval = globalEval;
-      obj.doc = _document.wrapped;
+      obj.doc = _document;
+      obj.fieldPath = name;
       let field;
 
       if (obj.type === "radiobutton") {
@@ -170,6 +151,10 @@ function initSandbox(params) {
   globalThis.style = _constants.Style;
   globalThis.trans = _constants.Trans;
   globalThis.zoomtype = _constants.ZoomType;
+  globalThis.ADBE = {
+    Reader_Value_Asked: true,
+    Viewer_Value_Asked: true
+  };
   const aform = new _aform.AForm(doc, app, util, color);
 
   for (const name of Object.getOwnPropertyNames(_aform.AForm.prototype)) {
@@ -419,7 +404,7 @@ class Field extends _pdf_object.PDFObject {
     this.doNotSpellCheck = data.doNotSpellCheck;
     this.delay = data.delay;
     this.display = data.display;
-    this.doc = data.doc;
+    this.doc = data.doc.wrapped;
     this.editable = data.editable;
     this.exportValues = data.exportValues;
     this.fileSelect = data.fileSelect;
@@ -446,8 +431,13 @@ class Field extends _pdf_object.PDFObject {
     this.type = data.type;
     this.userName = data.userName;
     this._actions = (0, _common.createActionsMap)(data.actions);
+    this._browseForFileToSubmit = data.browseForFileToSubmit || null;
+    this._buttonCaption = null;
+    this._buttonIcon = null;
+    this._children = null;
     this._currentValueIndices = data.currentValueIndices || 0;
     this._document = data.doc;
+    this._fieldPath = data.fieldPath;
     this._fillColor = data.fillColor || ["T"];
     this._isChoice = Array.isArray(data.items);
     this._items = data.items || [];
@@ -511,6 +501,14 @@ class Field extends _pdf_object.PDFObject {
     }
   }
 
+  get bgColor() {
+    return this.fillColor;
+  }
+
+  set bgColor(color) {
+    this.fillColor = color;
+  }
+
   get numItems() {
     if (!this._isChoice) {
       throw new Error("Not a choice widget");
@@ -533,6 +531,14 @@ class Field extends _pdf_object.PDFObject {
     }
   }
 
+  get borderColor() {
+    return this.strokeColor;
+  }
+
+  set borderColor(color) {
+    this.strokeColor = color;
+  }
+
   get textColor() {
     return this._textColor;
   }
@@ -541,6 +547,14 @@ class Field extends _pdf_object.PDFObject {
     if (_color.Color._isValidColor(color)) {
       this._textColor = color;
     }
+  }
+
+  get fgColor() {
+    return this.textColor;
+  }
+
+  set fgColor(color) {
+    this.textColor = color;
   }
 
   get value() {
@@ -576,6 +590,46 @@ class Field extends _pdf_object.PDFObject {
 
   set valueAsString(val) {
     this._valueAsString = val ? val.toString() : "";
+  }
+
+  browseForFileToSubmit() {
+    if (this._browseForFileToSubmit) {
+      this._browseForFileToSubmit();
+    }
+  }
+
+  buttonGetCaption(nFace = 0) {
+    if (this._buttonCaption) {
+      return this._buttonCaption[nFace];
+    }
+
+    return "";
+  }
+
+  buttonGetIcon(nFace = 0) {
+    if (this._buttonIcon) {
+      return this._buttonIcon[nFace];
+    }
+
+    return null;
+  }
+
+  buttonImportIcon(cPath = null, nPave = 0) {}
+
+  buttonSetCaption(cCaption, nFace = 0) {
+    if (!this._buttonCaption) {
+      this._buttonCaption = ["", "", ""];
+    }
+
+    this._buttonCaption[nFace] = cCaption;
+  }
+
+  buttonSetIcon(oIcon, nFace = 0) {
+    if (!this._buttonIcon) {
+      this._buttonIcon = [null, null, null];
+    }
+
+    this._buttonIcon[nFace] = oIcon;
   }
 
   checkThisBox(nWidget, bCheckIt = true) {}
@@ -650,6 +704,18 @@ class Field extends _pdf_object.PDFObject {
 
     const item = this._items[nIdx];
     return bExportValue ? item.exportValue : item.displayValue;
+  }
+
+  getArray() {
+    if (this._children === null) {
+      this._children = this._document.obj._getChildren(this._fieldPath);
+    }
+
+    return this._children;
+  }
+
+  getLock() {
+    return undefined;
   }
 
   isBoxChecked(nWidget) {
@@ -761,6 +827,20 @@ class Field extends _pdf_object.PDFObject {
     });
   }
 
+  setLock() {}
+
+  signatureGetModifications() {}
+
+  signatureGetSeedValue() {}
+
+  signatureInfo() {}
+
+  signatureSetSeedValue() {}
+
+  signatureSign() {}
+
+  signatureValidate() {}
+
   _isButton() {
     return false;
   }
@@ -815,6 +895,10 @@ class RadioButtonField extends Field {
   }
 
   set value(value) {
+    if (value === null) {
+      this._value = "";
+    }
+
     const i = this.exportValues.indexOf(value);
 
     if (0 <= i && i < this._radioIds.length) {
@@ -1673,7 +1757,7 @@ class AForm {
         return;
       }
 
-      event.value += cMask.subString(value.length);
+      event.value += cMask.substring(value.length);
       return;
     }
 
@@ -3474,13 +3558,55 @@ class Doc extends _pdf_object.PDFObject {
       return searchedField;
     }
 
+    const parts = cName.split("#");
+    let childIndex = NaN;
+
+    if (parts.length === 2) {
+      childIndex = Math.floor(parseFloat(parts[1]));
+      cName = parts[0];
+    }
+
     for (const [name, field] of this._fields.entries()) {
-      if (name.includes(cName)) {
+      if (name.endsWith(cName)) {
+        if (!isNaN(childIndex)) {
+          const children = this._getChildren(name);
+
+          if (childIndex < 0 || childIndex >= children.length) {
+            childIndex = 0;
+          }
+
+          if (childIndex < children.length) {
+            this._fields.set(cName, children[childIndex]);
+
+            return children[childIndex];
+          }
+        }
+
+        this._fields.set(cName, field);
+
         return field;
       }
     }
 
     return undefined;
+  }
+
+  _getChildren(fieldName) {
+    const len = fieldName.length;
+    const children = [];
+    const pattern = /^\.[^.]+$/;
+
+    for (const [name, field] of this._fields.entries()) {
+      if (name.startsWith(fieldName)) {
+        const finalPart = name.slice(len);
+
+        if (finalPart.match(pattern)) {
+          children.push(field);
+        }
+      }
+    }
+
+    return children;
   }
 
   getIcon() {}
@@ -4516,10 +4642,29 @@ exports.Util = Util;
 /******/ 	}
 /******/ 	
 /************************************************************************/
-/******/ 	// module exports must be returned from runtime so entry inlining is disabled
-/******/ 	// startup
-/******/ 	// Load entry module and return exports
-/******/ 	return __w_pdfjs_require__(0);
+var __webpack_exports__ = {};
+// This entry need to be wrapped in an IIFE because it need to be isolated against other modules in the chunk.
+(() => {
+var exports = __webpack_exports__;
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+Object.defineProperty(exports, "initSandbox", ({
+  enumerable: true,
+  get: function () {
+    return _initialization.initSandbox;
+  }
+}));
+
+var _initialization = __w_pdfjs_require__(1);
+
+const pdfjsVersion = '2.8.243';
+const pdfjsBuild = 'a16494135';
+})();
+
+/******/ 	return __webpack_exports__;
 /******/ })()
 ;
 });

@@ -4,7 +4,7 @@
 
 /* Menu panel and palette styles */
 
-@supports not -moz-bool-pref("browser.proton.appmenu.enabled") {
+@supports not -moz-bool-pref("browser.proton.enabled") {
 #appMenu-new-window-button {
   list-style-image: url(chrome://browser/skin/new-window.svg);
 }
@@ -49,7 +49,7 @@
   list-style-image: url(chrome://browser/skin/import.svg);
 }
 
-#appMenu_help_taskManager {
+#appMenu-taskmanager-button {
   list-style-image: url(chrome://global/skin/icons/performance.svg);
 }
 
@@ -98,7 +98,7 @@
 }
 
 #appMenu-library-pocket-button {
-  list-style-image: url("chrome://browser/skin/pocket.svg");
+  list-style-image: url("chrome://global/skin/icons/pocket.svg");
 }
 
 #appMenu-library-history-button {
@@ -110,9 +110,7 @@
   list-style-image: url("chrome://browser/skin/tab.svg");
 }
 
-#PanelUI-fxa-menu-syncnow-button,
-#PanelUI-fxa-menu-setup-sync-button,
-#PanelUI-remotetabs-syncnow {
+#PanelUI-fxa-menu-setup-sync-button {
   list-style-image: url("chrome://browser/skin/sync.svg");
 }
 
@@ -122,15 +120,12 @@
 }
 
 #PanelUI-fxa-menu-view-sidebar,
-#PanelUI-remotetabs-view-sidebar,
 #panelMenu_viewBookmarksSidebar {
   list-style-image: url("chrome://browser/skin/sidebars-right.svg");
 }
 
 #PanelUI-fxa-menu-view-sidebar:-moz-locale-dir(ltr):not([positionend]),
 #PanelUI-fxa-menu-view-sidebar:-moz-locale-dir(rtl)[positionend],
-#PanelUI-remotetabs-view-sidebar:-moz-locale-dir(ltr):not([positionend]),
-#PanelUI-remotetabs-view-sidebar:-moz-locale-dir(rtl)[positionend],
 #panelMenu_viewBookmarksSidebar:-moz-locale-dir(ltr):not([positionend]),
 #panelMenu_viewBookmarksSidebar:-moz-locale-dir(rtl)[positionend] {
   list-style-image: url("chrome://browser/skin/sidebars.svg");
@@ -174,16 +169,12 @@ toolbarpaletteitem[place="palette"] > #bookmarks-menu-button,
 #appMenu-library-downloads-button {
   list-style-image: url("chrome://browser/skin/downloads/download-icons.svg#arrow-with-bar");
 }
-
-#appMenu-library-downloads-show-button {
-  list-style-image: url("chrome://browser/skin/folder.svg");
-}
 } /** END not Proton **/
 
-@supports -moz-bool-pref("browser.proton.appmenu.enabled") {
+@supports -moz-bool-pref("browser.proton.enabled") {
 /**
  * These are placeholder icons until we get the proper Proton
- * assets for zoom/fullscreen.
+ * assets for zoom/fullscreen/sync.
  */
 #appMenu-zoomEnlarge-button2 {
   list-style-image: url(chrome://browser/skin/zoom-in.svg);

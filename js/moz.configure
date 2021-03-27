@@ -168,8 +168,8 @@ option(
 )
 
 
-@depends("--enable-jit", "--enable-simulator", target, "--help")
-def simulator(jit_enabled, simulator_enabled, target, _):
+@depends("--enable-jit", "--enable-simulator", target)
+def simulator(jit_enabled, simulator_enabled, target):
     if not jit_enabled or not simulator_enabled:
         return
 
@@ -768,12 +768,9 @@ def default_wasm_simd(jit_enabled, simulator, target):
         return
 
     if simulator:
-        if simulator[0] == "arm64":
-            return True
-        else:
-            return
+        return
 
-    if target.cpu in ("x86_64", "x86", "aarch64"):
+    if target.cpu in ("x86_64", "x86"):
         return True
 
 
@@ -793,49 +790,16 @@ def wasm_simd(value, jit_enabled, simulator, target):
         return
 
     if simulator:
-        if simulator[0] == "arm64":
-            return True
-        else:
-            return
+        return
 
-    if target.cpu in ("x86_64", "x86", "aarch64"):
+    if target.cpu in ("x86_64", "x86"):
         return True
 
-    die("--enable-wasm-simd only possible when targeting the x86_64/x86/arm64 jits")
+    die("--enable-wasm-simd only possible when targeting the x86_64/x86 jits")
 
 
 set_config("ENABLE_WASM_SIMD", wasm_simd)
 set_define("ENABLE_WASM_SIMD", wasm_simd)
-
-# Experimental SIMD opcodes are Nightly-only by default
-
-
-@depends(milestone.is_nightly, "--enable-wasm-simd")
-def default_wasm_simd_experimental(is_nightly, wasm_simd):
-    if is_nightly and wasm_simd:
-        return True
-
-
-option(
-    "--enable-wasm-simd-experimental",
-    default=default_wasm_simd_experimental,
-    help="{Enable|Disable} WebAssembly SIMD experimental opcodes",
-)
-
-
-@depends("--enable-wasm-simd-experimental", "--enable-wasm-simd")
-def wasm_simd_experimental(value, wasm_simd):
-    if not value:
-        return
-
-    if wasm_simd:
-        return True
-
-    die("--enable-wasm-simd-experimental only possible with --enable-wasm-simd")
-
-
-set_config("ENABLE_WASM_SIMD_EXPERIMENTAL", wasm_simd_experimental)
-set_define("ENABLE_WASM_SIMD_EXPERIMENTAL", wasm_simd_experimental)
 
 # Wormhole opcodes are Intel-only.  They are private to Firefox, but we need them for some
 # experiments on release and so they ride the trains.
@@ -1000,19 +964,6 @@ set_define("U_USING_ICU_NAMESPACE", "0", when="--with-intl-api")
 
 # We build ICU as a static library.
 set_define("U_STATIC_IMPLEMENTATION", True, when=depends(system_icu)(lambda x: not x))
-
-
-@depends(yasm, gnu_as, target, compile_environment)
-def can_build_data_file(yasm, gnu_as, target, compile_environment):
-    if not compile_environment or (
-        target.kernel == "WINNT" and target.cpu == "aarch64"
-    ):
-        return
-    if not yasm and not gnu_as:
-        die(
-            "Building ICU requires either yasm or a GNU assembler. If you do not have "
-            "either of those available for this platform you must use --without-intl-api"
-        )
 
 
 # Initial support for WebAssembly JS-API Type Reflections

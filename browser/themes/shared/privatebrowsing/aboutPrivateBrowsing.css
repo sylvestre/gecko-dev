@@ -101,20 +101,19 @@ p {
   padding-inline: 46px 48px;
   position: relative;
   opacity: 1;
-  transition: opacity 500ms;
   width: 100%;
   -moz-context-properties: fill;
   fill: rgba(12, 12, 13, 0.4);
 }
 
-.search-handoff-button.focused {
+.search-handoff-button.focused:not(.disabled) {
   border: solid 1px #0060df;
   box-shadow: 0 0 0 1px #0060df, 0 0 0 4px rgba(0, 96, 223, 0.3);
 }
 
-.search-handoff-button.hidden {
-  opacity: 0;
-  visibility: hidden;
+.search-handoff-button.disabled {
+  opacity: 0.5;
+  box-shadow: none;
 }
 
 .search-handoff-button:dir(rtl),
@@ -127,7 +126,7 @@ p {
   background-color: #fff;
 }
 
-.search-handoff-button.focused .fake-caret {
+.search-handoff-button.focused:not(.disabled) .fake-caret {
   display: block;
 }
 
@@ -179,7 +178,7 @@ p {
 .banner-body {
   margin: auto;
   width: max-content;
-  background-image: url("chrome://browser/skin/preferences/general.svg");
+  background-image: url("chrome://global/skin/icons/settings.svg");
   background-position: left 0 top 50px;
   background-repeat: no-repeat;
   background-size: 32px;
@@ -208,7 +207,7 @@ p {
 
 .info {
   background-color: rgba(0, 0, 0, 0.2);
-  background-image: url("chrome://browser/skin/privatebrowsing/private-browsing.svg");
+  background-image: url("chrome://browser/skin/indicator-private-browsing.svg");
   background-position: left 32px top 20px;
   background-repeat: no-repeat;
   background-size: 32px;
@@ -249,10 +248,9 @@ p {
 }
 
 .search-banner-close-image {
-  -moz-context-properties: fill, fill-opacity;
+  -moz-context-properties: fill;
   fill: currentColor;
-  fill-opacity: 0;
-  width: 28px;
+  width: 22px;
 }
 
 #private-browsing-vpn-link {

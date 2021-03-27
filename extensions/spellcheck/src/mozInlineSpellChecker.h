@@ -11,6 +11,7 @@
 #include "nsIEditorSpellCheck.h"
 #include "nsIInlineSpellChecker.h"
 #include "mozInlineSpellWordUtil.h"
+#include "mozilla/Result.h"
 #include "nsRange.h"
 #include "nsWeakReference.h"
 
@@ -31,28 +32,33 @@ class Event;
 
 class mozInlineSpellStatus {
  public:
-  explicit mozInlineSpellStatus(mozInlineSpellChecker* aSpellChecker);
+  static mozilla::Result<mozilla::UniquePtr<mozInlineSpellStatus>, nsresult>
+  CreateForEditorChange(mozInlineSpellChecker& aSpellChecker,
+                        mozilla::EditSubAction aEditSubAction,
+                        nsINode* aAnchorNode, uint32_t aAnchorOffset,
+                        nsINode* aPreviousNode, uint32_t aPreviousOffset,
+                        nsINode* aStartNode, uint32_t aStartOffset,
+                        nsINode* aEndNode, uint32_t aEndOffset);
 
-  nsresult InitForEditorChange(mozilla::EditSubAction aEditSubAction,
-                               nsINode* aAnchorNode, uint32_t aAnchorOffset,
-                               nsINode* aPreviousNode, uint32_t aPreviousOffset,
-                               nsINode* aStartNode, uint32_t aStartOffset,
-                               nsINode* aEndNode, uint32_t aEndOffset);
-  nsresult InitForNavigation(bool aForceCheck, int32_t aNewPositionOffset,
-                             nsINode* aOldAnchorNode, uint32_t aOldAnchorOffset,
-                             nsINode* aNewAnchorNode, uint32_t aNewAnchorOffset,
-                             bool* aContinue);
-  nsresult InitForSelection();
-  nsresult InitForRange(nsRange* aRange);
+  static mozilla::Result<mozilla::UniquePtr<mozInlineSpellStatus>, nsresult>
+  CreateForNavigation(mozInlineSpellChecker& aSpellChecker, bool aForceCheck,
+                      int32_t aNewPositionOffset, nsINode* aOldAnchorNode,
+                      uint32_t aOldAnchorOffset, nsINode* aNewAnchorNode,
+                      uint32_t aNewAnchorOffset, bool* aContinue);
+
+  static mozilla::UniquePtr<mozInlineSpellStatus> CreateForSelection(
+      mozInlineSpellChecker& aSpellChecker);
+
+  static mozilla::UniquePtr<mozInlineSpellStatus> CreateForRange(
+      mozInlineSpellChecker& aSpellChecker, nsRange* aRange);
 
   nsresult FinishInitOnEvent(mozInlineSpellWordUtil& aWordUtil);
 
   // Return true if we plan to spell-check everything
   bool IsFullSpellCheck() const { return mOp == eOpChange && !mRange; }
 
-  RefPtr<mozInlineSpellChecker> mSpellChecker;
+  const RefPtr<mozInlineSpellChecker> mSpellChecker;
 
-  // what happened?
   enum Operation {
     eOpChange,        // for SpellCheckAfterEditorChange except
                       // deleteSelection
@@ -61,13 +67,29 @@ class mozInlineSpellStatus {
     eOpNavigation,    // for HandleNavigationEvent
     eOpSelection,     // re-check all misspelled words
     eOpResume
-  };  // for resuming a previously started check
-  Operation mOp;
+  };
+
+  // See `mOp`.
+  Operation GetOperation() const { return mOp; }
 
   // Used for events where we have already computed the range to use. It can
   // also be nullptr in these cases where we need to check the entire range.
   RefPtr<nsRange> mRange;
 
+  // See `mCreatedRange`.
+  const nsRange* GetCreatedRange() const { return mCreatedRange; }
+
+  // See `mNoCheckRange`.
+  const nsRange* GetNoCheckRange() const { return mNoCheckRange; }
+
+ private:
+  // @param aSpellChecker must be non-nullptr.
+  explicit mozInlineSpellStatus(mozInlineSpellChecker* aSpellChecker);
+
+  // For resuming a previously started check.
+  Operation mOp;
+
+  //
   // If we happen to know something was inserted, this is that range.
   // Can be nullptr (this only allows an optimization, so not setting doesn't
   // hurt)
@@ -99,7 +121,6 @@ class mozInlineSpellStatus {
   // Contains the offset passed in to HandleNavigationEvent
   int32_t mNewNavigationPositionOffset;
 
- protected:
   nsresult FinishNavigationEvent(mozInlineSpellWordUtil& aWordUtil);
 
   nsresult FillNoCheckRangeFromAnchor(mozInlineSpellWordUtil& aWordUtil);

@@ -24,10 +24,11 @@
 #include "imgIContainer.h"
 #include "imgINotificationObserver.h"
 #include "Image.h"
-#include "GeckoProfiler.h"
 #include "mozilla/PresShell.h"
+#include "mozilla/ProfilerLabels.h"
 #include "mozilla/SVGObserverUtils.h"
 #include "mozilla/layers/WebRenderUserData.h"
+#include "nsTHashSet.h"
 
 using namespace mozilla::dom;
 
@@ -56,7 +57,7 @@ NS_INTERFACE_MAP_END
 struct ImageTableEntry {
   // Set of all ImageLoaders that have registered this URL and care for updates
   // for it.
-  nsTHashtable<nsPtrHashKey<ImageLoader>> mImageLoaders;
+  nsTHashSet<ImageLoader*> mImageLoaders;
 
   // The amount of style values that are sharing this image.
   uint32_t mSharedCount = 1;
@@ -169,38 +170,37 @@ void ImageLoader::AssociateRequestToFrame(imgIRequest* aRequest,
   }
 
   auto* const frameSet =
-      mRequestToFrameMap.WithEntryHandle(aRequest, [&](auto&& entry) {
-        return entry
-            .OrInsertWith([&] {
-              mDocument->ImageTracker()->Add(aRequest);
+      mRequestToFrameMap
+          .LookupOrInsertWith(
+              aRequest,
+              [&] {
+                mDocument->ImageTracker()->Add(aRequest);
 
-              if (auto entry = sImages->Lookup(aRequest)) {
-                DebugOnly<bool> inserted =
-                    entry.Data()->mImageLoaders.EnsureInserted(this);
-                MOZ_ASSERT(inserted);
-              } else {
-                MOZ_ASSERT_UNREACHABLE(
-                    "Shouldn't be associating images not in sImages");
-              }
+                if (auto entry = sImages->Lookup(aRequest)) {
+                  DebugOnly<bool> inserted =
+                      entry.Data()->mImageLoaders.EnsureInserted(this);
+                  MOZ_ASSERT(inserted);
+                } else {
+                  MOZ_ASSERT_UNREACHABLE(
+                      "Shouldn't be associating images not in sImages");
+                }
 
-              if (nsPresContext* presContext = GetPresContext()) {
-                nsLayoutUtils::RegisterImageRequestIfAnimated(
-                    presContext, aRequest, nullptr);
-              }
-              return MakeUnique<FrameSet>();
-            })
-            .get();
-      });
+                if (nsPresContext* presContext = GetPresContext()) {
+                  nsLayoutUtils::RegisterImageRequestIfAnimated(
+                      presContext, aRequest, nullptr);
+                }
+                return MakeUnique<FrameSet>();
+              })
+          .get();
 
   auto* const requestSet =
-      mFrameToRequestMap.WithEntryHandle(aFrame, [=](auto&& entry) {
-        return entry
-            .OrInsertWith([=]() {
-              aFrame->SetHasImageRequest(true);
-              return MakeUnique<RequestSet>();
-            })
-            .get();
-      });
+      mFrameToRequestMap
+          .LookupOrInsertWith(aFrame,
+                              [=]() {
+                                aFrame->SetHasImageRequest(true);
+                                return MakeUnique<RequestSet>();
+                              })
+          .get();
 
   // Add frame to the frameSet, and handle any special processing the
   // frame might require.
@@ -353,8 +353,8 @@ void ImageLoader::SetAnimationMode(uint16_t aMode) {
                    aMode == imgIContainer::kLoopOnceAnimMode,
                "Wrong Animation Mode is being set!");
 
-  for (auto iter = mRequestToFrameMap.ConstIter(); !iter.Done(); iter.Next()) {
-    auto request = static_cast<imgIRequest*>(iter.Key());
+  for (nsISupports* key : mRequestToFrameMap.Keys()) {
+    auto* request = static_cast<imgIRequest*>(key);
 
 #ifdef DEBUG
     {
@@ -377,8 +377,8 @@ void ImageLoader::SetAnimationMode(uint16_t aMode) {
 void ImageLoader::ClearFrames(nsPresContext* aPresContext) {
   MOZ_ASSERT(NS_IsMainThread());
 
-  for (auto iter = mRequestToFrameMap.ConstIter(); !iter.Done(); iter.Next()) {
-    auto request = static_cast<imgIRequest*>(iter.Key());
+  for (const auto& key : mRequestToFrameMap.Keys()) {
+    auto* request = static_cast<imgIRequest*>(key);
 
 #ifdef DEBUG
     {
@@ -441,9 +441,7 @@ already_AddRefed<imgRequestProxy> ImageLoader::LoadImage(
   if (NS_FAILED(rv) || !request) {
     return nullptr;
   }
-  sImages->WithEntryHandle(request, [](auto&& entry) {
-    entry.OrInsertWith([] { return MakeUnique<ImageTableEntry>(); });
-  });
+  sImages->GetOrInsertNew(request);
   return request.forget();
 }
 
@@ -518,28 +516,29 @@ static void InvalidateImages(nsIFrame* aFrame, imgIRequest* aRequest,
   }
 
   bool invalidateFrame = aForcePaint;
-  const SmallPointerArray<DisplayItemData>& array = aFrame->DisplayItemData();
-  for (uint32_t i = 0; i < array.Length(); i++) {
-    DisplayItemData* data =
-        DisplayItemData::AssertDisplayItemData(array.ElementAt(i));
-    uint32_t displayItemKey = data->GetDisplayItemKey();
-    if (displayItemKey != 0 && !IsRenderNoImages(displayItemKey)) {
-      if (nsLayoutUtils::InvalidationDebuggingIsEnabled()) {
-        DisplayItemType type = GetDisplayItemTypeFromKey(displayItemKey);
-        printf_stderr(
-            "Invalidating display item(type=%d) based on frame %p \
-                       because it might contain an invalidated image\n",
-            static_cast<uint32_t>(type), aFrame);
-      }
+  if (auto* array = aFrame->DisplayItemData()) {
+    for (auto* did : *array) {
+      DisplayItemData* data = DisplayItemData::AssertDisplayItemData(did);
+      uint32_t displayItemKey = data->GetDisplayItemKey();
 
-      data->Invalidate();
-      invalidateFrame = true;
+      if (displayItemKey != 0 && !IsRenderNoImages(displayItemKey)) {
+        if (nsLayoutUtils::InvalidationDebuggingIsEnabled()) {
+          DisplayItemType type = GetDisplayItemTypeFromKey(displayItemKey);
+          printf_stderr(
+              "Invalidating display item(type=%d) based on frame %p \
+                         because it might contain an invalidated image\n",
+              static_cast<uint32_t>(type), aFrame);
+        }
+
+        data->Invalidate();
+        invalidateFrame = true;
+      }
     }
   }
+
   if (auto userDataTable =
           aFrame->GetProperty(layers::WebRenderUserDataProperty::Key())) {
-    for (auto iter = userDataTable->Iter(); !iter.Done(); iter.Next()) {
-      RefPtr<layers::WebRenderUserData> data = iter.UserData();
+    for (RefPtr<layers::WebRenderUserData> data : userDataTable->Values()) {
       switch (data->GetType()) {
         case layers::WebRenderUserData::UserDataType::eFallback:
           if (!IsRenderNoImages(data->GetDisplayItemKey())) {
@@ -569,7 +568,7 @@ static void InvalidateImages(nsIFrame* aFrame, imgIRequest* aRequest,
     nsIFrame* f = aFrame;
     while (f && !f->HasAnyStateBits(NS_FRAME_DESCENDANT_NEEDS_PAINT)) {
       SVGObserverUtils::InvalidateDirectRenderingObservers(f);
-      f = nsLayoutUtils::GetCrossDocParentFrame(f);
+      f = nsLayoutUtils::GetCrossDocParentFrameInProcess(f);
     }
   }
 
@@ -652,19 +651,15 @@ void GlobalImageObserver::Notify(imgIRequest* aRequest, int32_t aType,
     return;
   }
 
-  auto& loaders = entry.Data()->mImageLoaders;
-  nsTArray<RefPtr<ImageLoader>> loadersToNotify(loaders.Count());
-  for (auto iter = loaders.Iter(); !iter.Done(); iter.Next()) {
-    loadersToNotify.AppendElement(iter.Get()->GetKey());
-  }
-  for (auto& loader : loadersToNotify) {
+  const auto loadersToNotify =
+      ToTArray<nsTArray<RefPtr<ImageLoader>>>(entry.Data()->mImageLoaders);
+  for (const auto& loader : loadersToNotify) {
     loader->Notify(aRequest, aType, aData);
   }
 }
 
 void ImageLoader::Notify(imgIRequest* aRequest, int32_t aType,
                          const nsIntRect* aData) {
-#ifdef MOZ_GECKO_PROFILER
   nsCString uriString;
   if (profiler_is_active()) {
     nsCOMPtr<nsIURI> uri;
@@ -676,7 +671,6 @@ void ImageLoader::Notify(imgIRequest* aRequest, int32_t aType,
 
   AUTO_PROFILER_LABEL_DYNAMIC_NSCSTRING("ImageLoader::Notify", OTHER,
                                         uriString);
-#endif
 
   if (aType == imgINotificationObserver::SIZE_AVAILABLE) {
     nsCOMPtr<imgIContainer> image;

@@ -54,14 +54,23 @@ class WebConsole {
    * @constructor
    * @param object toolbox
    *        The toolbox where the web console is displayed.
+   * @param object commands
+   *        The commands object with all interfaces defined from devtools/shared/commands/
    * @param nsIDOMWindow iframeWindow
    *        The window where the web console UI is already loaded.
    * @param nsIDOMWindow chromeWindow
    *        The window of the web console owner.
    * @param bool isBrowserConsole
    */
-  constructor(toolbox, iframeWindow, chromeWindow, isBrowserConsole = false) {
+  constructor(
+    toolbox,
+    commands,
+    iframeWindow,
+    chromeWindow,
+    isBrowserConsole = false
+  ) {
     this.toolbox = toolbox;
+    this.commands = commands;
     this.iframeWindow = iframeWindow;
     this.chromeWindow = chromeWindow;
     this.hudId = "hud_" + ++gHudId;
@@ -89,11 +98,11 @@ class WebConsole {
   }
 
   get currentTarget() {
-    return this.toolbox.target;
+    return this.targetList.targetFront;
   }
 
   get targetList() {
-    return this.toolbox.targetList;
+    return this.commands.targetCommand;
   }
 
   get resourceWatcher() {

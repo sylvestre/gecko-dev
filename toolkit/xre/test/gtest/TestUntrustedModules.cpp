@@ -17,14 +17,14 @@
 #include "UntrustedModulesDataSerializer.h"
 
 class ModuleLoadCounter final {
-  nsDataHashtable<nsStringCaseInsensitiveHashKey, int> mCounters;
+  nsTHashMap<nsStringCaseInsensitiveHashKey, int> mCounters;
 
  public:
   template <int N>
   ModuleLoadCounter(const nsString (&aNames)[N], const int (&aCounts)[N])
       : mCounters(N) {
     for (int i = 0; i < N; ++i) {
-      mCounters.Put(aNames[i], aCounts[i]);
+      mCounters.InsertOrUpdate(aNames[i], aCounts[i]);
     }
   }
 
@@ -37,7 +37,7 @@ class ModuleLoadCounter final {
 
     bool result = true;
     for (int i = 0; i < N; ++i) {
-      int* entry = mCounters.GetValue(aNames[i]);
+      auto entry = mCounters.Lookup(aNames[i]);
       if (!entry) {
         wprintf(L"%s is not registered.\n", aNames[i].get());
         result = false;
@@ -53,13 +53,13 @@ class ModuleLoadCounter final {
 
   bool IsDone() const {
     bool allZero = true;
-    for (auto iter = mCounters.ConstIter(); !iter.Done(); iter.Next()) {
-      if (iter.Data() < 0) {
+    for (const auto& data : mCounters.Values()) {
+      if (data < 0) {
         // If any counter is negative, we know the test fails.
         // No need to continue.
         return true;
       }
-      if (iter.Data() > 0) {
+      if (data > 0) {
         allZero = false;
       }
     }
@@ -69,14 +69,14 @@ class ModuleLoadCounter final {
   }
 
   void Decrement(const nsString& aName) {
-    if (int* entry = mCounters.GetValue(aName)) {
+    if (auto entry = mCounters.Lookup(aName)) {
       --(*entry);
     }
   }
 };
 
 class UntrustedModulesCollector {
-  static constexpr int kMaximumPendingQueries = 200;
+  static constexpr int kMaximumPendingQueries = 500;
   Vector<UntrustedModulesData> mData;
 
  public:
@@ -156,8 +156,7 @@ static void ValidateUntrustedModules(const UntrustedModulesData& aData) {
   EXPECT_EQ(aData.mPid, ::GetCurrentProcessId());
 
   nsTHashtable<nsPtrHashKey<void>> moduleSet;
-  for (auto iter = aData.mModules.ConstIter(); !iter.Done(); iter.Next()) {
-    const RefPtr<ModuleRecord>& module = iter.Data();
+  for (const RefPtr<ModuleRecord>& module : aData.mModules.Values()) {
     moduleSet.PutEntry(module);
   }
 
@@ -405,12 +404,11 @@ TEST_F(UntrustedModulesFixture, Backup) {
   backupSvc->SettleAllStagingData();
   EXPECT_TRUE(backupSvc->Ref(BackupType::Staging).IsEmpty());
 
-  for (auto iter = backupSvc->Ref(BackupType::Settled).ConstIter();
-       !iter.Done(); iter.Next()) {
-    const RefPtr<UntrustedModulesDataContainer>& container = iter.Data();
+  for (const auto& entry : backupSvc->Ref(BackupType::Settled)) {
+    const RefPtr<UntrustedModulesDataContainer>& container = entry.GetData();
     EXPECT_TRUE(!!container);
     const UntrustedModulesData& data = container->mData;
-    EXPECT_EQ(iter.Key(), ProcessHashKey(data.mProcessType, data.mPid));
+    EXPECT_EQ(entry.GetKey(), ProcessHashKey(data.mProcessType, data.mPid));
     ValidateUntrustedModules(data);
   }
 }

@@ -6,13 +6,13 @@
 
 #include "mozilla/ArrayUtils.h"
 #include "mozilla/DebugOnly.h"
+#include "mozilla/ProfilerLabels.h"
 #include "mozilla/TextUtils.h"
 #include "mozilla/UniquePtrExtensions.h"
 #include "mozilla/Utf8.h"
 
 #include "nsCOMPtr.h"
 #include "nsMemory.h"
-#include "GeckoProfiler.h"
 
 #include "nsLocalFile.h"
 #include "nsLocalFileCommon.h"
@@ -287,6 +287,9 @@ static nsresult ConvertWinError(DWORD aWinErr) {
       break;
     case ERROR_DIRECTORY:
       rv = NS_ERROR_FILE_NOT_DIRECTORY;
+      break;
+    case ERROR_FILE_CORRUPT:
+      rv = NS_ERROR_FILE_FS_CORRUPTED;
       break;
     case 0:
       rv = NS_OK;

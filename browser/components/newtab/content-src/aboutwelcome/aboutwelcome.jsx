@@ -5,20 +5,13 @@
 import React from "react";
 import ReactDOM from "react-dom";
 import { MultiStageAboutWelcome } from "./components/MultiStageAboutWelcome";
-import { SimpleAboutWelcome } from "./components/SimpleAboutWelcome";
 import { ReturnToAMO } from "./components/ReturnToAMO";
-
-import {
-  AboutWelcomeUtils,
-  DEFAULT_WELCOME_CONTENT,
-} from "../lib/aboutwelcome-utils";
 
 class AboutWelcome extends React.PureComponent {
   constructor(props) {
     super(props);
     this.state = { metricsFlowUri: null };
     this.fetchFxAFlowUri = this.fetchFxAFlowUri.bind(this);
-    this.handleStartBtnClick = this.handleStartBtnClick.bind(this);
   }
 
   async fetchFxAFlowUri() {
@@ -62,36 +55,9 @@ class AboutWelcome extends React.PureComponent {
     window.AWSendToParent("SET_WELCOME_MESSAGE_SEEN", this.props.messageId);
   }
 
-  handleStartBtnClick() {
-    AboutWelcomeUtils.handleUserAction(this.props.startButton.action);
-    const ping = {
-      event: "CLICK_BUTTON",
-      event_context: {
-        source: this.props.startButton.message_id,
-        page: "about:welcome",
-      },
-      message_id: this.props.messageId,
-      id: "ABOUT_WELCOME",
-    };
-    window.AWSendEventTelemetry(ping);
-  }
-
   render() {
     const { props } = this;
-    if (props.template === "simplified") {
-      return (
-        <SimpleAboutWelcome
-          metricsFlowUri={this.state.metricsFlowUri}
-          message_id={props.messageId}
-          utm_term={props.UTMTerm}
-          title={props.title}
-          subtitle={props.subtitle}
-          cards={props.cards}
-          startButton={props.startButton}
-          handleStartBtnClick={this.handleStartBtnClick}
-        />
-      );
-    } else if (props.template === "return_to_amo") {
+    if (props.template === "return_to_amo") {
       return (
         <ReturnToAMO
           message_id={props.messageId}
@@ -108,12 +74,11 @@ class AboutWelcome extends React.PureComponent {
         metricsFlowUri={this.state.metricsFlowUri}
         message_id={props.messageId}
         utm_term={props.UTMTerm}
+        design={props.design}
       />
     );
   }
 }
-
-AboutWelcome.defaultProps = DEFAULT_WELCOME_CONTENT;
 
 // Computes messageId and UTMTerm info used in telemetry
 function ComputeTelemetryInfo(welcomeContent, experimentId, branchId) {
@@ -137,43 +102,27 @@ function ComputeTelemetryInfo(welcomeContent, experimentId, branchId) {
 }
 
 async function retrieveRenderContent() {
-  // Check for override content in pref browser.aboutwelcome.overrideContent
-  let aboutWelcomeProps = await window.AWGetWelcomeOverrideContent();
-  if (aboutWelcomeProps?.template) {
-    let { messageId, UTMTerm } = ComputeTelemetryInfo(aboutWelcomeProps);
-    return { aboutWelcomeProps, messageId, UTMTerm };
-  }
-
-  // Check for experiment and retrieve content
-  const { slug, branch } = await window.AWGetExperimentData();
-  aboutWelcomeProps = branch?.feature ? branch.feature.value : {};
-
-  // Check if there is any attribution data, this could take a while to await in series
-  // especially when there is an add-on that requires remote lookup
-  // Moving RTAMO as part of another screen of multistage is one option to fix the delay
-  // as it will allow the initial page to be fast while we fetch attribution data in parallel for a later screen.
-  const attribution = await window.AWGetAttributionData();
-  if (attribution?.template) {
-    aboutWelcomeProps = {
-      ...aboutWelcomeProps,
-      // If part of an experiment, render experiment template
-      template: aboutWelcomeProps?.template
-        ? aboutWelcomeProps.template
-        : attribution.template,
-      ...attribution.extraProps,
-    };
-  }
+  // Feature config includes:
+  // user prefs
+  // experiment data
+  // attribution data
+  // defaults
+  let featureConfig = await window.AWGetFeatureConfig();
 
   let { messageId, UTMTerm } = ComputeTelemetryInfo(
-    aboutWelcomeProps,
-    slug,
-    branch && branch.slug
+    featureConfig,
+    featureConfig.slug,
+    featureConfig.branch && featureConfig.branch.slug
   );
-  return { aboutWelcomeProps, messageId, UTMTerm };
+  return { featureConfig, messageId, UTMTerm };
 }
 
 async function mount() {
-  let { aboutWelcomeProps, messageId, UTMTerm } = await retrieveRenderContent();
+  let {
+    featureConfig: aboutWelcomeProps,
+    messageId,
+    UTMTerm,
+  } = await retrieveRenderContent();
   ReactDOM.render(
     <AboutWelcome
       messageId={messageId}

@@ -50,6 +50,26 @@ async function clearWarnedHosts() {
   });
 }
 
+add_task(function setup() {
+  // This test used to rely on the initial timer of
+  // TestUtils.waitForCondition. See bug 1700683.
+  let originalWaitForCondition = TestUtils.waitForCondition;
+  TestUtils.waitForCondition = async function(
+    condition,
+    msg,
+    interval = 100,
+    maxTries = 50
+  ) {
+    // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    return originalWaitForCondition(condition, msg, interval, maxTries);
+  };
+  registerCleanupFunction(function() {
+    TestUtils.waitForCondition = originalWaitForCondition;
+  });
+});
+
 add_task(async function test_main_flow() {
   info("Test that we show the first alert correctly for a recent breach.");
 
@@ -250,5 +270,60 @@ add_task(async function test_main_flow() {
   await clearWarnedHosts();
   await SpecialPowers.pushPrefEnv({
     clear: [["extensions.fxmonitor.firstAlertShown"]],
+  });
+});
+
+add_task(async function test_proton_disabled() {
+  info("Test that we don't show an alert if proton is enabled.");
+
+  // Pre-populate the Remote Settings collection with a breach.
+  let db = await RemoteSettings(kRemoteSettingsKey).db;
+  let BreachDate = new Date();
+  let AddedDate = new Date();
+  await db.create({
+    Domain: "example.com",
+    Name: "Example Site",
+    BreachDate: `${BreachDate.getFullYear()}-${BreachDate.getMonth() +
+      1}-${BreachDate.getDate()}`,
+    AddedDate: `${AddedDate.getFullYear()}-${AddedDate.getMonth() +
+      1}-${AddedDate.getDate()}`,
+    PwnCount: 1000000,
+  });
+  await db.importChanges({}, 1234567);
+
+  // Trigger a sync.
+  await RemoteSettings(kRemoteSettingsKey).emit("sync", {
+    data: {
+      current: await RemoteSettings(kRemoteSettingsKey).get(),
+    },
+  });
+
+  // Enable proton
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.proton.doorhangers.enabled", true]],
+  });
+
+  // Open a tab and wait for the alert.
+  let tab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    "http://example.com"
+  );
+
+  try {
+    await fxmonitorNotificationShown();
+    ok(false, "Notification was shown but shouldn't have been!");
+  } catch (e) {
+    ok(true, "No notifaction was shown with proton enabled.");
+  }
+
+  // Clean up.
+  BrowserTestUtils.removeTab(tab);
+  await db.clear();
+  await db.importChanges({}, 1234567);
+  // Trigger a sync to clear.
+  await RemoteSettings(kRemoteSettingsKey).emit("sync", {
+    data: {
+      current: [],
+    },
   });
 });

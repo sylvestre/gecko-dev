@@ -36,8 +36,7 @@ async function testChromeTab() {
     Services.obs.addObserver(observe, "devtools-thread-ready");
   });
 
-  const target = await TargetFactory.forTab(tab);
-  await target.attach();
+  const target = await createAndAttachTargetForTab(tab);
 
   const threadFront = await target.attachThread();
 
@@ -65,7 +64,7 @@ async function testChromeTab() {
     Services.obs.addObserver(observe, "devtools:loader:destroy");
   });
 
-  await target.destroy();
+  await target.descriptorFront.destroy();
 
   // Wait for the dedicated loader used for DevToolsServer to be destroyed
   // in order to prevent leak reports on try

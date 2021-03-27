@@ -5,7 +5,7 @@
 
 set -vex
 
-export UPDATEBOT_REVISION=39a562bbae3098c6933e5078750eb067252543df
+export UPDATEBOT_REVISION=4b82d965548d573eb132b55444b682073f01fa35
 export SQLPROXY_REVISION=fb1939ab92846761595833361c6b0b0ecd543861
 
 export DEBIAN_FRONTEND=noninteractive
@@ -58,6 +58,7 @@ cd /builds/worker/
 chown -R worker:worker .
 chown -R worker:worker .*
 
+python3 -m pip install -U pip
 python3 -m pip install poetry
 
 rm -rf /setup

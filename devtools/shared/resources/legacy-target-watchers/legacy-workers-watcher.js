@@ -4,13 +4,6 @@
 
 "use strict";
 
-loader.lazyRequireGetter(
-  this,
-  "TargetList",
-  "devtools/shared/resources/target-list",
-  true
-);
-
 const {
   LegacyProcessesWatcher,
 } = require("devtools/shared/resources/legacy-target-watchers/legacy-processes-watcher");
@@ -85,7 +78,17 @@ class LegacyWorkersWatcher {
       return;
     }
 
-    const { workers } = await front.listWorkers();
+    let workers;
+    try {
+      ({ workers } = await front.listWorkers());
+    } catch (e) {
+      // Workers may be added/removed at anytime so that listWorkers request
+      // can be spawn during a toolbox destroy sequence and easily fail
+      if (front.isDestroyed()) {
+        return;
+      }
+      throw e;
+    }
 
     // Fetch the list of already existing worker targets for this process target front.
     const existingTargets = this.targetsByProcess.get(targetFront);
@@ -140,7 +143,7 @@ class LegacyWorkersWatcher {
 
     if (this.target.isParentProcess) {
       await this.targetList.watchTargets(
-        [TargetList.TYPES.PROCESS],
+        [this.targetList.TYPES.PROCESS],
         this._onProcessAvailable,
         this._onProcessDestroyed
       );
@@ -187,14 +190,14 @@ class LegacyWorkersWatcher {
   }
 
   _getProcessTargets() {
-    return this.targetList.getAllTargets([TargetList.TYPES.PROCESS]);
+    return this.targetList.getAllTargets([this.targetList.TYPES.PROCESS]);
   }
 
   unlisten() {
     // Stop listening for new process targets.
     if (this.target.isParentProcess) {
       this.targetList.unwatchTargets(
-        [TargetList.TYPES.PROCESS],
+        [this.targetList.TYPES.PROCESS],
         this._onProcessAvailable,
         this._onProcessDestroyed
       );

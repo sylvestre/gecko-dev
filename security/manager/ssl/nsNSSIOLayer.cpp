@@ -518,7 +518,7 @@ void nsSSLIOLayerHelpers::rememberTolerantAtVersion(const nsACString& hostName,
 
   entry.AssertInvariant();
 
-  mTLSIntoleranceInfo.Put(key, entry);
+  mTLSIntoleranceInfo.InsertOrUpdate(key, entry);
 }
 
 void nsSSLIOLayerHelpers::forgetIntolerance(const nsACString& hostName,
@@ -536,7 +536,7 @@ void nsSSLIOLayerHelpers::forgetIntolerance(const nsACString& hostName,
     entry.intoleranceReason = 0;
 
     entry.AssertInvariant();
-    mTLSIntoleranceInfo.Put(key, entry);
+    mTLSIntoleranceInfo.InsertOrUpdate(key, entry);
   }
 }
 
@@ -581,7 +581,7 @@ bool nsSSLIOLayerHelpers::rememberIntolerantAtVersion(
   entry.intolerant = intolerant;
   entry.intoleranceReason = intoleranceReason;
   entry.AssertInvariant();
-  mTLSIntoleranceInfo.Put(key, entry);
+  mTLSIntoleranceInfo.InsertOrUpdate(key, entry);
 
   return true;
 }
@@ -2548,7 +2548,8 @@ static PRFileDesc* nsSSLIOLayerImportFD(PRFileDesc* fd,
   uint32_t flags = 0;
   infoObject->GetProviderFlags(&flags);
   // Provide the client cert to HTTPS proxy no matter if it is anonymous.
-  if (flags & nsISocketProvider::ANONYMOUS_CONNECT && !haveHTTPSProxy) {
+  if (flags & nsISocketProvider::ANONYMOUS_CONNECT && !haveHTTPSProxy &&
+      !(flags & nsISocketProvider::ANONYMOUS_CONNECT_ALLOW_CLIENT_CERT)) {
     SSL_GetClientAuthDataHook(sslSock, nullptr, infoObject);
   } else {
     SSL_GetClientAuthDataHook(

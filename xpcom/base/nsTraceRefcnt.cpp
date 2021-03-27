@@ -307,8 +307,10 @@ static BloatEntry* GetBloatEntry(const char* aTypeName,
   EnsureBloatView();
   BloatEntry* entry = gBloatView->Get(aTypeName);
   if (!entry && aInstanceSize > 0) {
-    entry = new BloatEntry(aTypeName, aInstanceSize);
-    gBloatView->Put(aTypeName, entry);
+    entry = gBloatView
+                ->InsertOrUpdate(
+                    aTypeName, MakeUnique<BloatEntry>(aTypeName, aInstanceSize))
+                .get();
   } else {
     MOZ_ASSERT(
         aInstanceSize == 0 || entry->GetClassSize() == aInstanceSize,
@@ -323,8 +325,8 @@ static BloatEntry* GetBloatEntry(const char* aTypeName,
   return entry;
 }
 
-static void DumpSerialNumbers(const SerialHash::Iterator& aHashEntry, FILE* aFd,
-                              bool aDumpAsStringBuffer) {
+static void DumpSerialNumbers(const SerialHash::ConstIterator& aHashEntry,
+                              FILE* aFd, bool aDumpAsStringBuffer) {
   SerialNumberRecord* record = aHashEntry.UserData();
   auto* outputFile = aFd;
 #ifdef HAVE_CPP_DYNAMIC_CAST_TO_VOID_PTR
@@ -396,10 +398,9 @@ nsresult nsTraceRefcnt::DumpStatistics() {
   gLogging = NoLogging;
 
   BloatEntry total("TOTAL", 0);
-  for (auto iter = gBloatView->Iter(); !iter.Done(); iter.Next()) {
-    BloatEntry* entry = iter.UserData();
-    if (nsCRT::strcmp(entry->GetClassName(), "TOTAL") != 0) {
-      entry->Total(&total);
+  for (const auto& data : gBloatView->Values()) {
+    if (nsCRT::strcmp(data->GetClassName(), "TOTAL") != 0) {
+      data->Total(&total);
     }
   }
 
@@ -411,9 +412,9 @@ nsresult nsTraceRefcnt::DumpStatistics() {
   }
   const bool leaked = total.PrintDumpHeader(gBloatLog, msg);
 
-  nsTArray<BloatEntry*> entries;
-  for (auto iter = gBloatView->Iter(); !iter.Done(); iter.Next()) {
-    entries.AppendElement(iter.UserData());
+  nsTArray<BloatEntry*> entries(gBloatView->Count());
+  for (const auto& data : gBloatView->Values()) {
+    entries.AppendElement(data.get());
   }
 
   const uint32_t count = entries.Length();
@@ -437,7 +438,7 @@ nsresult nsTraceRefcnt::DumpStatistics() {
                                     gTypesToLog->Contains("nsStringBuffer");
 
     fprintf(gBloatLog, "\nSerial Numbers of Leaked Objects:\n");
-    for (auto iter = gSerialNumbers->Iter(); !iter.Done(); iter.Next()) {
+    for (auto iter = gSerialNumbers->ConstIter(); !iter.Done(); iter.Next()) {
       DumpSerialNumbers(iter, gBloatLog, onlyLoggingStringBuffers);
     }
   }
@@ -741,29 +742,14 @@ static void EnsureWrite(FILE* aStream, const char* aBuf, size_t aLen) {
   }
 }
 
-static void PrintStackFrame(uint32_t aFrameNumber, void* aPC, void* aSP,
-                            void* aClosure) {
-  FILE* stream = (FILE*)aClosure;
-  MozCodeAddressDetails details;
-  static const size_t buflen = 1024;
-  char buf[buflen + 1];  // 1 for trailing '\n'
-
-  MozDescribeCodeAddress(aPC, &details);
-  MozFormatCodeAddressDetails(buf, buflen, aFrameNumber, aPC, &details);
-  size_t len = std::min(strlen(buf), buflen + 1 - 2);
-  buf[len++] = '\n';
-  buf[len] = '\0';
-  fflush(stream);
-  EnsureWrite(stream, buf, len);
-}
-
 static void PrintStackFrameCached(uint32_t aFrameNumber, void* aPC, void* aSP,
                                   void* aClosure) {
   auto stream = static_cast<FILE*>(aClosure);
-  static const size_t buflen = 1024;
+  static const int buflen = 1024;
   char buf[buflen + 5] = "    ";  // 5 for leading "    " and trailing '\n'
-  gCodeAddressService->GetLocation(aFrameNumber, aPC, buf + 4, buflen);
-  size_t len = std::min(strlen(buf), buflen + 5 - 2);
+  int len =
+      gCodeAddressService->GetLocation(aFrameNumber, aPC, buf + 4, buflen);
+  len = std::min(len, buflen + 1 - 2) + 4;
   buf[len++] = '\n';
   buf[len] = '\0';
   fflush(stream);
@@ -777,22 +763,11 @@ static void RecordStackFrame(uint32_t /*aFrameNumber*/, void* aPC,
 }
 }
 
-void nsTraceRefcnt::WalkTheStack(FILE* aStream, uint32_t aMaxFrames) {
-  MozStackWalk(PrintStackFrame, /* skipFrames */ 2, aMaxFrames, aStream);
-}
-
-#ifdef ANDROID
-void nsTraceRefcnt::WalkTheStack(void (*aWriter)(uint32_t, void*, void*,
-                                                 void*)) {
-  MozStackWalk(aWriter, /* skipFrames */ 2, /* maxFrames */ 0, nullptr);
-}
-#endif
-
 /**
- * This is a variant of |WalkTheStack| that uses |CodeAddressService| to cache
- * the results of |NS_DescribeCodeAddress|. If |WalkTheStackCached| is being
- * called frequently, it will be a few orders of magnitude faster than
- * |WalkTheStack|. However, the cache uses a lot of memory, which can cause
+ * This is a variant of |MozWalkTheStack| that uses |CodeAddressService| to
+ * cache the results of |NS_DescribeCodeAddress|. If |WalkTheStackCached| is
+ * being called frequently, it will be a few orders of magnitude faster than
+ * |MozWalkTheStack|. However, the cache uses a lot of memory, which can cause
  * OOM crashes. Therefore, this should only be used for things like refcount
  * logging which walk the stack extremely frequently.
  */

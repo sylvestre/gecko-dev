@@ -93,6 +93,13 @@ void CodeGenerator::visitBoxFloatingPoint(LBoxFloatingPoint* box) {
   const ValueOperand out = ToOutValue(box);
 
   masm.moveValue(TypedOrValueRegister(box->type(), in), out);
+
+  if (JitOptions.spectreValueMasking) {
+    Register scratch = ToRegister(box->spectreTemp());
+    masm.move32(Imm32(JSVAL_TAG_CLEAR), scratch);
+    masm.cmp32Move32(Assembler::Below, scratch, out.typeReg(), scratch,
+                     out.typeReg());
+  }
 }
 
 void CodeGenerator::visitUnbox(LUnbox* unbox) {
@@ -1346,6 +1353,14 @@ void CodeGenerator::visitWrapInt64ToInt32(LWrapInt64ToInt32* lir) {
   } else {
     masm.movl(ToRegister(input.high()), output);
   }
+}
+
+void CodeGenerator::visitWasmExtendU32Index(LWasmExtendU32Index*) {
+  MOZ_CRASH("64-bit only");
+}
+
+void CodeGenerator::visitWasmWrapU32Index(LWasmWrapU32Index*) {
+  MOZ_CRASH("64-bit only");
 }
 
 void CodeGenerator::visitClzI64(LClzI64* lir) {

@@ -18,8 +18,7 @@
 // Helper Classes
 #include "nsCOMPtr.h"
 #include "nsWeakReference.h"
-#include "nsDataHashtable.h"
-#include "nsJSThingHashtable.h"
+#include "nsTHashMap.h"
 #include "nsCycleCollectionParticipant.h"
 
 // Interfaces Needed
@@ -51,6 +50,7 @@
 #include "mozilla/dom/ImageBitmapSource.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/dom/BrowsingContext.h"
+#include "X11UndefineNone.h"
 
 class nsDocShell;
 class nsIArray;
@@ -166,7 +166,7 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
                                   public nsIInterfaceRequestor,
                                   public PRCListStr {
  public:
-  typedef nsDataHashtable<nsUint64HashKey, nsGlobalWindowOuter*>
+  typedef nsTHashMap<nsUint64HashKey, nsGlobalWindowOuter*>
       OuterWindowByIdTable;
 
   using PrintPreviewResolver =
@@ -308,7 +308,7 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
   virtual bool IsSuspended() const override;
   virtual bool IsFrozen() const override;
 
-  virtual nsresult FireDelayedDOMEvents() override;
+  virtual nsresult FireDelayedDOMEvents(bool aIncludeSubWindows) override;
 
   // Outer windows only.
   bool WouldReuseInnerWindow(Document* aNewDocument);
@@ -350,6 +350,8 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
   void FullscreenWillChange(bool aIsFullscreen) final;
   void FinishFullscreenChange(bool aIsFullscreen) final;
   void ForceFullScreenInWidget() final;
+  void MacFullscreenMenubarOverlapChanged(
+      mozilla::DesktopCoord aOverlapAmount) final;
   bool SetWidgetFullscreen(FullscreenReason aReason, bool aIsFullscreen,
                            nsIWidget* aWidget, nsIScreen* aScreen);
   bool Fullscreen() const;
@@ -458,10 +460,6 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
   }
 
   bool IsCleanedUp() const { return mCleanedUp; }
-
-  bool HadOriginalOpener() const {
-    return GetBrowsingContext()->HadOriginalOpener();
-  }
 
   virtual void FirePopupBlockedEvent(
       Document* aDoc, nsIURI* aPopupURI, const nsAString& aPopupWindowName,
@@ -895,26 +893,25 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
   nsIntSize CSSToDevIntPixelsForBaseWindow(nsIntSize aCSSSize,
                                            nsIBaseWindow* aWindow);
 
-  virtual void SetFocusedElement(mozilla::dom::Element* aElement,
-                                 uint32_t aFocusMethod = 0,
-                                 bool aNeedsFocus = false) override;
+  void SetFocusedElement(mozilla::dom::Element* aElement,
+                         uint32_t aFocusMethod = 0,
+                         bool aNeedsFocus = false) override;
 
-  virtual uint32_t GetFocusMethod() override;
+  uint32_t GetFocusMethod() override;
 
-  virtual bool ShouldShowFocusRing() override;
+  bool ShouldShowFocusRing() override;
 
-  virtual void SetKeyboardIndicators(
-      UIStateChangeType aShowFocusRings) override;
+  void SetKeyboardIndicators(UIStateChangeType aShowFocusRings) override;
 
  public:
-  virtual already_AddRefed<nsPIWindowRoot> GetTopWindowRoot() override;
+  already_AddRefed<nsPIWindowRoot> GetTopWindowRoot() override;
 
  protected:
   void NotifyWindowIDDestroyed(const char* aTopic);
 
   void ClearStatus();
 
-  virtual void UpdateParentTarget() override;
+  void UpdateParentTarget() override;
 
   void InitializeShowFocusRings();
 
@@ -1072,7 +1069,6 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
   // close us when the JS stops executing or that we have a close
   // event posted.  If this is set, just ignore window.close() calls.
   bool mHavePendingClose : 1;
-  bool mIsPopupSpam : 1;
 
   // Indicates whether scripts are allowed to close this window.
   bool mBlockScriptedClosingFlag : 1;

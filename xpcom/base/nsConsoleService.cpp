@@ -414,9 +414,10 @@ nsresult nsConsoleService::LogMessageWithMode(
 void nsConsoleService::CollectCurrentListeners(
     nsCOMArray<nsIConsoleListener>& aListeners) {
   MutexAutoLock lock(mLock);
-  for (auto iter = mListeners.Iter(); !iter.Done(); iter.Next()) {
-    nsIConsoleListener* value = iter.UserData();
-    aListeners.AppendObject(value);
+  // XXX When MakeBackInserter(nsCOMArray<T>&) is added, we can do:
+  // AppendToArray(aListeners, mListeners.Values());
+  for (const auto& listener : mListeners.Values()) {
+    aListeners.AppendObject(listener);
   }
 }
 
@@ -460,14 +461,17 @@ nsConsoleService::RegisterListener(nsIConsoleListener* aListener) {
   }
 
   nsCOMPtr<nsISupports> canonical = do_QueryInterface(aListener);
+  MOZ_ASSERT(canonical);
 
   MutexAutoLock lock(mLock);
-  if (mListeners.GetWeak(canonical)) {
-    // Reregistering a listener isn't good
-    return NS_ERROR_FAILURE;
-  }
-  mListeners.Put(canonical, aListener);
-  return NS_OK;
+  return mListeners.WithEntryHandle(canonical, [&](auto&& entry) {
+    if (entry) {
+      // Reregistering a listener isn't good
+      return NS_ERROR_FAILURE;
+    }
+    entry.Insert(aListener);
+    return NS_OK;
+  });
 }
 
 NS_IMETHODIMP
@@ -481,12 +485,10 @@ nsConsoleService::UnregisterListener(nsIConsoleListener* aListener) {
 
   MutexAutoLock lock(mLock);
 
-  if (!mListeners.GetWeak(canonical)) {
-    // Unregistering a listener that was never registered?
-    return NS_ERROR_FAILURE;
-  }
-  mListeners.Remove(canonical);
-  return NS_OK;
+  return mListeners.Remove(canonical)
+             ? NS_OK
+             // Unregistering a listener that was never registered?
+             : NS_ERROR_FAILURE;
 }
 
 NS_IMETHODIMP

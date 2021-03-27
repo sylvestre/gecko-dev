@@ -12,6 +12,7 @@
 #include "HttpTransactionChild.h"
 #include "HttpConnectionMgrChild.h"
 #include "mozilla/Assertions.h"
+#include "mozilla/Components.h"
 #include "mozilla/dom/MemoryReportRequest.h"
 #include "mozilla/ipc/CrashReporterClient.h"
 #include "mozilla/ipc/BackgroundChild.h"
@@ -174,10 +175,9 @@ void SocketProcessChild::ActorDestroy(ActorDestroyReason aWhy) {
 void SocketProcessChild::CleanUp() {
   LOG(("SocketProcessChild::CleanUp\n"));
 
-  for (auto iter = mSocketProcessBridgeParentMap.Iter(); !iter.Done();
-       iter.Next()) {
-    if (!iter.Data()->Closed()) {
-      iter.Data()->Close();
+  for (const auto& parent : mSocketProcessBridgeParentMap.Values()) {
+    if (!parent->Closed()) {
+      parent->Close();
     }
   }
 
@@ -258,9 +258,9 @@ mozilla::ipc::IPCResult SocketProcessChild::RecvInitSocketProcessBridgeParent(
     const ProcessId& aContentProcessId,
     Endpoint<mozilla::net::PSocketProcessBridgeParent>&& aEndpoint) {
   MOZ_ASSERT(NS_IsMainThread());
-  MOZ_ASSERT(!mSocketProcessBridgeParentMap.Get(aContentProcessId, nullptr));
+  MOZ_ASSERT(!mSocketProcessBridgeParentMap.Contains(aContentProcessId));
 
-  mSocketProcessBridgeParentMap.Put(
+  mSocketProcessBridgeParentMap.InsertOrUpdate(
       aContentProcessId, MakeRefPtr<SocketProcessBridgeParent>(
                              aContentProcessId, std::move(aEndpoint)));
   return IPC_OK();
@@ -381,7 +381,7 @@ mozilla::ipc::IPCResult
 SocketProcessChild::RecvOnHttpActivityDistributorActivated(
     const bool& aIsActivated) {
   if (nsCOMPtr<nsIHttpActivityObserver> distributor =
-          services::GetHttpActivityDistributor()) {
+          components::HttpActivityDistributor::Service()) {
     distributor->SetIsActive(aIsActivated);
   }
   return IPC_OK();
@@ -428,7 +428,7 @@ void SocketProcessChild::AddDataBridgeToMap(
     uint64_t aChannelId, BackgroundDataBridgeParent* aActor) {
   ipc::AssertIsOnBackgroundThread();
   MutexAutoLock lock(mMutex);
-  mBackgroundDataBridgeMap.Put(aChannelId, aActor);
+  mBackgroundDataBridgeMap.InsertOrUpdate(aChannelId, RefPtr{aActor});
 }
 
 void SocketProcessChild::RemoveDataBridgeFromMap(uint64_t aChannelId) {
@@ -440,7 +440,7 @@ void SocketProcessChild::RemoveDataBridgeFromMap(uint64_t aChannelId) {
 Maybe<RefPtr<BackgroundDataBridgeParent>>
 SocketProcessChild::GetAndRemoveDataBridge(uint64_t aChannelId) {
   MutexAutoLock lock(mMutex);
-  return mBackgroundDataBridgeMap.GetAndRemove(aChannelId);
+  return mBackgroundDataBridgeMap.Extract(aChannelId);
 }
 
 mozilla::ipc::IPCResult SocketProcessChild::RecvClearSessionCache() {

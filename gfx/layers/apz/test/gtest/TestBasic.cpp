@@ -349,7 +349,7 @@ TEST_F(APZCBasicTester, OverScroll_Bug1152051b) {
   // in other ways.
   APZEventResult result = TouchDown(apzc, ScreenIntPoint(10, 10), mcc->Time());
   if (StaticPrefs::layout_css_touch_action_enabled() &&
-      result.mStatus != nsEventStatus_eConsumeNoDefault) {
+      result.GetStatus() != nsEventStatus_eConsumeNoDefault) {
     SetDefaultAllowedTouchBehavior(apzc, result.mInputBlockId);
   }
   TouchUp(apzc, ScreenIntPoint(10, 10), mcc->Time());
@@ -497,6 +497,198 @@ TEST_F(APZCBasicTester, ResumeInterruptedTouchDrag_Bug1592435) {
 }
 #endif
 
+#ifndef MOZ_WIDGET_ANDROID  // Maybe fails on Android
+TEST_F(APZCBasicTester, OverscrollByVerticalPanGestures) {
+  SCOPED_GFX_PREF_BOOL("apz.overscroll.enabled", true);
+
+  PanGesture(PanGestureInput::PANGESTURE_START, apzc, ScreenIntPoint(50, 80),
+             ScreenPoint(0, -2), mcc->Time());
+  mcc->AdvanceByMillis(5);
+  apzc->AdvanceAnimations(mcc->GetSampleTime());
+  PanGesture(PanGestureInput::PANGESTURE_PAN, apzc, ScreenIntPoint(50, 80),
+             ScreenPoint(0, -10), mcc->Time());
+  mcc->AdvanceByMillis(5);
+  apzc->AdvanceAnimations(mcc->GetSampleTime());
+  PanGesture(PanGestureInput::PANGESTURE_PAN, apzc, ScreenIntPoint(50, 80),
+             ScreenPoint(0, -2), mcc->Time());
+  mcc->AdvanceByMillis(5);
+  apzc->AdvanceAnimations(mcc->GetSampleTime());
+  PanGesture(PanGestureInput::PANGESTURE_END, apzc, ScreenIntPoint(50, 80),
+             ScreenPoint(0, 0), mcc->Time());
+
+  EXPECT_TRUE(apzc->IsOverscrolled());
+
+  // Check that we recover from overscroll via an animation.
+  ParentLayerPoint expectedScrollOffset(0, 0);
+  SampleAnimationUntilRecoveredFromOverscroll(expectedScrollOffset);
+}
+#endif
+
+#ifndef MOZ_WIDGET_ANDROID  // Currently fails on Android
+TEST_F(APZCBasicTester, OverscrollByVerticalAndHorizontalPanGestures) {
+  SCOPED_GFX_PREF_BOOL("apz.overscroll.enabled", true);
+
+  PanGesture(PanGestureInput::PANGESTURE_START, apzc, ScreenIntPoint(50, 80),
+             ScreenPoint(0, -2), mcc->Time());
+  mcc->AdvanceByMillis(5);
+  apzc->AdvanceAnimations(mcc->GetSampleTime());
+  PanGesture(PanGestureInput::PANGESTURE_PAN, apzc, ScreenIntPoint(50, 80),
+             ScreenPoint(0, -10), mcc->Time());
+  mcc->AdvanceByMillis(5);
+  apzc->AdvanceAnimations(mcc->GetSampleTime());
+  PanGesture(PanGestureInput::PANGESTURE_PAN, apzc, ScreenIntPoint(50, 80),
+             ScreenPoint(0, -2), mcc->Time());
+
+  mcc->AdvanceByMillis(5);
+  apzc->AdvanceAnimations(mcc->GetSampleTime());
+  PanGesture(PanGestureInput::PANGESTURE_PAN, apzc, ScreenIntPoint(50, 80),
+             ScreenPoint(-10, 0), mcc->Time());
+  mcc->AdvanceByMillis(5);
+  apzc->AdvanceAnimations(mcc->GetSampleTime());
+  PanGesture(PanGestureInput::PANGESTURE_PAN, apzc, ScreenIntPoint(50, 80),
+             ScreenPoint(-2, 0), mcc->Time());
+
+  mcc->AdvanceByMillis(5);
+  apzc->AdvanceAnimations(mcc->GetSampleTime());
+  PanGesture(PanGestureInput::PANGESTURE_END, apzc, ScreenIntPoint(50, 80),
+             ScreenPoint(0, 0), mcc->Time());
+
+  EXPECT_TRUE(apzc->IsOverscrolled());
+
+  // Check that we recover from overscroll via an animation.
+  ParentLayerPoint expectedScrollOffset(0, 0);
+  SampleAnimationUntilRecoveredFromOverscroll(expectedScrollOffset);
+}
+#endif
+
+#ifndef MOZ_WIDGET_ANDROID  // Currently fails on Android
+TEST_F(APZCBasicTester, OverscrollByPanMomentumGestures) {
+  SCOPED_GFX_PREF_BOOL("apz.overscroll.enabled", true);
+
+  PanGesture(PanGestureInput::PANGESTURE_START, apzc, ScreenIntPoint(50, 80),
+             ScreenPoint(0, 2), mcc->Time());
+  mcc->AdvanceByMillis(5);
+  apzc->AdvanceAnimations(mcc->GetSampleTime());
+  PanGesture(PanGestureInput::PANGESTURE_PAN, apzc, ScreenIntPoint(50, 80),
+             ScreenPoint(0, 10), mcc->Time());
+  mcc->AdvanceByMillis(5);
+  apzc->AdvanceAnimations(mcc->GetSampleTime());
+  PanGesture(PanGestureInput::PANGESTURE_PAN, apzc, ScreenIntPoint(50, 80),
+             ScreenPoint(0, 2), mcc->Time());
+  mcc->AdvanceByMillis(5);
+  apzc->AdvanceAnimations(mcc->GetSampleTime());
+  PanGesture(PanGestureInput::PANGESTURE_END, apzc, ScreenIntPoint(50, 80),
+             ScreenPoint(0, 0), mcc->Time());
+
+  // Make sure we are not yet in overscrolled region.
+  EXPECT_TRUE(!apzc->IsOverscrolled());
+
+  mcc->AdvanceByMillis(5);
+  apzc->AdvanceAnimations(mcc->GetSampleTime());
+  PanGesture(PanGestureInput::PANGESTURE_MOMENTUMSTART, apzc,
+             ScreenIntPoint(50, 80), ScreenPoint(0, 0), mcc->Time());
+  mcc->AdvanceByMillis(5);
+  apzc->AdvanceAnimations(mcc->GetSampleTime());
+  PanGesture(PanGestureInput::PANGESTURE_MOMENTUMPAN, apzc,
+             ScreenIntPoint(50, 80), ScreenPoint(0, 200), mcc->Time());
+  mcc->AdvanceByMillis(5);
+  apzc->AdvanceAnimations(mcc->GetSampleTime());
+  PanGesture(PanGestureInput::PANGESTURE_MOMENTUMPAN, apzc,
+             ScreenIntPoint(50, 80), ScreenPoint(0, 100), mcc->Time());
+  mcc->AdvanceByMillis(5);
+  apzc->AdvanceAnimations(mcc->GetSampleTime());
+  PanGesture(PanGestureInput::PANGESTURE_MOMENTUMPAN, apzc,
+             ScreenIntPoint(50, 80), ScreenPoint(0, 2), mcc->Time());
+  mcc->AdvanceByMillis(5);
+  apzc->AdvanceAnimations(mcc->GetSampleTime());
+  PanGesture(PanGestureInput::PANGESTURE_MOMENTUMEND, apzc,
+             ScreenIntPoint(50, 80), ScreenPoint(0, 0), mcc->Time());
+
+  EXPECT_TRUE(apzc->IsOverscrolled());
+
+  // Check that we recover from overscroll via an animation.
+  ParentLayerPoint expectedScrollOffset(0, GetScrollRange().YMost());
+  SampleAnimationUntilRecoveredFromOverscroll(expectedScrollOffset);
+}
+#endif
+
+#ifndef MOZ_WIDGET_ANDROID  // Currently fails on Android
+TEST_F(APZCBasicTester, IgnoreMomemtumDuringOverscroll) {
+  SCOPED_GFX_PREF_BOOL("apz.overscroll.enabled", true);
+
+  float yMost = GetScrollRange().YMost();
+  PanGesture(PanGestureInput::PANGESTURE_START, apzc, ScreenIntPoint(50, 80),
+             ScreenPoint(0, yMost / 10), mcc->Time());
+  mcc->AdvanceByMillis(5);
+  apzc->AdvanceAnimations(mcc->GetSampleTime());
+  PanGesture(PanGestureInput::PANGESTURE_PAN, apzc, ScreenIntPoint(50, 80),
+             ScreenPoint(0, yMost), mcc->Time());
+  mcc->AdvanceByMillis(5);
+  apzc->AdvanceAnimations(mcc->GetSampleTime());
+  PanGesture(PanGestureInput::PANGESTURE_PAN, apzc, ScreenIntPoint(50, 80),
+             ScreenPoint(0, yMost / 10), mcc->Time());
+  mcc->AdvanceByMillis(5);
+  apzc->AdvanceAnimations(mcc->GetSampleTime());
+  PanGesture(PanGestureInput::PANGESTURE_END, apzc, ScreenIntPoint(50, 80),
+             ScreenPoint(0, 0), mcc->Time());
+
+  // Make sure we've started an overscroll animation.
+  EXPECT_TRUE(apzc->IsOverscrolled());
+  EXPECT_TRUE(apzc->IsOverscrollAnimationRunning());
+
+  // And check the overscrolled transform value before/after calling PanGesture
+  // to make sure the overscroll amount isn't affected by momentum events.
+  mcc->AdvanceByMillis(5);
+  apzc->AdvanceAnimations(mcc->GetSampleTime());
+  AsyncTransformComponentMatrix overscrolledTransform =
+      apzc->GetOverscrollTransform(AsyncPanZoomController::eForHitTesting);
+  PanGesture(PanGestureInput::PANGESTURE_MOMENTUMSTART, apzc,
+             ScreenIntPoint(50, 80), ScreenPoint(0, 0), mcc->Time());
+  EXPECT_EQ(overscrolledTransform, apzc->GetOverscrollTransform(
+                                       AsyncPanZoomController::eForHitTesting));
+
+  mcc->AdvanceByMillis(5);
+  apzc->AdvanceAnimations(mcc->GetSampleTime());
+  overscrolledTransform =
+      apzc->GetOverscrollTransform(AsyncPanZoomController::eForHitTesting);
+  PanGesture(PanGestureInput::PANGESTURE_MOMENTUMPAN, apzc,
+             ScreenIntPoint(50, 80), ScreenPoint(0, 200), mcc->Time());
+  EXPECT_EQ(overscrolledTransform, apzc->GetOverscrollTransform(
+                                       AsyncPanZoomController::eForHitTesting));
+
+  mcc->AdvanceByMillis(5);
+  apzc->AdvanceAnimations(mcc->GetSampleTime());
+  overscrolledTransform =
+      apzc->GetOverscrollTransform(AsyncPanZoomController::eForHitTesting);
+  PanGesture(PanGestureInput::PANGESTURE_MOMENTUMPAN, apzc,
+             ScreenIntPoint(50, 80), ScreenPoint(0, 100), mcc->Time());
+  EXPECT_EQ(overscrolledTransform, apzc->GetOverscrollTransform(
+                                       AsyncPanZoomController::eForHitTesting));
+
+  mcc->AdvanceByMillis(5);
+  apzc->AdvanceAnimations(mcc->GetSampleTime());
+  overscrolledTransform =
+      apzc->GetOverscrollTransform(AsyncPanZoomController::eForHitTesting);
+  PanGesture(PanGestureInput::PANGESTURE_MOMENTUMPAN, apzc,
+             ScreenIntPoint(50, 80), ScreenPoint(0, 2), mcc->Time());
+  EXPECT_EQ(overscrolledTransform, apzc->GetOverscrollTransform(
+                                       AsyncPanZoomController::eForHitTesting));
+
+  mcc->AdvanceByMillis(5);
+  apzc->AdvanceAnimations(mcc->GetSampleTime());
+  overscrolledTransform =
+      apzc->GetOverscrollTransform(AsyncPanZoomController::eForHitTesting);
+  PanGesture(PanGestureInput::PANGESTURE_MOMENTUMEND, apzc,
+             ScreenIntPoint(50, 80), ScreenPoint(0, 0), mcc->Time());
+  EXPECT_EQ(overscrolledTransform, apzc->GetOverscrollTransform(
+                                       AsyncPanZoomController::eForHitTesting));
+
+  // Check that we've recovered from overscroll via an animation.
+  ParentLayerPoint expectedScrollOffset(0, GetScrollRange().YMost());
+  SampleAnimationUntilRecoveredFromOverscroll(expectedScrollOffset);
+}
+#endif
+
 TEST_F(APZCBasicTester, RelativeScrollOffset) {
   // Set up initial conditions: zoomed in, layout offset at (100, 100),
   // visual offset at (120, 120); the relative offset is therefore (20, 20).
@@ -527,4 +719,82 @@ TEST_F(APZCBasicTester, RelativeScrollOffset) {
   metrics = apzc->GetFrameMetrics();
   EXPECT_EQ(metrics.GetLayoutScrollOffset(), CSSPoint(200, 200));
   EXPECT_EQ(metrics.GetVisualScrollOffset(), CSSPoint(220, 220));
+}
+
+TEST_F(APZCBasicTester, MultipleSmoothScrollsSmooth) {
+  // We want to test that if we send multiple smooth scroll requests that we
+  // still smoothly animate, ie that we get non-zero change every frame while
+  // the animation is running.
+
+  ScrollMetadata metadata;
+  FrameMetrics& metrics = metadata.GetMetrics();
+  metrics.SetScrollableRect(CSSRect(0, 0, 100, 10000));
+  metrics.SetLayoutViewport(CSSRect(0, 0, 100, 100));
+  metrics.SetZoom(CSSToParentLayerScale2D(1.0, 1.0));
+  metrics.SetCompositionBounds(ParentLayerRect(0, 0, 100, 100));
+  metrics.SetVisualScrollOffset(CSSPoint(0, 0));
+  metrics.SetIsRootContent(true);
+  apzc->SetFrameMetrics(metrics);
+
+  // Structure of this test.
+  //   -send a pure relative smooth scroll request via NotifyLayersUpdated
+  //   -advance animations a few times, check that scroll offset is increasing
+  //    after the first few advances
+  //   -send a pure relative smooth scroll request via NotifyLayersUpdated
+  //   -advance animations a few times, check that scroll offset is increasing
+  //   -send a pure relative smooth scroll request via NotifyLayersUpdated
+  //   -advance animations a few times, check that scroll offset is increasing
+
+  ScrollMetadata metadata2 = metadata;
+  nsTArray<ScrollPositionUpdate> scrollUpdates2;
+  scrollUpdates2.AppendElement(ScrollPositionUpdate::NewPureRelativeScroll(
+      ScrollOrigin::Other, ScrollMode::Smooth,
+      CSSPoint::ToAppUnits(CSSPoint(0, 200))));
+  metadata2.SetScrollUpdates(scrollUpdates2);
+  metadata2.GetMetrics().SetScrollGeneration(
+      scrollUpdates2.LastElement().GetGeneration());
+  apzc->NotifyLayersUpdated(metadata2, /*isFirstPaint=*/false,
+                            /*thisLayerTreeUpdated=*/true);
+
+  // Get the animation going
+  for (uint32_t i = 0; i < 3; i++) {
+    SampleAnimationOneFrame();
+  }
+
+  float offset =
+      apzc->GetCurrentAsyncScrollOffset(AsyncPanZoomController::eForCompositing)
+          .y;
+  ASSERT_GT(offset, 0);
+  float lastOffset = offset;
+
+  for (uint32_t i = 0; i < 2; i++) {
+    for (uint32_t j = 0; j < 3; j++) {
+      SampleAnimationOneFrame();
+      offset = apzc->GetCurrentAsyncScrollOffset(
+                       AsyncPanZoomController::eForCompositing)
+                   .y;
+      ASSERT_GT(offset, lastOffset);
+      lastOffset = offset;
+    }
+
+    ScrollMetadata metadata3 = metadata;
+    nsTArray<ScrollPositionUpdate> scrollUpdates3;
+    scrollUpdates3.AppendElement(ScrollPositionUpdate::NewPureRelativeScroll(
+        ScrollOrigin::Other, ScrollMode::Smooth,
+        CSSPoint::ToAppUnits(CSSPoint(0, 200))));
+    metadata3.SetScrollUpdates(scrollUpdates3);
+    metadata3.GetMetrics().SetScrollGeneration(
+        scrollUpdates3.LastElement().GetGeneration());
+    apzc->NotifyLayersUpdated(metadata3, /*isFirstPaint=*/false,
+                              /*thisLayerTreeUpdated=*/true);
+  }
+
+  for (uint32_t j = 0; j < 7; j++) {
+    SampleAnimationOneFrame();
+    offset = apzc->GetCurrentAsyncScrollOffset(
+                     AsyncPanZoomController::eForCompositing)
+                 .y;
+    ASSERT_GT(offset, lastOffset);
+    lastOffset = offset;
+  }
 }

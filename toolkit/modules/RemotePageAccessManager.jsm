@@ -63,6 +63,9 @@ let RemotePageAccessManager = {
     "about:httpsonlyerror": {
       RPMGetFormatURLPref: ["app.support.baseURL"],
       RPMSendAsyncMessage: ["goBack", "openInsecure"],
+      RPMAddMessageListener: ["WWWReachable"],
+      RPMTryPingSecureWWWLink: ["*"],
+      RPMOpenSecureWWWLink: ["*"],
     },
     "about:certificate": {
       RPMSendQuery: ["getCertificates"],
@@ -87,6 +90,7 @@ let RemotePageAccessManager = {
         "security.certerrors.tls.version.show-override",
         "security.xfocsp.errorReporting.automatic",
         "security.xfocsp.errorReporting.enabled",
+        "browser.proton.enabled",
       ],
       RPMSetBoolPref: [
         "security.tls.version.enable-deprecated",
@@ -121,7 +125,11 @@ let RemotePageAccessManager = {
         "OpenSearchPreferences",
         "SearchHandoff",
       ],
-      RPMSendQuery: ["ShouldShowSearchBanner", "ShouldShowVPNPromo"],
+      RPMSendQuery: [
+        "ShouldShowSearch",
+        "ShouldShowSearchBanner",
+        "ShouldShowVPNPromo",
+      ],
       RPMAddMessageListener: ["*"],
       RPMRemoveMessageListener: ["*"],
       RPMGetFormatURLPref: [

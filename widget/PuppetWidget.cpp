@@ -268,10 +268,10 @@ void PuppetWidget::Invalidate(const LayoutDeviceIntRect& aRect) {
     return;
   }
 
-  if (mBrowserChild && !aRect.IsEmpty()) {
-    if (RefPtr<nsRefreshDriver> refreshDriver = GetTopLevelRefreshDriver()) {
-      refreshDriver->ScheduleViewManagerFlush();
-    }
+  if (mBrowserChild && !aRect.IsEmpty() && !mWidgetPaintTask.IsPending()) {
+    mWidgetPaintTask = new WidgetPaintTask(this);
+    nsCOMPtr<nsIRunnable> event(mWidgetPaintTask.get());
+    SchedulerGroup::Dispatch(TaskCategory::Other, event.forget());
   }
 }
 
@@ -427,14 +427,17 @@ nsresult PuppetWidget::SynthesizeNativeKeyEvent(
 }
 
 nsresult PuppetWidget::SynthesizeNativeMouseEvent(
-    mozilla::LayoutDeviceIntPoint aPoint, uint32_t aNativeMessage,
-    uint32_t aModifierFlags, nsIObserver* aObserver) {
+    mozilla::LayoutDeviceIntPoint aPoint, NativeMouseMessage aNativeMessage,
+    MouseButton aButton, nsIWidget::Modifiers aModifierFlags,
+    nsIObserver* aObserver) {
   AutoObserverNotifier notifier(aObserver, "mouseevent");
   if (!mBrowserChild) {
     return NS_ERROR_FAILURE;
   }
   mBrowserChild->SendSynthesizeNativeMouseEvent(
-      aPoint, aNativeMessage, aModifierFlags, notifier.SaveObserver());
+      aPoint, static_cast<uint32_t>(aNativeMessage),
+      static_cast<int16_t>(aButton), static_cast<uint32_t>(aModifierFlags),
+      notifier.SaveObserver());
   return NS_OK;
 }
 
@@ -476,6 +479,17 @@ nsresult PuppetWidget::SynthesizeNativeTouchPoint(
   return NS_OK;
 }
 
+nsresult PuppetWidget::SynthesizeNativeTouchPadPinch(
+    TouchpadPinchPhase aEventPhase, float aScale, LayoutDeviceIntPoint aPoint,
+    int32_t aModifierFlags) {
+  if (!mBrowserChild) {
+    return NS_ERROR_FAILURE;
+  }
+  mBrowserChild->SendSynthesizeNativeTouchPadPinch(aEventPhase, aScale, aPoint,
+                                                   aModifierFlags);
+  return NS_OK;
+}
+
 nsresult PuppetWidget::SynthesizeNativeTouchTap(LayoutDeviceIntPoint aPoint,
                                                 bool aLongTap,
                                                 nsIObserver* aObserver) {
@@ -494,6 +508,29 @@ nsresult PuppetWidget::ClearNativeTouchSequence(nsIObserver* aObserver) {
     return NS_ERROR_FAILURE;
   }
   mBrowserChild->SendClearNativeTouchSequence(notifier.SaveObserver());
+  return NS_OK;
+}
+
+nsresult PuppetWidget::SynthesizeNativePenInput(
+    uint32_t aPointerId, TouchPointerState aPointerState,
+    LayoutDeviceIntPoint aPoint, double aPressure, uint32_t aRotation,
+    int32_t aTiltX, int32_t aTiltY, nsIObserver* aObserver) {
+  AutoObserverNotifier notifier(aObserver, "peninput");
+  if (!mBrowserChild) {
+    return NS_ERROR_FAILURE;
+  }
+  mBrowserChild->SendSynthesizeNativePenInput(aPointerId, aPointerState, aPoint,
+                                              aPressure, aRotation, aTiltX,
+                                              aTiltY, notifier.SaveObserver());
+  return NS_OK;
+}
+
+nsresult PuppetWidget::SynthesizeNativeTouchpadDoubleTap(
+    LayoutDeviceIntPoint aPoint, uint32_t aModifierFlags) {
+  if (!mBrowserChild) {
+    return NS_ERROR_FAILURE;
+  }
+  mBrowserChild->SendSynthesizeNativeTouchpadDoubleTap(aPoint, aModifierFlags);
   return NS_OK;
 }
 
@@ -926,11 +963,31 @@ void PuppetWidget::SetChild(PuppetWidget* aChild) {
   mChild = aChild;
 }
 
+NS_IMETHODIMP
+PuppetWidget::WidgetPaintTask::Run() {
+  if (mWidget) {
+    mWidget->Paint();
+  }
+  return NS_OK;
+}
+
+void PuppetWidget::Paint() {
+  if (!GetCurrentWidgetListener()) return;
+
+  mWidgetPaintTask.Revoke();
+
+  RefPtr<PuppetWidget> strongThis(this);
+
+  GetCurrentWidgetListener()->WillPaintWindow(this);
+
+  if (GetCurrentWidgetListener()) {
+    GetCurrentWidgetListener()->DidPaintWindow();
+  }
+}
+
 void PuppetWidget::PaintNowIfNeeded() {
-  if (IsVisible()) {
-    if (RefPtr<nsRefreshDriver> refreshDriver = GetTopLevelRefreshDriver()) {
-      refreshDriver->DoTick();
-    }
+  if (IsVisible() && mWidgetPaintTask.IsPending()) {
+    Paint();
   }
 }
 

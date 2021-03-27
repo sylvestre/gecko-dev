@@ -96,9 +96,9 @@ add_task(async function bookmark() {
     // Open the panel.
     await promisePageActionPanelOpen();
 
-    // The bookmark button should read "Bookmark This Page" and not be starred.
+    // The bookmark button should read "Bookmark Current Tab" and not be starred.
     let bookmarkButton = document.getElementById("pageAction-panel-bookmark");
-    Assert.equal(bookmarkButton.label, "Bookmark This Page");
+    Assert.equal(bookmarkButton.label, "Bookmark Current Tab");
     Assert.ok(!bookmarkButton.hasAttribute("starred"));
 
     // Click the button.
@@ -162,8 +162,8 @@ add_task(async function bookmark() {
     // Open the panel again.
     await promisePageActionPanelOpen();
 
-    // The bookmark button should read "Bookmark This Page" and not be starred.
-    Assert.equal(bookmarkButton.label, "Bookmark This Page");
+    // The bookmark button should read "Bookmark Current Tab" and not be starred.
+    Assert.equal(bookmarkButton.label, "Bookmark Current Tab");
     Assert.ok(!bookmarkButton.hasAttribute("starred"));
 
     // Done.
@@ -363,7 +363,7 @@ add_task(async function sendToDevice_syncNotReady_other_states() {
     sandbox
       .stub(UIState, "get")
       .returns({ status: UIState.STATUS_NOT_VERIFIED });
-    sandbox.stub(gSync, "isSendableURI").returns(true);
+    sandbox.stub(BrowserUtils, "isShareableURL").returns(true);
 
     let cleanUp = () => {
       sandbox.restore();
@@ -422,7 +422,7 @@ add_task(async function sendToDevice_syncNotReady_configured() {
       .stub(fxAccounts.device, "recentDeviceList")
       .get(() => null);
     sandbox.stub(UIState, "get").returns({ status: UIState.STATUS_SIGNED_IN });
-    sandbox.stub(gSync, "isSendableURI").returns(true);
+    sandbox.stub(BrowserUtils, "isShareableURL").returns(true);
 
     sandbox.stub(fxAccounts.device, "refreshDeviceList").callsFake(() => {
       recentDeviceList.get(() =>
@@ -585,7 +585,7 @@ add_task(async function sendToDevice_noDevices() {
     const sandbox = sinon.createSandbox();
     sandbox.stub(fxAccounts.device, "recentDeviceList").get(() => []);
     sandbox.stub(UIState, "get").returns({ status: UIState.STATUS_SIGNED_IN });
-    sandbox.stub(gSync, "isSendableURI").returns(true);
+    sandbox.stub(BrowserUtils, "isShareableURL").returns(true);
     sandbox.stub(fxAccounts.device, "refreshDeviceList").resolves(true);
     sandbox
       .stub(Weave.Service.clientsEngine, "getClientByFxaDeviceId")
@@ -665,7 +665,7 @@ add_task(async function sendToDevice_devices() {
       .stub(fxAccounts.device, "recentDeviceList")
       .get(() => mockTargets.map(({ id, name, type }) => ({ id, name, type })));
     sandbox.stub(UIState, "get").returns({ status: UIState.STATUS_SIGNED_IN });
-    sandbox.stub(gSync, "isSendableURI").returns(true);
+    sandbox.stub(BrowserUtils, "isShareableURL").returns(true);
     sandbox
       .stub(fxAccounts.commands.sendTab, "isDeviceCompatible")
       .returns(true);
@@ -772,7 +772,7 @@ add_task(async function sendTabToDevice_syncEnabled() {
     sandbox
       .stub(UIState, "get")
       .returns({ status: UIState.STATUS_SIGNED_IN, syncEnabled: true });
-    sandbox.stub(gSync, "isSendableURI").returns(true);
+    sandbox.stub(BrowserUtils, "isShareableURL").returns(true);
     sandbox.spy(fxAccounts.device, "refreshDeviceList");
     sandbox.spy(Weave.Service, "sync");
     sandbox
@@ -857,7 +857,7 @@ add_task(async function sendToDevice_title() {
         sandbox
           .stub(UIState, "get")
           .returns({ status: UIState.STATUS_SIGNED_IN });
-        sandbox.stub(gSync, "isSendableURI").returns(true);
+        sandbox.stub(BrowserUtils, "isShareableURL").returns(true);
         sandbox.stub(fxAccounts.device, "refreshDeviceList").resolves(true);
         sandbox
           .stub(Weave.Service.clientsEngine, "getClientByFxaDeviceId")
@@ -926,7 +926,7 @@ add_task(async function sendToDevice_inUrlbar() {
       .stub(fxAccounts.device, "recentDeviceList")
       .get(() => mockTargets.map(({ id, name, type }) => ({ id, name, type })));
     sandbox.stub(UIState, "get").returns({ status: UIState.STATUS_SIGNED_IN });
-    sandbox.stub(gSync, "isSendableURI").returns(true);
+    sandbox.stub(BrowserUtils, "isShareableURL").returns(true);
     sandbox
       .stub(fxAccounts.commands.sendTab, "isDeviceCompatible")
       .returns(true);

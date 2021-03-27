@@ -369,19 +369,6 @@ static const struct EVInfo kEVInfos[] = {
     "Ag==",
   },
   {
-    // CN=Chambers of Commerce Root - 2008,O=AC Camerfirma S.A.,serialNumber=A82743287,L=Madrid (see current address at www.camerfirma.com/address),C=EU
-    "1.3.6.1.4.1.17326.10.14.2.1.2",
-    "Camerfirma EV OID a",
-    { 0x06, 0x3E, 0x4A, 0xFA, 0xC4, 0x91, 0xDF, 0xD3, 0x32, 0xF3, 0x08,
-      0x9B, 0x85, 0x42, 0xE9, 0x46, 0x17, 0xD8, 0x93, 0xD7, 0xFE, 0x94,
-      0x4E, 0x10, 0xA7, 0x93, 0x7E, 0xE2, 0x9D, 0x96, 0x93, 0xC0 },
-    "MIGuMQswCQYDVQQGEwJFVTFDMEEGA1UEBxM6TWFkcmlkIChzZWUgY3VycmVudCBh"
-    "ZGRyZXNzIGF0IHd3dy5jYW1lcmZpcm1hLmNvbS9hZGRyZXNzKTESMBAGA1UEBRMJ"
-    "QTgyNzQzMjg3MRswGQYDVQQKExJBQyBDYW1lcmZpcm1hIFMuQS4xKTAnBgNVBAMT"
-    "IENoYW1iZXJzIG9mIENvbW1lcmNlIFJvb3QgLSAyMDA4",
-    "AKPaQn6ksa7a",
-  },
-  {
     // CN=AffirmTrust Commercial,O=AffirmTrust,C=US
     "1.3.6.1.4.1.34697.2.1",
     "AffirmTrust EV OID a",
@@ -983,6 +970,34 @@ static const struct EVInfo kEVInfos[] = {
     "AxMxVHJ1c3R3YXZlIEdsb2JhbCBFQ0MgUDM4NCBDZXJ0aWZpY2F0aW9uIEF1dGhv"
     "cml0eQ==",
     "CL2Fl2yZJ6SAaEc7",
+  },
+  {
+    // CN=GlobalSign Root R46,O=GlobalSign nv-sa,C=BE
+    "2.23.140.1.1",
+    "CA/Browser Forum EV OID",
+    { 0x4F, 0xA3, 0x12, 0x6D, 0x8D, 0x3A, 0x11, 0xD1, 0xC4, 0x85, 0x5A, 0x4F, 0x80, 0x7C, 0xBA, 0xD6, 0xCF, 0x91, 0x9D, 0x3A, 0x5A, 0x88, 0xB0, 0x3B, 0xEA, 0x2C, 0x63, 0x72, 0xD9, 0x3C, 0x40, 0xC9 },
+    "MEYxCzAJBgNVBAYTAkJFMRkwFwYDVQQKExBHbG9iYWxTaWduIG52LXNhMRwwGgYD"
+    "VQQDExNHbG9iYWxTaWduIFJvb3QgUjQ2",
+    "EdK7udcjGJ5AXwqdLdDfJWfR",
+  },
+  {
+    // CN=GlobalSign Root E46,O=GlobalSign nv-sa,C=BE
+    "2.23.140.1.1",
+    "CA/Browser Forum EV OID",
+    { 0xCB, 0xB9, 0xC4, 0x4D, 0x84, 0xB8, 0x04, 0x3E, 0x10, 0x50, 0xEA, 0x31, 0xA6, 0x9F, 0x51, 0x49, 0x55, 0xD7, 0xBF, 0xD2, 0xE2, 0xC6, 0xB4, 0x93, 0x01, 0x01, 0x9A, 0xD6, 0x1D, 0x9F, 0x50, 0x58 },
+    "MEYxCzAJBgNVBAYTAkJFMRkwFwYDVQQKExBHbG9iYWxTaWduIG52LXNhMRwwGgYD"
+    "VQQDExNHbG9iYWxTaWduIFJvb3QgRTQ2",
+    "EdK7ujNu1LzmJGjFDYQdmOhD",
+  },
+  {
+    // "CN=AC RAIZ FNMT-RCM SERVIDORES SEGUROS,OID.2.5.4.97=VATES-Q2826004J,OU=Ceres,O=FNMT-RCM,C=E
+    "2.23.140.1.1",
+    "CA/Browser Forum EV OID",
+    { 0x55, 0x41, 0x53, 0xB1, 0x3D, 0x2C, 0xF9, 0xDD, 0xB7, 0x53, 0xBF, 0xBE, 0x1A, 0x4E, 0x0A, 0xE0, 0x8D, 0x0A, 0xA4, 0x18, 0x70, 0x58, 0xFE, 0x60, 0xA2, 0xB8, 0x62, 0xB2, 0xE4, 0xB8, 0x7B, 0xCB },
+    "MHgxCzAJBgNVBAYTAkVTMREwDwYDVQQKDAhGTk1ULVJDTTEOMAwGA1UECwwFQ2Vy"
+    "ZXMxGDAWBgNVBGEMD1ZBVEVTLVEyODI2MDA0SjEsMCoGA1UEAwwjQUMgUkFJWiBG"
+    "Tk1ULVJDTSBTRVJWSURPUkVTIFNFR1VST1M=",
+    "YvYybOXE42hcG2LdnC6dlQ==",
   },
     // clang-format on
 };

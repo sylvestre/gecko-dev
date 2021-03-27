@@ -19,6 +19,7 @@
 #include "mozilla/net/NeckoParent.h"
 #include "mozilla/InputStreamLengthHelper.h"
 #include "mozilla/IntegerPrintfMacros.h"
+#include "mozilla/ProfilerLabels.h"
 #include "mozilla/StoragePrincipalHelper.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/Unused.h"
@@ -1242,6 +1243,7 @@ HttpChannelParent::OnStartRequest(nsIRequest* aRequest) {
   UpdateAndSerializeSecurityInfo(args.securityInfoSerialization());
 
   chan->GetRedirectCount(&args.redirectCount());
+  chan->GetHasHTTPSRR(&args.hasHTTPSRR());
 
   nsCOMPtr<nsILoadInfo> loadInfo = chan->LoadInfo();
   mozilla::ipc::LoadInfoToParentLoadInfoForwarder(loadInfo,

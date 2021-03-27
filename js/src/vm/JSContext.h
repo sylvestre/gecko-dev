@@ -9,6 +9,7 @@
 #ifndef vm_JSContext_h
 #define vm_JSContext_h
 
+#include "mozilla/Maybe.h"
 #include "mozilla/MemoryReporting.h"
 
 #include "jstypes.h"  // JS_PUBLIC_API
@@ -329,7 +330,7 @@ struct JS_PUBLIC_API JSContext : public JS::RootingContext,
  public:
   inline void enterRealmOf(JSObject* target);
   inline void enterRealmOf(JSScript* target);
-  inline void enterRealmOf(js::ObjectGroup* target);
+  inline void enterRealmOf(js::Shape* target);
   inline void enterNullRealm();
 
   inline void setRealmForJitExceptionHandler(JS::Realm* realm);
@@ -479,8 +480,12 @@ struct JS_PUBLIC_API JSContext : public JS::RootingContext,
     return runtime()->interpreterStack();
   }
 
-  /* Base address of the native stack for the current thread. */
-  uintptr_t nativeStackBase;
+ private:
+  // Base address of the native stack for the current thread.
+  mozilla::Maybe<uintptr_t> nativeStackBase_;
+
+ public:
+  uintptr_t nativeStackBase() const { return *nativeStackBase_; }
 
  public:
   /* If non-null, report JavaScript entry points to this monitor. */
@@ -584,6 +589,10 @@ struct JS_PUBLIC_API JSContext : public JS::RootingContext,
 #if defined(DEBUG) || defined(JS_OOM_BREAKPOINT)
   // We are currently running a simulated OOM test.
   js::ContextData<bool> runningOOMTest;
+#endif
+
+#ifdef DEBUG
+  js::ContextData<bool> disableCompartmentCheckTracer;
 #endif
 
   /*

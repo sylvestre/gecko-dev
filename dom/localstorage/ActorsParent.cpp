@@ -92,7 +92,7 @@
 #include "nsBaseHashtable.h"
 #include "nsCOMPtr.h"
 #include "nsClassHashtable.h"
-#include "nsDataHashtable.h"
+#include "nsTHashMap.h"
 #include "nsDebug.h"
 #include "nsError.h"
 #include "nsExceptionHandler.h"
@@ -125,7 +125,7 @@
 #include "nsStringFlags.h"
 #include "nsStringFwd.h"
 #include "nsTArray.h"
-#include "nsTHashtable.h"
+#include "nsTHashSet.h"
 #include "nsTLiteralString.h"
 #include "nsTStringRepr.h"
 #include "nsThreadUtils.h"
@@ -438,9 +438,9 @@ nsresult SetDefaultPragmas(mozIStorageConnection* aConnection) {
   if (kSQLiteGrowthIncrement) {
     // This is just an optimization so ignore the failure if the disk is
     // currently too full.
-    LS_TRY(
-        ToResult(aConnection->SetGrowthIncrement(kSQLiteGrowthIncrement, ""_ns))
-            .orElse(ErrToDefaultOkOrErr<NS_ERROR_FILE_TOO_BIG, Ok>));
+    QM_TRY(QM_OR_ELSE_WARN(ToResult(aConnection->SetGrowthIncrement(
+                               kSQLiteGrowthIncrement, ""_ns)),
+                           ErrToDefaultOkOrErr<NS_ERROR_FILE_TOO_BIG>));
   }
 #endif  // LS_MOBILE
 
@@ -461,25 +461,28 @@ Result<nsCOMPtr<mozIStorageConnection>, nsresult> CreateStorageConnection(
       ToResultGet<nsCOMPtr<mozIStorageService>>(
           MOZ_SELECT_OVERLOAD(do_GetService), MOZ_STORAGE_SERVICE_CONTRACTID));
 
+  // XXX We can't use QM_OR_ELSE_WARN because base-toolchains builds fail with:
+  // error: use of 'tryResult28' before deduction of 'auto'
   LS_TRY_UNWRAP(
       auto connection,
       MOZ_TO_RESULT_INVOKE_TYPED(nsCOMPtr<mozIStorageConnection>,
                                  storageService, OpenDatabase, &aDBFile)
           .orElse([&aUsageFile, &aDBFile, &aCorruptedFileHandler,
-                   &storageService](const nsresult rv)
-                      -> Result<nsCOMPtr<mozIStorageConnection>, nsresult> {
+                    &storageService](const nsresult rv)
+                       -> Result<nsCOMPtr<mozIStorageConnection>, nsresult> {
             if (IsDatabaseCorruptionError(rv)) {
               // Remove the usage file first (it might not exist at all due
               // to corrupted state, which is ignored here).
-              LS_TRY(ToResult(aUsageFile.Remove(false))
-                         .orElse([](const nsresult rv) -> Result<Ok, nsresult> {
-                           if (rv == NS_ERROR_FILE_NOT_FOUND ||
-                               rv == NS_ERROR_FILE_TARGET_DOES_NOT_EXIST) {
-                             return Ok{};
-                           }
+              QM_TRY(QM_OR_ELSE_WARN(
+                  ToResult(aUsageFile.Remove(false)),
+                  ([](const nsresult rv) -> Result<Ok, nsresult> {
+                    if (rv == NS_ERROR_FILE_NOT_FOUND ||
+                        rv == NS_ERROR_FILE_TARGET_DOES_NOT_EXIST) {
+                      return Ok{};
+                    }
 
-                           return Err(rv);
-                         }));
+                    return Err(rv);
+                  })));
 
               // Call the corrupted file handler before trying to remove the
               // database file, which might fail.
@@ -529,6 +532,8 @@ Result<nsCOMPtr<mozIStorageConnection>, nsresult> CreateStorageConnection(
 
     mozStorageTransaction transaction(
         connection, false, mozIStorageConnection::TRANSACTION_IMMEDIATE);
+
+    LS_TRY(transaction.Start())
 
     if (newDatabase) {
       LS_TRY(CreateTables(connection));
@@ -676,10 +681,11 @@ CreateArchiveStorageConnection(const nsAString& aStoragePath) {
 
   LS_TRY_UNWRAP(
       auto connection,
-      MOZ_TO_RESULT_INVOKE_TYPED(nsCOMPtr<mozIStorageConnection>, ss,
-                                 OpenUnsharedDatabase, archiveFile)
-          .orElse([](const nsresult rv)
-                      -> Result<nsCOMPtr<mozIStorageConnection>, nsresult> {
+      QM_OR_ELSE_WARN(
+          MOZ_TO_RESULT_INVOKE_TYPED(nsCOMPtr<mozIStorageConnection>, ss,
+                                     OpenUnsharedDatabase, archiveFile),
+          ([](const nsresult rv)
+               -> Result<nsCOMPtr<mozIStorageConnection>, nsresult> {
             if (IsDatabaseCorruptionError(rv)) {
               // Don't throw an error, leave a corrupted ls-archive database as
               // it is.
@@ -687,7 +693,7 @@ CreateArchiveStorageConnection(const nsAString& aStoragePath) {
             }
 
             return Err(rv);
-          }));
+          })));
 
   if (connection) {
     const nsresult rv = StorageDBUpdater::Update(connection);
@@ -812,10 +818,11 @@ Result<nsCOMPtr<mozIStorageConnection>, nsresult> CreateShadowStorageConnection(
 
   LS_TRY_UNWRAP(
       auto connection,
-      MOZ_TO_RESULT_INVOKE_TYPED(nsCOMPtr<mozIStorageConnection>, ss,
-                                 OpenUnsharedDatabase, shadowFile)
-          .orElse([&shadowFile, &ss](const nsresult rv)
-                      -> Result<nsCOMPtr<mozIStorageConnection>, nsresult> {
+      QM_OR_ELSE_WARN(
+          MOZ_TO_RESULT_INVOKE_TYPED(nsCOMPtr<mozIStorageConnection>, ss,
+                                     OpenUnsharedDatabase, shadowFile),
+          ([&shadowFile, &ss](const nsresult rv)
+               -> Result<nsCOMPtr<mozIStorageConnection>, nsresult> {
             if (IsDatabaseCorruptionError(rv)) {
               LS_TRY(shadowFile->Remove(false));
 
@@ -825,27 +832,40 @@ Result<nsCOMPtr<mozIStorageConnection>, nsresult> CreateShadowStorageConnection(
             }
 
             return Err(rv);
-          }));
+          })));
 
   LS_TRY(SetShadowJournalMode(connection));
 
-  LS_TRY(ToResult(StorageDBUpdater::Update(connection))
-             .orElse([&connection, &shadowFile,
-                      &ss](const nsresult) -> Result<Ok, nsresult> {
-               LS_TRY(connection->Close());
-               LS_TRY(shadowFile->Remove(false));
+  // XXX Depending on whether the *first* call to OpenUnsharedDatabase above
+  // failed, we (a) might or (b) might not be dealing with a fresh database
+  // here. This is confusing, since in a failure of case (a) we would do the
+  // same thing again. Probably, the control flow should be changed here so that
+  // it's clear we only delete & create a fresh database once. If we still have
+  // a failure then, we better give up. Or, if we really want to handle that,
+  // the number of 2 retries seems arbitrary, and we should better do this in
+  // some loop until a maximum number of retries is reached.
+  //
+  // Compare this with QuotaManager::CreateLocalStorageArchiveConnection, which
+  // actually tracks if the file was removed before, but it's also more
+  // complicated than it should be. Maybe these two methods can be merged (which
+  // would mean that a parameter must be added that indicates whether it's
+  // handling the shadow file or not).
+  QM_TRY(QM_OR_ELSE_WARN(
+      ToResult(StorageDBUpdater::Update(connection)),
+      ([&connection, &shadowFile, &ss](const nsresult) -> Result<Ok, nsresult> {
+        LS_TRY(connection->Close());
+        LS_TRY(shadowFile->Remove(false));
 
-               LS_TRY_UNWRAP(connection,
-                             MOZ_TO_RESULT_INVOKE_TYPED(
-                                 nsCOMPtr<mozIStorageConnection>, ss,
-                                 OpenUnsharedDatabase, shadowFile));
+        LS_TRY_UNWRAP(connection, MOZ_TO_RESULT_INVOKE_TYPED(
+                                      nsCOMPtr<mozIStorageConnection>, ss,
+                                      OpenUnsharedDatabase, shadowFile));
 
-               LS_TRY(SetShadowJournalMode(connection));
+        LS_TRY(SetShadowJournalMode(connection));
 
-               LS_TRY(StorageDBUpdater::Update(connection));
+        LS_TRY(StorageDBUpdater::CreateCurrentSchema(connection));
 
-               return Ok{};
-             }));
+        return Ok{};
+      })));
 
   return connection;
 }
@@ -944,19 +964,19 @@ Result<bool, nsresult> ExistsAsFile(nsIFile& aFile) {
   // the path exists.
   LS_TRY_INSPECT(
       const auto& res,
-      MOZ_TO_RESULT_INVOKE(aFile, IsDirectory)
-          .map([](const bool isDirectory) {
-            return isDirectory ? ExistsAsFileResult::IsDirectory
-                               : ExistsAsFileResult::IsFile;
-          })
-          .orElse(
-              [](const nsresult rv) -> Result<ExistsAsFileResult, nsresult> {
-                if (rv != NS_ERROR_FILE_NOT_FOUND &&
-                    rv != NS_ERROR_FILE_TARGET_DOES_NOT_EXIST) {
-                  return Err(rv);
-                }
-                return ExistsAsFileResult::DoesNotExist;
-              }));
+      QM_OR_ELSE_WARN(
+          MOZ_TO_RESULT_INVOKE(aFile, IsDirectory)
+              .map([](const bool isDirectory) {
+                return isDirectory ? ExistsAsFileResult::IsDirectory
+                                   : ExistsAsFileResult::IsFile;
+              }),
+          ([](const nsresult rv) -> Result<ExistsAsFileResult, nsresult> {
+            if (rv != NS_ERROR_FILE_NOT_FOUND &&
+                rv != NS_ERROR_FILE_TARGET_DOES_NOT_EXIST) {
+              return Err(rv);
+            }
+            return ExistsAsFileResult::DoesNotExist;
+          })));
 
   LS_TRY(OkIf(res != ExistsAsFileResult::IsDirectory), Err(NS_ERROR_FAILURE));
 
@@ -1187,6 +1207,7 @@ class Connection final : public CachingDatabaseConnection {
   nsCOMPtr<nsITimer> mFlushTimer;
   UniquePtr<ArchivedOriginScope> mArchivedOriginScope;
   ConnectionWriteOptimizer mWriteOptimizer;
+  // XXX Consider changing this to ClientMetadata.
   const OriginMetadata mOriginMetadata;
   nsString mDirectoryPath;
   /**
@@ -1403,7 +1424,7 @@ class Datastore final
    * PrepareDatastoreOps register themselves with the Datastore at
    * and unregister in PrepareDatastoreOp::Cleanup.
    */
-  nsTHashtable<nsPtrHashKey<PrepareDatastoreOp>> mPrepareDatastoreOps;
+  nsTHashSet<PrepareDatastoreOp*> mPrepareDatastoreOps;
   /**
    * PreparedDatastore instances register themselves with their associated
    * Datastore at construction time and unregister at destruction time.  They
@@ -1411,24 +1432,24 @@ class Datastore final
    * from closing itself via MaybeClose(), thereby giving the document enough
    * time to load and access LocalStorage.
    */
-  nsTHashtable<nsPtrHashKey<PreparedDatastore>> mPreparedDatastores;
+  nsTHashSet<PreparedDatastore*> mPreparedDatastores;
   /**
    * A database is live (and in this hashtable) if it has a live LSDatabase
    * actor.  There is at most one Database per origin per content process.  Each
    * Database corresponds to an LSDatabase in its associated content process.
    */
-  nsTHashtable<nsPtrHashKey<Database>> mDatabases;
+  nsTHashSet<Database*> mDatabases;
   /**
    * A database is active if it has a non-null `mSnapshot`.  As long as there
    * are any active databases final deltas can't be calculated and
    * `UpdateUsage()` can't be invoked.
    */
-  nsTHashtable<nsPtrHashKey<Database>> mActiveDatabases;
+  nsTHashSet<Database*> mActiveDatabases;
   /**
    * Non-authoritative hashtable representation of mOrderedItems for efficient
    * lookup.
    */
-  nsDataHashtable<nsStringHashKey, LSValue> mValues;
+  nsTHashMap<nsStringHashKey, LSValue> mValues;
   /**
    * The authoritative ordered state of the Datastore; mValue also exists as an
    * unordered hashtable for efficient lookup.
@@ -1453,7 +1474,7 @@ class Datastore final
             RefPtr<DirectoryLock>&& aDirectoryLock,
             RefPtr<Connection>&& aConnection,
             RefPtr<QuotaObject>&& aQuotaObject,
-            nsDataHashtable<nsStringHashKey, LSValue>& aValues,
+            nsTHashMap<nsStringHashKey, LSValue>& aValues,
             nsTArray<LSItemInfo>&& aOrderedItems);
 
   Maybe<DirectoryLock&> MaybeDirectoryLockRef() const {
@@ -1817,7 +1838,7 @@ class Snapshot final : public PBackgroundLSSnapshotParent {
    * other values must be null.  (Note: this could also be done when
    * mLoadKeysReceived is true as a further optimization, but is not.)
    */
-  nsTHashtable<nsStringHashKey> mUnknownItems;
+  nsTHashSet<nsString> mUnknownItems;
   /**
    * Values that have changed in mDatastore as reported by SaveItem
    * notifications that are not yet known to the child LSSnapshot.
@@ -1828,7 +1849,7 @@ class Snapshot final : public PBackgroundLSSnapshotParent {
    * are changed/evicted from the Datastore as they happen, as reported to us by
    * SaveItem notifications.
    */
-  nsDataHashtable<nsStringHashKey, LSValue> mValues;
+  nsTHashMap<nsStringHashKey, LSValue> mValues;
   /**
    * Latched state of mDatastore's keys during a SaveItem notification with
    * aAffectsOrder=true.  The ordered keys needed to be saved off so that a
@@ -1887,9 +1908,8 @@ class Snapshot final : public PBackgroundLSSnapshotParent {
   Snapshot(Database* aDatabase, const nsAString& aDocumentURI);
 
   void Init(nsTHashtable<nsStringHashKey>& aLoadedItems,
-            nsTHashtable<nsStringHashKey>& aUnknownItems,
-            uint32_t aNextLoadIndex, uint32_t aTotalLength,
-            int64_t aInitialUsage, int64_t aPeakUsage,
+            nsTHashSet<nsString>&& aUnknownItems, uint32_t aNextLoadIndex,
+            uint32_t aTotalLength, int64_t aInitialUsage, int64_t aPeakUsage,
             LSSnapshot::LoadState aLoadState, bool aHasOtherProcessObservers) {
     AssertIsOnBackgroundThread();
     MOZ_ASSERT(aInitialUsage >= 0);
@@ -1901,7 +1921,7 @@ class Snapshot final : public PBackgroundLSSnapshotParent {
     MOZ_ASSERT(mPeakUsage == -1);
 
     mLoadedItems.SwapElements(aLoadedItems);
-    mUnknownItems.SwapElements(aUnknownItems);
+    mUnknownItems = std::move(aUnknownItems);
     mNextLoadIndex = aNextLoadIndex;
     mTotalLength = aTotalLength;
     mUsage = aInitialUsage;
@@ -2156,7 +2176,7 @@ class PrepareDatastoreOp
   RefPtr<Datastore> mDatastore;
   UniquePtr<ArchivedOriginScope> mArchivedOriginScope;
   LoadDataOp* mLoadDataOp;
-  nsDataHashtable<nsStringHashKey, LSValue> mValues;
+  nsTHashMap<nsStringHashKey, LSValue> mValues;
   nsTArray<LSItemInfo> mOrderedItems;
   OriginMetadata mOriginMetadata;
   nsCString mMainThreadOrigin;
@@ -2753,7 +2773,7 @@ Atomic<int32_t, Relaxed> gSnapshotGradualPrefill(
     kDefaultSnapshotGradualPrefill);
 Atomic<bool> gClientValidation(kDefaultClientValidation);
 
-typedef nsDataHashtable<nsCStringHashKey, int64_t> UsageHashtable;
+typedef nsTHashMap<nsCStringHashKey, int64_t> UsageHashtable;
 
 StaticAutoPtr<ArchivedOriginHashtable> gArchivedOrigins;
 
@@ -2829,8 +2849,9 @@ nsresult LoadArchivedOrigins() {
         LS_TRY(OkIf(originAttributes.PopulateFromSuffix(originSuffix)),
                Err(NS_ERROR_FAILURE));
 
-        archivedOrigins->Put(hashKey, MakeUnique<ArchivedOriginInfo>(
-                                          originAttributes, originNoSuffix));
+        archivedOrigins->InsertOrUpdate(
+            hashKey,
+            MakeUnique<ArchivedOriginInfo>(originAttributes, originNoSuffix));
 
         return Ok{};
       }));
@@ -2941,8 +2962,7 @@ void InvalidatePreparedDatastoresMatching(const Condition& aCondition) {
     return;
   }
 
-  for (const auto& preparedDatastoreEntry : *gPreparedDatastores) {
-    const auto& preparedDatastore = preparedDatastoreEntry.GetData();
+  for (const auto& preparedDatastore : gPreparedDatastores->Values()) {
     MOZ_ASSERT(preparedDatastore);
 
     if (aCondition(*preparedDatastore)) {
@@ -3062,17 +3082,16 @@ void InitializeLocalStorage() {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!gLocalStorageInitialized);
 
+  // XXX Isn't this redundant? It's already done in InitializeQuotaManager.
   if (!QuotaManager::IsRunningGTests()) {
     // This service has to be started on the main thread currently.
-    nsCOMPtr<mozIStorageService> ss;
-    if (NS_WARN_IF(!(ss = do_GetService(MOZ_STORAGE_SERVICE_CONTRACTID)))) {
-      NS_WARNING("Failed to get storage service!");
-    }
+    const nsCOMPtr<mozIStorageService> ss =
+        do_GetService(MOZ_STORAGE_SERVICE_CONTRACTID);
+
+    QM_WARNONLY_TRY(OkIf(ss));
   }
 
-  if (NS_FAILED(QuotaClient::Initialize())) {
-    NS_WARNING("Failed to initialize quota client!");
-  }
+  QM_WARNONLY_TRY(QuotaClient::Initialize());
 
   Preferences::RegisterCallbackAndCall(ShadowWritesPrefChangedCallback,
                                        kShadowWritesPref);
@@ -3212,11 +3231,8 @@ bool RecvPBackgroundLSObserverConstructor(PBackgroundLSObserverParent* aActor,
 
   const auto notNullObserver = WrapNotNull(observer.get());
 
-  nsTArray<NotNull<Observer*>>* array;
-  if (!gObservers->Get(notNullObserver->Origin(), &array)) {
-    array = new nsTArray<NotNull<Observer*>>();
-    gObservers->Put(notNullObserver->Origin(), array);
-  }
+  nsTArray<NotNull<Observer*>>* const array =
+      gObservers->GetOrInsertNew(notNullObserver->Origin());
   array->AppendElement(notNullObserver);
 
   if (RefPtr<Datastore> datastore = GetDatastore(observer->Origin())) {
@@ -3384,8 +3400,7 @@ bool RecvLSClearPrivateBrowsing() {
   gPrivateDatastores = nullptr;
 
   if (gDatastores) {
-    for (const auto& entry : *gDatastores) {
-      const auto& datastore = entry.GetData();
+    for (const auto& datastore : gDatastores->Values()) {
       if (datastore->PrivateBrowsingId()) {
         datastore->Clear(nullptr);
       }
@@ -3433,7 +3448,7 @@ void DatastoreWriteOptimizer::ApplyAndReset(
     LSItemInfo& item = aOrderedItems[index];
 
     if (auto entry = mWriteInfos.Lookup(item.key())) {
-      WriteInfo* writeInfo = entry.Data().get();
+      WriteInfo* writeInfo = entry->get();
 
       switch (writeInfo->GetType()) {
         case WriteInfo::DeleteItem:
@@ -3499,8 +3514,8 @@ Result<int64_t, nsresult> ConnectionWriteOptimizer::Perform(
     LS_TRY(PerformTruncate(aConnection, aShadowWrites));
   }
 
-  for (auto iter = mWriteInfos.ConstIter(); !iter.Done(); iter.Next()) {
-    const WriteInfo* const writeInfo = iter.Data().get();
+  for (const auto& entry : mWriteInfos) {
+    const WriteInfo* const writeInfo = entry.GetWeak();
 
     switch (writeInfo->GetType()) {
       case WriteInfo::InsertItem:
@@ -4209,12 +4224,12 @@ already_AddRefed<Connection> ConnectionThread::CreateConnection(
     bool aDatabaseWasNotAvailable) {
   AssertIsOnOwningThread();
   MOZ_ASSERT(!aOriginMetadata.mOrigin.IsEmpty());
-  MOZ_ASSERT(!mConnections.GetWeak(aOriginMetadata.mOrigin));
+  MOZ_ASSERT(!mConnections.Contains(aOriginMetadata.mOrigin));
 
   RefPtr<Connection> connection =
       new Connection(this, aOriginMetadata, std::move(aArchivedOriginScope),
                      aDatabaseWasNotAvailable);
-  mConnections.Put(aOriginMetadata.mOrigin, RefPtr{connection});
+  mConnections.InsertOrUpdate(aOriginMetadata.mOrigin, RefPtr{connection});
 
   return connection.forget();
 }
@@ -4236,7 +4251,7 @@ Datastore::Datastore(const OriginMetadata& aOriginMetadata,
                      RefPtr<DirectoryLock>&& aDirectoryLock,
                      RefPtr<Connection>&& aConnection,
                      RefPtr<QuotaObject>&& aQuotaObject,
-                     nsDataHashtable<nsStringHashKey, LSValue>& aValues,
+                     nsTHashMap<nsStringHashKey, LSValue>& aValues,
                      nsTArray<LSItemInfo>&& aOrderedItems)
     : mDirectoryLock(std::move(aDirectoryLock)),
       mConnection(std::move(aConnection)),
@@ -4307,22 +4322,22 @@ void Datastore::NoteLivePrepareDatastoreOp(
     PrepareDatastoreOp* aPrepareDatastoreOp) {
   AssertIsOnBackgroundThread();
   MOZ_ASSERT(aPrepareDatastoreOp);
-  MOZ_ASSERT(!mPrepareDatastoreOps.GetEntry(aPrepareDatastoreOp));
+  MOZ_ASSERT(!mPrepareDatastoreOps.Contains(aPrepareDatastoreOp));
   MOZ_ASSERT(mDirectoryLock);
   MOZ_ASSERT(!mClosed);
 
-  mPrepareDatastoreOps.PutEntry(aPrepareDatastoreOp);
+  mPrepareDatastoreOps.Insert(aPrepareDatastoreOp);
 }
 
 void Datastore::NoteFinishedPrepareDatastoreOp(
     PrepareDatastoreOp* aPrepareDatastoreOp) {
   AssertIsOnBackgroundThread();
   MOZ_ASSERT(aPrepareDatastoreOp);
-  MOZ_ASSERT(mPrepareDatastoreOps.GetEntry(aPrepareDatastoreOp));
+  MOZ_ASSERT(mPrepareDatastoreOps.Contains(aPrepareDatastoreOp));
   MOZ_ASSERT(mDirectoryLock);
   MOZ_ASSERT(!mClosed);
 
-  mPrepareDatastoreOps.RemoveEntry(aPrepareDatastoreOp);
+  mPrepareDatastoreOps.Remove(aPrepareDatastoreOp);
 
   QuotaManager::GetRef().MaybeRecordShutdownStep(
       quota::Client::LS, "PrepareDatastoreOp finished"_ns);
@@ -4357,22 +4372,22 @@ void Datastore::NoteLivePreparedDatastore(
     PreparedDatastore* aPreparedDatastore) {
   AssertIsOnBackgroundThread();
   MOZ_ASSERT(aPreparedDatastore);
-  MOZ_ASSERT(!mPreparedDatastores.GetEntry(aPreparedDatastore));
+  MOZ_ASSERT(!mPreparedDatastores.Contains(aPreparedDatastore));
   MOZ_ASSERT(mDirectoryLock);
   MOZ_ASSERT(!mClosed);
 
-  mPreparedDatastores.PutEntry(aPreparedDatastore);
+  mPreparedDatastores.Insert(aPreparedDatastore);
 }
 
 void Datastore::NoteFinishedPreparedDatastore(
     PreparedDatastore* aPreparedDatastore) {
   AssertIsOnBackgroundThread();
   MOZ_ASSERT(aPreparedDatastore);
-  MOZ_ASSERT(mPreparedDatastores.GetEntry(aPreparedDatastore));
+  MOZ_ASSERT(mPreparedDatastores.Contains(aPreparedDatastore));
   MOZ_ASSERT(mDirectoryLock);
   MOZ_ASSERT(!mClosed);
 
-  mPreparedDatastores.RemoveEntry(aPreparedDatastore);
+  mPreparedDatastores.Remove(aPreparedDatastore);
 
   QuotaManager::GetRef().MaybeRecordShutdownStep(
       quota::Client::LS, "PreparedDatastore finished"_ns);
@@ -4383,22 +4398,22 @@ void Datastore::NoteFinishedPreparedDatastore(
 void Datastore::NoteLiveDatabase(Database* aDatabase) {
   AssertIsOnBackgroundThread();
   MOZ_ASSERT(aDatabase);
-  MOZ_ASSERT(!mDatabases.GetEntry(aDatabase));
+  MOZ_ASSERT(!mDatabases.Contains(aDatabase));
   MOZ_ASSERT(mDirectoryLock);
   MOZ_ASSERT(!mClosed);
 
-  mDatabases.PutEntry(aDatabase);
+  mDatabases.Insert(aDatabase);
 }
 
 void Datastore::NoteFinishedDatabase(Database* aDatabase) {
   AssertIsOnBackgroundThread();
   MOZ_ASSERT(aDatabase);
-  MOZ_ASSERT(mDatabases.GetEntry(aDatabase));
-  MOZ_ASSERT(!mActiveDatabases.GetEntry(aDatabase));
+  MOZ_ASSERT(mDatabases.Contains(aDatabase));
+  MOZ_ASSERT(!mActiveDatabases.Contains(aDatabase));
   MOZ_ASSERT(mDirectoryLock);
   MOZ_ASSERT(!mClosed);
 
-  mDatabases.RemoveEntry(aDatabase);
+  mDatabases.Remove(aDatabase);
 
   QuotaManager::GetRef().MaybeRecordShutdownStep(quota::Client::LS,
                                                  "Database finished"_ns);
@@ -4409,21 +4424,21 @@ void Datastore::NoteFinishedDatabase(Database* aDatabase) {
 void Datastore::NoteActiveDatabase(Database* aDatabase) {
   AssertIsOnBackgroundThread();
   MOZ_ASSERT(aDatabase);
-  MOZ_ASSERT(mDatabases.GetEntry(aDatabase));
-  MOZ_ASSERT(!mActiveDatabases.GetEntry(aDatabase));
+  MOZ_ASSERT(mDatabases.Contains(aDatabase));
+  MOZ_ASSERT(!mActiveDatabases.Contains(aDatabase));
   MOZ_ASSERT(!mClosed);
 
-  mActiveDatabases.PutEntry(aDatabase);
+  mActiveDatabases.Insert(aDatabase);
 }
 
 void Datastore::NoteInactiveDatabase(Database* aDatabase) {
   AssertIsOnBackgroundThread();
   MOZ_ASSERT(aDatabase);
-  MOZ_ASSERT(mDatabases.GetEntry(aDatabase));
-  MOZ_ASSERT(mActiveDatabases.GetEntry(aDatabase));
+  MOZ_ASSERT(mDatabases.Contains(aDatabase));
+  MOZ_ASSERT(mActiveDatabases.Contains(aDatabase));
   MOZ_ASSERT(!mClosed);
 
-  mActiveDatabases.RemoveEntry(aDatabase);
+  mActiveDatabases.Remove(aDatabase);
 
   if (!mActiveDatabases.Count() && mPendingUsageDeltas.Length()) {
     int64_t finalDelta = 0;
@@ -4676,7 +4691,7 @@ void Datastore::SetItem(Database* aDatabase, const nsString& aKey,
 
     NotifySnapshots(aDatabase, aKey, oldValue, /* affectsOrder */ isNewItem);
 
-    mValues.Put(aKey, aValue);
+    mValues.InsertOrUpdate(aKey, aValue);
 
     int64_t delta;
 
@@ -4746,9 +4761,9 @@ void Datastore::Clear(Database* aDatabase) {
 
   if (mValues.Count()) {
     int64_t delta = 0;
-    for (auto iter = mValues.ConstIter(); !iter.Done(); iter.Next()) {
-      const nsAString& key = iter.Key();
-      const LSValue& value = iter.Data();
+    for (const auto& entry : mValues) {
+      const nsAString& key = entry.GetKey();
+      const LSValue& value = entry.GetData();
 
       delta += -static_cast<int64_t>(key.Length()) -
                static_cast<int64_t>(value.UTF16Length());
@@ -4911,9 +4926,7 @@ void Datastore::NoteChangedObserverArray(
     const nsTArray<NotNull<Observer*>>& aObservers) {
   AssertIsOnBackgroundThread();
 
-  for (auto iter = mActiveDatabases.ConstIter(); !iter.Done(); iter.Next()) {
-    Database* database = iter.Get()->GetKey();
-
+  for (Database* database : mActiveDatabases) {
     Snapshot* snapshot = database->GetSnapshot();
     MOZ_ASSERT(snapshot);
 
@@ -5037,8 +5050,8 @@ void Datastore::ConnectionClosedCallback() {
     QuotaManager* quotaManager = QuotaManager::Get();
     MOZ_ASSERT(quotaManager);
 
-    quotaManager->ResetUsageForClient(PERSISTENCE_TYPE_DEFAULT, mOriginMetadata,
-                                      mozilla::dom::quota::Client::LS);
+    quotaManager->ResetUsageForClient(
+        ClientMetadata{mOriginMetadata, mozilla::dom::quota::Client::LS});
   }
 
   mConnection = nullptr;
@@ -5074,9 +5087,7 @@ void Datastore::NotifySnapshots(Database* aDatabase, const nsAString& aKey,
                                 const LSValue& aOldValue, bool aAffectsOrder) {
   AssertIsOnBackgroundThread();
 
-  for (auto iter = mDatabases.ConstIter(); !iter.Done(); iter.Next()) {
-    Database* database = iter.Get()->GetKey();
-
+  for (Database* database : mDatabases) {
     MOZ_ASSERT(database);
 
     if (database == aDatabase) {
@@ -5353,9 +5364,9 @@ mozilla::ipc::IPCResult Database::RecvPBackgroundLSSnapshotConstructor(
   mDatastore->GetSnapshotLoadInfo(aKey, addKeyToUnknownItems, loadedItems,
                                   itemInfos, nextLoadIndex, loadState);
 
-  nsTHashtable<nsStringHashKey> unknownItems;
+  nsTHashSet<nsString> unknownItems;
   if (addKeyToUnknownItems) {
-    unknownItems.PutEntry(aKey);
+    unknownItems.Insert(aKey);
   }
 
   uint32_t totalLength = mDatastore->GetLength();
@@ -5371,8 +5382,9 @@ mozilla::ipc::IPCResult Database::RecvPBackgroundLSSnapshotConstructor(
 
   bool hasOtherProcessObservers = mDatastore->HasOtherProcessObservers(this);
 
-  snapshot->Init(loadedItems, unknownItems, nextLoadIndex, totalLength,
-                 initialUsage, peakUsage, loadState, hasOtherProcessObservers);
+  snapshot->Init(loadedItems, std::move(unknownItems), nextLoadIndex,
+                 totalLength, initialUsage, peakUsage, loadState,
+                 hasOtherProcessObservers);
 
   RegisterSnapshot(snapshot);
 
@@ -5435,9 +5447,8 @@ void Snapshot::SaveItem(const nsAString& aKey, const LSValue& aOldValue,
     return;
   }
 
-  if (!mLoadedItems.GetEntry(aKey) && !mUnknownItems.GetEntry(aKey)) {
-    mValues.WithEntryHandle(aKey,
-                            [&](auto&& entry) { entry.OrInsert(aOldValue); });
+  if (!mLoadedItems.Contains(aKey) && !mUnknownItems.Contains(aKey)) {
+    mValues.LookupOrInsert(aKey, aOldValue);
   }
 
   if (aAffectsOrder && !mSavedKeys) {
@@ -5684,7 +5695,7 @@ mozilla::ipc::IPCResult Snapshot::RecvLoadValueAndMoreItems(
     return IPC_FAIL_NO_REASON(this);
   }
 
-  if (mLoadedItems.GetEntry(aKey) || mUnknownItems.GetEntry(aKey)) {
+  if (mLoadedItems.Contains(aKey) || mUnknownItems.Contains(aKey)) {
     ASSERT_UNLESS_FUZZING();
     return IPC_FAIL_NO_REASON(this);
   }
@@ -5697,7 +5708,7 @@ mozilla::ipc::IPCResult Snapshot::RecvLoadValueAndMoreItems(
   }
 
   if (aValue->IsVoid()) {
-    mUnknownItems.PutEntry(aKey);
+    mUnknownItems.Insert(aKey);
   } else {
     mLoadedItems.PutEntry(aKey);
 
@@ -5793,9 +5804,10 @@ mozilla::ipc::IPCResult Snapshot::RecvLoadValueAndMoreItems(
     mLoadedItems.Clear();
     mUnknownItems.Clear();
 #ifdef DEBUG
-    for (auto iter = mValues.ConstIter(); !iter.Done(); iter.Next()) {
-      MOZ_ASSERT(iter.Data().IsVoid());
-    }
+    const bool allValuesVoid =
+        std::all_of(mValues.Values().cbegin(), mValues.Values().cend(),
+                    [](const auto& entry) { return entry.IsVoid(); });
+    MOZ_ASSERT(allValuesVoid);
 #endif
     mValues.Clear();
     mLoadedAllItems = true;
@@ -6463,17 +6475,22 @@ nsresult PrepareDatastoreOp::Start() {
       commonParams.storagePrincipalInfo();
 
   if (storagePrincipalInfo.type() == PrincipalInfo::TSystemPrincipalInfo) {
-    mOriginMetadata = QuotaManager::GetInfoForChrome();
+    mOriginMetadata = {QuotaManager::GetInfoForChrome(),
+                       PERSISTENCE_TYPE_DEFAULT};
   } else {
     MOZ_ASSERT(storagePrincipalInfo.type() ==
                PrincipalInfo::TContentPrincipalInfo);
 
-    OriginMetadata originMetadata =
+    PrincipalMetadata principalMetadata =
         QuotaManager::GetInfoFromValidatedPrincipalInfo(storagePrincipalInfo);
 
-    mOriginMetadata.mSuffix = std::move(originMetadata.mSuffix);
-    mOriginMetadata.mGroup = std::move(originMetadata.mGroup);
-    mMainThreadOrigin = std::move(originMetadata.mOrigin);
+    mOriginMetadata.mSuffix = std::move(principalMetadata.mSuffix);
+    mOriginMetadata.mGroup = std::move(principalMetadata.mGroup);
+    // XXX We can probably get rid of mMainThreadOrigin if we change
+    // LSRequestBase::Dispatch to synchronously run LSRequestBase::StartRequest
+    // through LSRequestBase::Run.
+    mMainThreadOrigin = std::move(principalMetadata.mOrigin);
+    mOriginMetadata.mPersistenceType = PERSISTENCE_TYPE_DEFAULT;
   }
 
   mState = State::Nesting;
@@ -6786,8 +6803,7 @@ nsresult PrepareDatastoreOp::DatabaseWork() {
                       quotaManager->GetDirectoryForOrigin(
                           PERSISTENCE_TYPE_DEFAULT, Origin()));
 
-        quotaManager->EnsureQuotaForOrigin(PERSISTENCE_TYPE_DEFAULT,
-                                           mOriginMetadata);
+        quotaManager->EnsureQuotaForOrigin(mOriginMetadata);
 
         return directoryEntry;
       }()));
@@ -6881,6 +6897,8 @@ nsresult PrepareDatastoreOp::DatabaseWork() {
 
     mozStorageTransaction transaction(
         connection, false, mozIStorageConnection::TRANSACTION_IMMEDIATE);
+
+    LS_TRY(transaction.Start())
 
     {
       nsCOMPtr<mozIStorageFunction> function = new CompressFunction();
@@ -7231,8 +7249,9 @@ void PrepareDatastoreOp::GetResponse(LSRequestResponse& aResponse) {
       gDatastores = new DatastoreHashtable();
     }
 
-    MOZ_ASSERT(!gDatastores->MaybeGet(Origin()));
-    gDatastores->Put(Origin(), WrapMovingNotNullUnchecked(mDatastore));
+    MOZ_ASSERT(!gDatastores->Contains(Origin()));
+    gDatastores->InsertOrUpdate(Origin(),
+                                WrapMovingNotNullUnchecked(mDatastore));
   }
 
   if (mPrivateBrowsingId && !mInvalidated) {
@@ -7240,34 +7259,31 @@ void PrepareDatastoreOp::GetResponse(LSRequestResponse& aResponse) {
       gPrivateDatastores = MakeUnique<PrivateDatastoreHashtable>();
     }
 
-    if (!gPrivateDatastores->Get(Origin())) {
+    gPrivateDatastores->LookupOrInsertWith(Origin(), [&] {
       auto privateDatastore =
           MakeUnique<PrivateDatastore>(WrapMovingNotNull(mDatastore));
 
-      gPrivateDatastores->Put(Origin(), std::move(privateDatastore));
-
       mPrivateDatastoreRegistered.Flip();
-    }
+
+      return privateDatastore;
+    });
   }
 
   mDatastoreId = ++gLastDatastoreId;
 
-  auto preparedDatastore = MakeUnique<PreparedDatastore>(
-      mDatastore, mContentParentId, Origin(), mDatastoreId,
-      /* aForPreload */ mForPreload);
-
   if (!gPreparedDatastores) {
     gPreparedDatastores = new PreparedDatastoreHashtable();
   }
-  gPreparedDatastores->Put(mDatastoreId, preparedDatastore.get());
+  const auto& preparedDatastore = gPreparedDatastores->InsertOrUpdate(
+      mDatastoreId, MakeUnique<PreparedDatastore>(
+                        mDatastore, mContentParentId, Origin(), mDatastoreId,
+                        /* aForPreload */ mForPreload));
 
   if (mInvalidated) {
     preparedDatastore->Invalidate();
   }
 
   mPreparedDatastoreRegistered.Flip();
-
-  Unused << preparedDatastore.release();
 
   if (mForPreload) {
     LSRequestPreloadDatastoreResponse preloadDatastoreResponse;
@@ -7453,7 +7469,7 @@ nsresult PrepareDatastoreOp::LoadDataOp::DoDatastoreWork() {
         LSValue value;
         LS_TRY(value.InitFromStatement(&stmt, 1));
 
-        mPrepareDatastoreOp->mValues.Put(key, value);
+        mPrepareDatastoreOp->mValues.InsertOrUpdate(key, value);
         mPrepareDatastoreOp->mSizeOfKeys += key.Length();
         mPrepareDatastoreOp->mSizeOfItems += key.Length() + value.Length();
 #ifdef DEBUG
@@ -7629,7 +7645,7 @@ void PrepareObserverOp::GetResponse(LSRequestResponse& aResponse) {
   if (!gPreparedObsevers) {
     gPreparedObsevers = new PreparedObserverHashtable();
   }
-  gPreparedObsevers->Put(observerId, std::move(observer));
+  gPreparedObsevers->InsertOrUpdate(observerId, std::move(observer));
 
   LSRequestPrepareObserverResponse prepareObserverResponse;
   prepareObserverResponse.observerId() = observerId;
@@ -7922,49 +7938,28 @@ bool ArchivedOriginScope::HasMatches(
   AssertIsOnIOThread();
   MOZ_ASSERT(aHashtable);
 
-  struct Matcher {
-    ArchivedOriginHashtable* mHashtable;
+  return mData.match(
+      [aHashtable](const Origin& aOrigin) {
+        const nsCString hashKey = GetArchivedOriginHashKey(
+            aOrigin.OriginSuffix(), aOrigin.OriginNoSuffix());
 
-    explicit Matcher(ArchivedOriginHashtable* aHashtable)
-        : mHashtable(aHashtable) {}
-
-    bool operator()(const Origin& aOrigin) {
-      nsCString hashKey = GetArchivedOriginHashKey(aOrigin.OriginSuffix(),
-                                                   aOrigin.OriginNoSuffix());
-
-      ArchivedOriginInfo* archivedOriginInfo;
-      return mHashtable->Get(hashKey, &archivedOriginInfo);
-    }
-
-    bool operator()(const Prefix& aPrefix) {
-      for (auto iter = mHashtable->ConstIter(); !iter.Done(); iter.Next()) {
-        const auto& archivedOriginInfo = iter.Data();
-
-        if (archivedOriginInfo->mOriginNoSuffix == aPrefix.OriginNoSuffix()) {
-          return true;
-        }
-      }
-
-      return false;
-    }
-
-    bool operator()(const Pattern& aPattern) {
-      for (auto iter = mHashtable->ConstIter(); !iter.Done(); iter.Next()) {
-        const auto& archivedOriginInfo = iter.Data();
-
-        if (aPattern.GetPattern().Matches(
-                archivedOriginInfo->mOriginAttributes)) {
-          return true;
-        }
-      }
-
-      return false;
-    }
-
-    bool operator()(const Null& aNull) { return mHashtable->Count(); }
-  };
-
-  return mData.match(Matcher(aHashtable));
+        return aHashtable->Contains(hashKey);
+      },
+      [aHashtable](const Pattern& aPattern) {
+        return std::any_of(
+            aHashtable->Values().cbegin(), aHashtable->Values().cend(),
+            [&aPattern](const auto& entry) {
+              return aPattern.GetPattern().Matches(entry->mOriginAttributes);
+            });
+      },
+      [aHashtable](const Prefix& aPrefix) {
+        return std::any_of(
+            aHashtable->Values().cbegin(), aHashtable->Values().cend(),
+            [&aPrefix](const auto& entry) {
+              return entry->mOriginNoSuffix == aPrefix.OriginNoSuffix();
+            });
+      },
+      [aHashtable](const Null& aNull) { return !aHashtable->IsEmpty(); });
 }
 
 void ArchivedOriginScope::RemoveMatches(
@@ -8108,31 +8103,29 @@ Result<UsageInfo, nsresult> QuotaClient::InitOrigin(
       ([fileExists, usageFileExists, &file, &usageFile, &usageJournalFile,
         &aOriginMetadata]() -> Result<UsageInfo, nsresult> {
         if (fileExists) {
-          LS_TRY_RETURN(
+          LS_TRY_RETURN(QM_OR_ELSE_WARN(
               // To simplify control flow, we call LoadUsageFile unconditionally
               // here, even though it will necessarily fail if usageFileExists
               // is false.
-              LoadUsageFile(*usageFile)
-                  .orElse([&file, &usageFile, &usageJournalFile,
-                           &aOriginMetadata](
-                              const nsresult) -> Result<UsageInfo, nsresult> {
-                    LS_TRY_INSPECT(
-                        const auto& connection,
-                        CreateStorageConnection(
-                            *file, *usageFile, aOriginMetadata.mOrigin, [] {}));
+              LoadUsageFile(*usageFile),
+              ([&file, &usageFile, &usageJournalFile, &aOriginMetadata](
+                   const nsresult) -> Result<UsageInfo, nsresult> {
+                LS_TRY_INSPECT(
+                    const auto& connection,
+                    CreateStorageConnection(*file, *usageFile,
+                                            aOriginMetadata.mOrigin, [] {}));
 
-                    LS_TRY_INSPECT(
-                        const int64_t& usage,
-                        GetUsage(*connection,
-                                 /* aArchivedOriginScope */ nullptr));
+                LS_TRY_INSPECT(const int64_t& usage,
+                               GetUsage(*connection,
+                                        /* aArchivedOriginScope */ nullptr));
 
-                    LS_TRY(UpdateUsageFile(usageFile, usageJournalFile, usage));
+                LS_TRY(UpdateUsageFile(usageFile, usageJournalFile, usage));
 
-                    LS_TRY(usageJournalFile->Remove(false));
+                LS_TRY(usageJournalFile->Remove(false));
 
-                    MOZ_ASSERT(usage >= 0);
-                    return UsageInfo{DatabaseUsageType(Some(uint64_t(usage)))};
-                  }));
+                MOZ_ASSERT(usage >= 0);
+                return UsageInfo{DatabaseUsageType(Some(uint64_t(usage)))};
+              })));
         }
 
         if (usageFileExists) {
@@ -8501,16 +8494,17 @@ nsCString QuotaClient::GetShutdownStatus() const {
     data.AppendInt(static_cast<uint32_t>(gPrepareDatastoreOps->Length()));
     data.Append(" (");
 
-    nsTHashtable<nsCStringHashKey> ids;
+    // XXX What's the purpose of adding these to a hashtable before joining them
+    // to the string? (Maybe this used to be an ordered container before???)
+    nsTHashSet<nsCString> ids;
+    std::transform(gPrepareDatastoreOps->cbegin(), gPrepareDatastoreOps->cend(),
+                   MakeInserter(ids), [](const auto& prepareDatastoreOp) {
+                     nsCString id;
+                     prepareDatastoreOp->Stringify(id);
+                     return id;
+                   });
 
-    for (const auto& prepareDatastoreOp : *gPrepareDatastoreOps) {
-      nsCString id;
-      prepareDatastoreOp->Stringify(id);
-
-      ids.PutEntry(id);
-    }
-
-    StringifyTableKeys(ids, data);
+    StringJoinAppend(data, ", "_ns, ids);
 
     data.Append(")\n");
   }
@@ -8520,16 +8514,17 @@ nsCString QuotaClient::GetShutdownStatus() const {
     data.AppendInt(gDatastores->Count());
     data.Append(" (");
 
-    nsTHashtable<nsCStringHashKey> ids;
+    // XXX It might be confusing to remove duplicates here, as the actual list
+    // won't match the count then.
+    nsTHashSet<nsCString> ids;
+    std::transform(gDatastores->Values().cbegin(), gDatastores->Values().cend(),
+                   MakeInserter(ids), [](const auto& entry) {
+                     nsCString id;
+                     entry->Stringify(id);
+                     return id;
+                   });
 
-    for (const auto& entry : *gDatastores) {
-      nsCString id;
-      entry.GetData()->Stringify(id);
-
-      ids.PutEntry(id);
-    }
-
-    StringifyTableKeys(ids, data);
+    StringJoinAppend(data, ", "_ns, ids);
 
     data.Append(")\n");
   }
@@ -8539,16 +8534,17 @@ nsCString QuotaClient::GetShutdownStatus() const {
     data.AppendInt(static_cast<uint32_t>(gLiveDatabases->Length()));
     data.Append(" (");
 
-    nsTHashtable<nsCStringHashKey> ids;
+    // XXX It might be confusing to remove duplicates here, as the actual list
+    // won't match the count then.
+    nsTHashSet<nsCString> ids;
+    std::transform(gLiveDatabases->cbegin(), gLiveDatabases->cend(),
+                   MakeInserter(ids), [](const auto& database) {
+                     nsCString id;
+                     database->Stringify(id);
+                     return id;
+                   });
 
-    for (const auto& database : *gLiveDatabases) {
-      nsCString id;
-      database->Stringify(id);
-
-      ids.PutEntry(id);
-    }
-
-    StringifyTableKeys(ids, data);
+    StringJoinAppend(data, ", "_ns, ids);
 
     data.Append(")\n");
   }
@@ -8744,12 +8740,10 @@ AutoWriteTransaction::~AutoWriteTransaction() {
   MOZ_COUNT_DTOR(mozilla::dom::AutoWriteTransaction);
 
   if (mConnection) {
-    if (NS_FAILED(mConnection->RollbackWriteTransaction())) {
-      NS_WARNING("Failed to rollback write transaction!");
-    }
+    QM_WARNONLY_TRY(mConnection->RollbackWriteTransaction());
 
-    if (mShadowWrites && NS_FAILED(DetachShadowDatabaseAndUnlock())) {
-      NS_WARNING("Failed to detach shadow database!");
+    if (mShadowWrites) {
+      QM_WARNONLY_TRY(DetachShadowDatabaseAndUnlock());
     }
   }
 }

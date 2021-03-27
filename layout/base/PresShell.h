@@ -44,7 +44,7 @@
 #include "nsRefreshObservers.h"
 #include "nsStringFwd.h"
 #include "nsStubDocumentObserver.h"
-#include "nsTHashtable.h"
+#include "nsTHashSet.h"
 #include "nsThreadUtils.h"
 #include "nsWeakReference.h"
 
@@ -95,9 +95,7 @@ class GeckoMVMContext;
 class OverflowChangedTracker;
 class StyleSheet;
 
-#ifdef MOZ_GECKO_PROFILER
 class ProfileChunkedBuffer;
-#endif
 
 #ifdef ACCESSIBILITY
 namespace a11y {
@@ -159,7 +157,7 @@ class PresShell final : public nsStubDocumentObserver,
 
   // A set type for tracking visible frames, for use by the visibility code in
   // PresShell. The set contains nsIFrame* pointers.
-  typedef nsTHashtable<nsPtrHashKey<nsIFrame>> VisibleFrames;
+  typedef nsTHashSet<nsIFrame*> VisibleFrames;
 
  public:
   explicit PresShell(Document* aDocument);
@@ -681,24 +679,10 @@ class PresShell final : public nsStubDocumentObserver,
    */
   bool IsPaintingSuppressed() const { return mPaintingSuppressed; }
 
-  /**
-   * Pause painting by freezing the refresh driver of this and all parent
-   * presentations. This may not have the desired effect if this pres shell
-   * has its own refresh driver.
-   */
-  void PausePainting();
-
-  /**
-   * Resume painting by thawing the refresh driver of this and all parent
-   * presentations. This may not have the desired effect if this pres shell
-   * has its own refresh driver.
-   */
-  void ResumePainting();
-
-  /**
-   * Unsuppress painting.
-   */
   void UnsuppressPainting();
+  void UnsuppressPaintingFromTimer();
+  void InitPaintSuppressionTimer();
+  void CancelPaintSuppressionTimer();
 
   /**
    * Reconstruct frames for all elements in the document
@@ -743,7 +727,7 @@ class PresShell final : public nsStubDocumentObserver,
    * state.
    * XXX this should include image animations
    */
-  void Freeze();
+  void Freeze(bool aIncludeSubDocuments = true);
   bool IsFrozen() { return mFrozen; }
 
   /**
@@ -751,7 +735,7 @@ class PresShell final : public nsStubDocumentObserver,
    * presentations of subdocuments, then do a full invalidate of the content
    * area.
    */
-  void Thaw();
+  void Thaw(bool aIncludeSubDocuments = true);
 
   void FireOrClearDelayedEvents(bool aFireEvents);
 
@@ -779,6 +763,9 @@ class PresShell final : public nsStubDocumentObserver,
    * might choose not to paint themes.
    *   set RenderDocumentFlags::IgnoreViewportScrolling to ignore clipping and
    *  scrollbar painting due to scrolling in the viewport
+   *   set RenderDocumentFlags::ResetViewportScrolling to temporarily set the
+   * viewport scroll position to 0 so that position:fixed elements are drawn
+   * at their initial position.
    *   set RenderDocumentFlags::DrawCaret to draw the caret if one would be
    *  visible (by default the caret is never drawn)
    *   set RenderDocumentFlags::UseWidgetLayers to force rendering to go
@@ -1718,14 +1705,14 @@ class PresShell final : public nsStubDocumentObserver,
   void RecordAlloc(void* aPtr) {
 #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
     MOZ_DIAGNOSTIC_ASSERT(!mAllocatedPointers.Contains(aPtr));
-    mAllocatedPointers.PutEntry(aPtr);
+    mAllocatedPointers.Insert(aPtr);
 #endif
   }
 
   void RecordFree(void* aPtr) {
 #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
     MOZ_DIAGNOSTIC_ASSERT(mAllocatedPointers.Contains(aPtr));
-    mAllocatedPointers.RemoveEntry(aPtr);
+    mAllocatedPointers.Remove(aPtr);
 #endif
   }
 
@@ -2733,9 +2720,6 @@ class PresShell final : public nsStubDocumentObserver,
 
   nscolor GetDefaultBackgroundColorToDraw();
 
-  // The callback for the mPaintSuppressionTimer timer.
-  static void sPaintSuppressionCallback(nsITimer* aTimer, void* aPresShell);
-
   //////////////////////////////////////////////////////////////////////////////
   // Approximate frame visibility tracking implementation.
   //////////////////////////////////////////////////////////////////////////////
@@ -2823,7 +2807,7 @@ class PresShell final : public nsStubDocumentObserver,
 #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
   // We track allocated pointers in a debug-only hashtable to assert against
   // missing/double frees.
-  nsTHashtable<nsPtrHashKey<void>> mAllocatedPointers;
+  nsTHashSet<void*> mAllocatedPointers;
 #endif
 
   // A list of stack weak frames. This is a pointer to the last item in the
@@ -2831,7 +2815,7 @@ class PresShell final : public nsStubDocumentObserver,
   AutoWeakFrame* mAutoWeakFrames;
 
   // A hash table of heap allocated weak frames.
-  nsTHashtable<nsPtrHashKey<WeakFrame>> mWeakFrames;
+  nsTHashSet<WeakFrame*> mWeakFrames;
 
   class DirtyRootsList {
    public:
@@ -2878,13 +2862,11 @@ class PresShell final : public nsStubDocumentObserver,
   // Reflow roots that need to be reflowed.
   DirtyRootsList mDirtyRoots;
 
-#ifdef MOZ_GECKO_PROFILER
   // These two fields capture call stacks of any changes that require a restyle
   // or a reflow. Only the first change per restyle / reflow is recorded (the
   // one that caused a call to SetNeedStyleFlush() / SetNeedLayoutFlush()).
   UniquePtr<ProfileChunkedBuffer> mStyleCause;
   UniquePtr<ProfileChunkedBuffer> mReflowCause;
-#endif
 
   nsTArray<UniquePtr<DelayedEvent>> mDelayedEvents;
 
@@ -2927,9 +2909,9 @@ class PresShell final : public nsStubDocumentObserver,
   nsCOMArray<nsIContent> mCurrentEventContentStack;
   // Set of frames that we should mark with NS_FRAME_HAS_DIRTY_CHILDREN after
   // we finish reflowing mCurrentReflowRoot.
-  nsTHashtable<nsPtrHashKey<nsIFrame>> mFramesToDirty;
-  nsTHashtable<nsPtrHashKey<nsIScrollableFrame>> mPendingScrollAnchorSelection;
-  nsTHashtable<nsPtrHashKey<nsIScrollableFrame>> mPendingScrollAnchorAdjustment;
+  nsTHashSet<nsIFrame*> mFramesToDirty;
+  nsTHashSet<nsIScrollableFrame*> mPendingScrollAnchorSelection;
+  nsTHashSet<nsIScrollableFrame*> mPendingScrollAnchorAdjustment;
 
   nsCallbackEventRequest* mFirstCallbackEventRequest = nullptr;
   nsCallbackEventRequest* mLastCallbackEventRequest = nullptr;
@@ -3007,6 +2989,9 @@ class PresShell final : public nsStubDocumentObserver,
   // re-use old pixels.
   RenderingStateFlags mRenderingStateFlags;
 
+  // The amount of times that we have tried to unsuppress painting off a timer.
+  int32_t mPaintSuppressionAttempts = 0;
+
   // Whether we're currently under a FlushPendingNotifications.
   // This is used to handle flush reentry correctly.
   // NOTE: This can't be a bitfield since AutoRestore has a reference to this
@@ -3076,8 +3061,6 @@ class PresShell final : public nsStubDocumentObserver,
   bool mFontSizeInflationForceEnabled : 1;
   bool mFontSizeInflationDisabledInMasterProcess : 1;
   bool mFontSizeInflationEnabled : 1;
-
-  bool mPaintingIsFrozen : 1;
 
   // If a document belongs to an invisible DocShell, this flag must be set
   // to true, so we can avoid any paint calls for widget related to this
