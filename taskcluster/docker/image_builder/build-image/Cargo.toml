@@ -12,7 +12,7 @@ edition = "2018"
 
 [dependencies]
 reqwest = { version= "0.10.4", features = ["rustls-tls", "blocking"], default-features = false}
-zstd = "0.5.1"
+zstd = "0.7.0+zstd.1.4.9"
 url = "2.1.1"
 anyhow = "1.0.27"
 serde = { version = "1.0.105", features = ["derive"]}
