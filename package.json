@@ -13,7 +13,7 @@
     "eslint-plugin-fetch-options": "0.0.5",
     "eslint-plugin-file-header": "0.0.1",
     "eslint-plugin-flowtype": "4.6.0",
-    "eslint-plugin-html": "6.0.0",
+    "eslint-plugin-html": "6.1.2",
     "eslint-plugin-import": "2.20.1",
     "eslint-plugin-jest": "23.20.0",
     "eslint-plugin-jsx-a11y": "6.2.3",
