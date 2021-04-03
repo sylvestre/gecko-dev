@@ -11,7 +11,7 @@ cryptography==1.8.2
 cssutils==1.0.2
 EditorConfig==0.12.1
 h2==2.6.2
-hpack==3.0.0
+hpack==4.0.0
 html2text==2016.9.19
 hyperframe==4.0.2
 idna==2.5
