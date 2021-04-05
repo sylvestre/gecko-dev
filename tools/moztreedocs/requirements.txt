@@ -316,10 +316,9 @@ sphinx-panels==0.5.2 \
     --hash=sha256:2b2e18448b0494e7a232d6c7dfb9aa3982e7aeb92aeea7d1b146e34e9261d2f1 \
     --hash=sha256:b7b3faa05f37b7318fd14cd85c4effa1ab905dfc8bed236a63978565ea461ae4
     # via -r requirements.in
-sphinx-rtd-theme==0.5.1 \
-    --hash=sha256:eda689eda0c7301a80cf122dad28b1861e5605cbf455558f3775e1e8200e83a5 \
-    --hash=sha256:fa6bebd5ab9a73da8e102509a86f3fcc36dec04a0b52ea80e5a033b2aba00113
-    # via -r requirements.in
+sphinx-rtd-theme==0.5.2 \
+    --hash=sha256:32bd3b5d13dc8186d7a42fc816a23d32e83a4827d7d9882948e7b837c232da5a \
+    --hash=sha256:4a05bdbe8b1446d77a01e20a23ebc6777c74f43237035e76be89699308987d6f
 sphinx==3.5.1 \
     --hash=sha256:11d521e787d9372c289472513d807277caafb1684b33eb4f08f7574c405893a9 \
     --hash=sha256:e90161222e4d80ce5fc811ace7c6787a226b4f5951545f7f42acf97277bfc35c
