@@ -27,7 +27,7 @@ pyparsing==2.2.0
 pyperclip==1.5.27
 PyYAML==3.12
 requests==2.13.0
-ruamel.yaml==0.13.14
+ruamel.yaml==0.17.4
 six==1.13.0
 sortedcontainers==1.5.7
 tornado==4.4.3
