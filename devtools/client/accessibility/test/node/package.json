@@ -18,7 +18,7 @@
     "devtools-modules": "1.1.5",
     "enzyme": "^3.9.0",
     "enzyme-adapter-react-16": "^1.13.2",
-    "enzyme-to-json": "^3.3.5",
+    "enzyme-to-json": "3.6.2",
     "jest": "^24.6.0",
     "react": "16.4.1",
     "react-dom": "16.4.1",
