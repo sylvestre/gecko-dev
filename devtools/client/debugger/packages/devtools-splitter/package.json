@@ -9,8 +9,8 @@
   "author": "Jason Laster",
   "license": "MPL-2.0",
   "devDependencies": {
-    "react": "16.4.1",
-    "react-dom": "16.4.1"
+    "react": "16.14.0",
+    "react-dom": "16.14.0"
   },
   "dependencies": {
     "prop-types": "^15.6.0",
