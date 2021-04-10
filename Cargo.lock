@@ -76,9 +76,15 @@ checksum = "0d382e583f07208808f6b1249e60848879ba3543f57c32277bf52d69c2f0f0ee"
 
 [[package]]
 name = "arrayvec"
-version = "0.5.1"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cff77d8686867eceff3105329d4698d96c2391c176d5d03adc90c7389162b5b8"
+checksum = "23b62fc65de8e4e7f52534fb52b0f3ed04746ae267519eef2a83941e8085068b"
+
+[[package]]
+name = "arrayvec"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a2f58b0bb10c380af2b26e57212856b8c9a59e0925b4c20f4a174a49734eaf7"
 dependencies = [
  "serde",
 ]
@@ -375,7 +381,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b83b7baab1e671718d78204225800d6b170e648188ac7dc992e9d6bddf87d0c0"
 dependencies = [
  "arrayref",
- "arrayvec",
+ "arrayvec 0.5.2",
  "constant_time_eq",
 ]
 
@@ -1856,7 +1862,7 @@ name = "gfx-backend-dx11"
 version = "0.7.0"
 source = "git+https://github.com/gfx-rs/gfx?rev=3ee1ca9ba486b166a52765024d8d149cbb28d486#3ee1ca9ba486b166a52765024d8d149cbb28d486"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.5.2",
  "bitflags",
  "gfx-auxil",
  "gfx-hal",
@@ -1877,7 +1883,7 @@ name = "gfx-backend-dx12"
 version = "0.7.0"
 source = "git+https://github.com/gfx-rs/gfx?rev=3ee1ca9ba486b166a52765024d8d149cbb28d486#3ee1ca9ba486b166a52765024d8d149cbb28d486"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.5.2",
  "bit-set",
  "bitflags",
  "d3d12",
@@ -1908,7 +1914,7 @@ name = "gfx-backend-metal"
 version = "0.7.0"
 source = "git+https://github.com/gfx-rs/gfx?rev=3ee1ca9ba486b166a52765024d8d149cbb28d486#3ee1ca9ba486b166a52765024d8d149cbb28d486"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.5.2",
  "bitflags",
  "block",
  "cocoa-foundation",
@@ -1933,7 +1939,7 @@ name = "gfx-backend-vulkan"
 version = "0.7.0"
 source = "git+https://github.com/gfx-rs/gfx?rev=3ee1ca9ba486b166a52765024d8d149cbb28d486#3ee1ca9ba486b166a52765024d8d149cbb28d486"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.5.2",
  "ash",
  "byteorder",
  "core-graphics-types",
@@ -2613,7 +2619,7 @@ name = "jsparagus-parser"
 version = "0.1.0"
 source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=d5d8c00ebd3281d12e0be5dfddbb69f791f836f1#d5d8c00ebd3281d12e0be5dfddbb69f791f836f1"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.5.2",
  "bumpalo",
  "jsparagus-ast",
  "jsparagus-generated-parser",
@@ -3226,7 +3232,7 @@ dependencies = [
 name = "mozglue-static"
 version = "0.1.0"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.7.0",
  "cc",
 ]
 
@@ -4899,7 +4905,7 @@ name = "style"
 version = "0.0.1"
 dependencies = [
  "app_units",
- "arrayvec",
+ "arrayvec 0.7.0",
  "atomic_refcell",
  "bindgen",
  "bitflags",
@@ -5502,7 +5508,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6d7b39d0c32eba57d52d334e4bdd150df6e755264eefaa1ae2e7cd125f35e1ca"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.5.2",
 ]
 
 [[package]]
@@ -5906,7 +5912,7 @@ dependencies = [
 name = "wgpu-core"
 version = "0.7.0"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.7.0",
  "bitflags",
  "cfg_aliases",
  "copyless",

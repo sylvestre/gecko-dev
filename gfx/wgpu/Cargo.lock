@@ -41,6 +41,12 @@ name = "arrayvec"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23b62fc65de8e4e7f52534fb52b0f3ed04746ae267519eef2a83941e8085068b"
+
+[[package]]
+name = "arrayvec"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a2f58b0bb10c380af2b26e57212856b8c9a59e0925b4c20f4a174a49734eaf7"
 dependencies = [
  "serde",
 ]
@@ -477,7 +483,7 @@ name = "gfx-backend-dx11"
 version = "0.7.0"
 source = "git+https://github.com/gfx-rs/gfx?rev=3ee1ca9ba486b166a52765024d8d149cbb28d486#3ee1ca9ba486b166a52765024d8d149cbb28d486"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.5.2",
  "bitflags",
  "gfx-auxil",
  "gfx-hal",
@@ -498,7 +504,7 @@ name = "gfx-backend-dx12"
 version = "0.7.0"
 source = "git+https://github.com/gfx-rs/gfx?rev=3ee1ca9ba486b166a52765024d8d149cbb28d486#3ee1ca9ba486b166a52765024d8d149cbb28d486"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.5.2",
  "bit-set",
  "bitflags",
  "d3d12",
@@ -529,7 +535,7 @@ name = "gfx-backend-metal"
 version = "0.7.0"
 source = "git+https://github.com/gfx-rs/gfx?rev=3ee1ca9ba486b166a52765024d8d149cbb28d486#3ee1ca9ba486b166a52765024d8d149cbb28d486"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.5.2",
  "bitflags",
  "block",
  "cocoa-foundation",
@@ -554,7 +560,7 @@ name = "gfx-backend-vulkan"
 version = "0.7.0"
 source = "git+https://github.com/gfx-rs/gfx?rev=3ee1ca9ba486b166a52765024d8d149cbb28d486#3ee1ca9ba486b166a52765024d8d149cbb28d486"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.5.2",
  "ash",
  "byteorder",
  "core-graphics-types",
@@ -1565,7 +1571,7 @@ dependencies = [
 name = "wgpu-core"
 version = "0.7.0"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.7.0",
  "bitflags",
  "cfg_aliases",
  "copyless",

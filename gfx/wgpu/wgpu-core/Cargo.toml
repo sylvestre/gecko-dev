@@ -23,7 +23,7 @@ replay = ["serde", "wgt/replay", "arrayvec/serde"]
 serial-pass = ["serde", "wgt/serde", "arrayvec/serde"]
 
 [dependencies]
-arrayvec = "0.5"
+arrayvec = "0.7"
 bitflags = "1.0"
 copyless = "0.1"
 fxhash = "0.2"
