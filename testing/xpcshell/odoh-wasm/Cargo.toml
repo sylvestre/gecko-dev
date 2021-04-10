@@ -18,7 +18,7 @@ odoh-rs = "=0.1.8"
 hpke = "0.4.3"
 js-sys = "0.3"
 hex = "0.4"
-futures = "0.3.1"
+futures = "0.3.14"
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
 # logging them with `console.error`. This is great for development, but requires
