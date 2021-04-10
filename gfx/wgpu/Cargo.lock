@@ -1110,9 +1110,9 @@ dependencies = [
 
 [[package]]
 name = "profiling"
-version = "0.1.10"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0c71198452babfbba7419e716d29853c462d59da73c41485ab7dc8b4dc0c4be"
+checksum = "8ae26a2370f2cf9a28cd570017aee216af883f02230ef8aea27b77f90e5654ef"
 
 [[package]]
 name = "quote"
