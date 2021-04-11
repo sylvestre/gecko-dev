@@ -18,7 +18,7 @@ features = ["std", "read"]
 optional = true
 # The version and features of goblin need to match what's in object's Cargo.toml,
 # because we really want object's goblin and not another instance of goblin.
-version = "0.1"
+version = "0.4"
 features = ["endian_fd", "elf32", "elf64", "mach32", "mach64", "pe32", "pe64", "archive"]
 default-features = false
 
