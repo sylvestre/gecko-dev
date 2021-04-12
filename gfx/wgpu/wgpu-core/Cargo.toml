@@ -70,7 +70,7 @@ package = "wgpu-types"
 version = "0.7"
 
 [dev-dependencies]
-loom = "0.3"
+loom = "0.5"
 
 [build-dependencies]
 cfg_aliases = "0.1"
