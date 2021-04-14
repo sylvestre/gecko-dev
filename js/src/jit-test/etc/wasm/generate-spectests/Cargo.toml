@@ -12,7 +12,7 @@ serde = "1"
 serde_derive = "1"
 toml = "0.5.6"
 log = "0.4"
-env_logger = "0.7"
+env_logger = "0.8"
 anyhow = "1.0.19"
 wast2js = { path = "./wast2js" }
 
