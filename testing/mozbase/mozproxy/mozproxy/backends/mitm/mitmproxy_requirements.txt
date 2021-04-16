@@ -15,7 +15,7 @@ hpack==3.0.0
 html2text==2016.9.19
 hyperframe==4.0.2
 idna==2.5
-jsbeautifier==1.6.12
+jsbeautifier==1.13.13
 kaitaistruct==0.6
 mitmproxy==4.0.4
 packaging==16.8
