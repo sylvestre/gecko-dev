@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 libc = "0.2.0"
 mozilla-central-workspace-hack = { path = "../../../build/workspace-hack" }
-rust-ini = "0.10"
+rust-ini = "0.17"
 serde = "1.0"
 serde_json = { version = "1.0" }
 uuid = { version = "0.8.1", features = ["v4"] }

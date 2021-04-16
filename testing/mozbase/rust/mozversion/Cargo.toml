@@ -10,5 +10,5 @@ edition = "2018"
 
 [dependencies]
 regex = { version = "1", default-features = false, features = ["perf", "std"] }
-rust-ini = "0.10"
+rust-ini = "0.17"
 semver = "0.9"
