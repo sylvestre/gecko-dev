@@ -10,7 +10,7 @@ mozilla-central-workspace-hack = { path = "../../../build/workspace-hack" }
 rust-ini = "0.10"
 serde = "1.0"
 serde_json = { version = "1.0" }
-uuid = { version = "0.8.1", features = ["v4"] }
+uuid = { version = "0.8.2", features = ["v4"] }
 winapi = "0.3"
 
 [lib]
