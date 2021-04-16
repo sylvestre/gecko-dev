@@ -15,7 +15,7 @@ reqwest = { version= "0.10.4", features = ["rustls-tls", "blocking"], default-fe
 zstd = "0.5.1"
 url = "2.1.1"
 anyhow = "1.0.27"
-serde = { version = "1.0.105", features = ["derive"]}
+serde = { version = "1.0.125", features = ["derive"]}
 serde_json = "1.0.50"
 envy = "0.4.1"
 fs_extra = "1.1"

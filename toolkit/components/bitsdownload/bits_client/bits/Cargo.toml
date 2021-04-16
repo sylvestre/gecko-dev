@@ -12,7 +12,7 @@ status_serde = ["serde", "serde_derive"]
 comedy = "0.2.0"
 filetime_win = "0.2.0"
 guid_win = "0.2.0"
-serde = { version = "1.0.80", optional = true }
+serde = { version = "1.0.125", optional = true }
 serde_derive = { version = "1.0.80", optional = true }
 
 [dependencies.winapi]
