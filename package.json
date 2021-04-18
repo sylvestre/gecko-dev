@@ -13,7 +13,7 @@
     "@babel/plugin-transform-flow-strip-types": "7.13.0",
     "@babel/plugin-transform-react-jsx": "7.13.12",
     "eslint": "7.23.0",
-    "eslint-config-prettier": "8.1.0",
+    "eslint-config-prettier": "8.2.0",
     "eslint-plugin-fetch-options": "0.0.5",
     "eslint-plugin-file-header": "0.0.1",
     "eslint-plugin-flowtype": "5.4.0",
