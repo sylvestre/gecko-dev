@@ -13,7 +13,7 @@ EditorConfig==0.12.1
 h2==2.6.2
 hpack==3.0.0
 html2text==2016.9.19
-hyperframe==4.0.2
+hyperframe==6.0.1
 idna==2.5
 jsbeautifier==1.6.12
 kaitaistruct==0.6
