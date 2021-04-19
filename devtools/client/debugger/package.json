@@ -73,7 +73,7 @@
     "classnames": "^2.2.5",
     "css-loader": "^0.26.1",
     "enzyme": "^3.10.0",
-    "enzyme-adapter-react-16": "^1.14.0",
+    "enzyme-adapter-react-16": "1.15.6",
     "enzyme-to-json": "3.3.5",
     "extract-text-webpack-plugin": "^3.0.2",
     "immutable": "^3.8.2",

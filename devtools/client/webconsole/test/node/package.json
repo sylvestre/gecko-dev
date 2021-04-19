@@ -24,7 +24,7 @@
     "devtools-modules": "0.0.37",
     "devtools-services": "^0.0.3",
     "enzyme": "^3.3.0",
-    "enzyme-adapter-react-16": "^1.1.1",
+    "enzyme-adapter-react-16": "1.15.6",
     "expect": "^1.16.0",
     "jsdom": "^9.4.1",
     "jsdom-global": "^2.0.0",
