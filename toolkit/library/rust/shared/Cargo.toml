@@ -61,7 +61,7 @@ rust_minidump_writer_linux = { path = "../../../crashreporter/rust_minidump_writ
 # version less than or equal to what we link to. This isn't a problem because we
 # tend to keep this up to date, but it needs to be taken into consideration when
 # changing this version.
-rusqlite = { version = "0.24.1", features = ["modern_sqlite", "in_gecko"] }
+rusqlite = { version = "0.25.1", features = ["modern_sqlite", "in_gecko"] }
 
 fluent = { version = "0.14.1", features = ["fluent-pseudo"] }
 fluent-ffi = { path = "../../../../intl/l10n/rust/fluent-ffi" }
