@@ -5500,9 +5500,10 @@ react-error-overlay@^4.0.1:
   version "4.0.1"
   resolved "https://registry.yarnpkg.com/react-error-overlay/-/react-error-overlay-4.0.1.tgz#417addb0814a90f3a7082eacba7cee588d00da89"
 
-react-rewired@^0.5.2:
-  version "0.5.2"
-  resolved "https://registry.yarnpkg.com/react-rewired/-/react-rewired-0.5.2.tgz#659a0fcdafd6d133c868b1a0e286c734911ab6df"
+react-rewired@0.5.3:
+  version "0.5.3"
+  resolved "https://registry.yarnpkg.com/react-rewired/-/react-rewired-0.5.3.tgz#9805c9bc1e000b7881606cea49ffac165fbf7199"
+  integrity sha512-bKa14jy0/bPoFMiBu/UStQafvkDTtpsYgR2YYYb7KUf4Pv4ivFtWikbX44GFc6w6jieiBVvrxoDe+7BykZFlRg==
 
 react-scripts@1.1.5:
   version "1.1.5"
