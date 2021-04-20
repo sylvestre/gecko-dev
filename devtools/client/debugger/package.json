@@ -22,7 +22,7 @@
     "watch": "node bin/watch"
   },
   "dependencies": {
-    "codemirror": "^5.28.0",
+    "codemirror": "5.61.0",
     "fuzzaldrin-plus": "^0.6.0",
     "lodash": "^4.17.4",
     "lodash-move": "^1.1.1",
