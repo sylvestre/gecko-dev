@@ -16,7 +16,7 @@
     "eslint-config-prettier": "8.1.0",
     "eslint-plugin-fetch-options": "0.0.5",
     "eslint-plugin-file-header": "0.0.1",
-    "eslint-plugin-flowtype": "5.4.0",
+    "eslint-plugin-flowtype": "5.7.2",
     "eslint-plugin-html": "6.1.2",
     "eslint-plugin-import": "2.22.1",
     "eslint-plugin-jest": "23.20.0",
