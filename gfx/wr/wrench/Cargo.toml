@@ -15,7 +15,7 @@ clap = { version = "2", features = ["yaml"] }
 log = "0.4"
 yaml-rust = "0.4"
 serde_json = "1.0"
-time = "0.1"
+time = "0.2"
 chrono = "0.2"
 crossbeam = "0.2"
 osmesa-sys = { version = "0.1.2", optional = true }
