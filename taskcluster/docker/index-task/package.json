@@ -7,6 +7,6 @@
     "taskcluster-client": "^12.2.0"
   },
   "engines": {
-    "node": "10"
+    "node": "14"
   }
 }
