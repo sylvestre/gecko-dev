@@ -70,10 +70,9 @@ attrs==20.3.0 \
     # via
     #   aiohttp
     #   jsonschema
-awscli==1.19.33 \
-    --hash=sha256:473d1a653b05577440747d387778efbea8b5c05b88231dd215d74e36133c73c1 \
-    --hash=sha256:d97316d781f3fb52702779a3e5ca8d5780eb253a957ee5c35542607b6014f737
-    # via -r requirements.in
+awscli==1.19.61 \
+    --hash=sha256:32a73cb293d3b7ff9f67f3a082bb5d0715ef0f8b0f75a1f3f0026f132708dd8a \
+    --hash=sha256:3490615071acc1f347977cf78ef9b1a6543fdb92fa9516f1715a415cb081148a
 backports.lzma==0.0.14 \
     --hash=sha256:16d8b68e4d3cd4e6c9ddb059850452946da3914c8a8e197a7f2b0954559f2df4
     # via mar
