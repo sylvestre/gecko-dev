@@ -8,7 +8,7 @@ repository = "https://github.com/mozkeeler/osclientcerts"
 license = "MPL-2.0"
 
 [dependencies]
-byteorder = "1.3"
+byteorder = "1.4"
 env_logger = {version = "0.8", default-features = false } # disable `regex` to reduce code size
 lazy_static = "1"
 log = "0.4"
