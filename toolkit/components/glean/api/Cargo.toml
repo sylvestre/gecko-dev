@@ -19,7 +19,7 @@ xpcom = { path = "../../../../xpcom/rust/xpcom", optional = true }
 thin-vec = { version = "0.2.1", features = ["gecko-ffi"] }
 
 [dev-dependencies]
-tempfile = "3.1.0"
+tempfile = "3.2.0"
 
 [features]
 with_gecko = ["xpcom", "nsstring"]
