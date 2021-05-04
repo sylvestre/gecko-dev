@@ -600,9 +600,9 @@ dependencies = [
 
 [[package]]
 name = "gpu-descriptor"
-version = "0.1.1"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8a70f1e87a3840ed6a3e99e02c2b861e4dbdf26f0d07e38f42ea5aff46cfce2"
+checksum = "d9eeb531d73b32e966709e2939d2817675fb2e7d2e1e262ca793f35c07ad6cfb"
 dependencies = [
  "bitflags",
  "gpu-descriptor-types",
