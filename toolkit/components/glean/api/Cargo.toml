@@ -9,7 +9,7 @@ publish = false
 bincode = "1.0"
 chrono = "0.4.10"
 glean = "37.0.0"
-inherent = "0.1.4"
+inherent = "0.1.6"
 log = "0.4"
 nsstring = { path = "../../../../xpcom/rust/nsstring", optional = true }
 once_cell = "1.2.0"
