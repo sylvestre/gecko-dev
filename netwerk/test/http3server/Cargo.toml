@@ -11,7 +11,7 @@ neqo-http3 = { tag = "v0.4.23", git = "https://github.com/mozilla/neqo" }
 neqo-qpack = { tag = "v0.4.23", git = "https://github.com/mozilla/neqo" }
 mio = "0.6.17"
 mio-extras = "2.0.5"
-log = "0.4.0"
+log = "0.4.14"
 
 [dependencies.neqo-crypto]
 tag = "v0.4.23"
