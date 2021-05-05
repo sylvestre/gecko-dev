@@ -63,7 +63,7 @@ swgl = { path = "../swgl", optional = true }
 
 [dev-dependencies]
 mozangle = "0.3.3"
-rand = "0.4"
+rand = "0.8"
 
 [target.'cfg(any(target_os = "android", all(unix, not(target_os = "macos"))))'.dependencies]
 freetype = { version = "0.7", default-features = false }
