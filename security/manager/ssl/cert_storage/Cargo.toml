@@ -16,7 +16,7 @@ nsstring = { path = "../../../../xpcom/rust/nsstring" }
 rental = "0.5.5"
 rkv = { version = "0.17", default-features = false }
 rust_cascade = "0.6.0"
-sha2 = "^0.8"
+sha2 = "^0.9"
 storage_variant = { path = "../../../../storage/variant" }
 tempfile = "3"
 thin-vec = { version = "0.2.1", features = ["gecko-ffi"] }
