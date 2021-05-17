@@ -2094,9 +2094,9 @@ dependencies = [
 
 [[package]]
 name = "glean-core"
-version = "38.0.0"
+version = "38.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "309ec93993f0c05db3aa49402cb9180b9100e0b5cb0f72c2daae33fb94fca820"
+checksum = "4d672b7cc992c10c7ce78af182e9298d6a1e75f477ac5f1e9a03e89cfad027c9"
 dependencies = [
  "bincode",
  "chrono",
