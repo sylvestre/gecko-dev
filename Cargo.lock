@@ -2020,9 +2020,9 @@ dependencies = [
 
 [[package]]
 name = "glean-core"
-version = "39.0.0"
+version = "39.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1a31d189a28ffde9bfcc7ab26586ee2b81705f0b95bf7a090b67fab1f378782"
+checksum = "38fe1c196cb753fffe7f3452b72d125ac5f909ba9a8b9264149c749de9898c3f"
 dependencies = [
  "bincode",
  "chrono",
