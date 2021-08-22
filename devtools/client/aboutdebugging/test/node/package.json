@@ -10,7 +10,7 @@
     "test-ci": "jest --json"
   },
   "dependencies": {
-    "@babel/plugin-proposal-async-generator-functions": "^7.2.0",
+    "@babel/plugin-proposal-async-generator-functions": "7.2.0",
     "enzyme": "^3.9.0",
     "enzyme-adapter-react-16": "^1.13.2",
     "enzyme-to-json": "^3.3.5",
