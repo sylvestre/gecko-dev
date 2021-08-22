@@ -10,7 +10,7 @@
   "license": "MPL-2.0",
   "dependencies": {
     "babel-polyfill": "^6.26.0",
-    "lodash": "^4.17.5",
+    "lodash": "4.17.10",
     "webpack": "^3.7.1"
   }
 }
