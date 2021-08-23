@@ -8,4 +8,4 @@ license = "MPL-2.0"
 
 [build-dependencies]
 cc = "1.0"
-pkg-config = "^0.3.17"
+pkg-config = "^0.3.19"
