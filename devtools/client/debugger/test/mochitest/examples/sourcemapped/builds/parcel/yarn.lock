@@ -1050,9 +1050,10 @@ constants-browserify@^1.0.0:
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/constants-browserify/-/constants-browserify-1.0.0.tgz#c20b96d8c617748aaf1c16021760cd27fcb8cb75"
 
-convert-source-map@^1.5.1:
+convert-source-map@1.5.1, convert-source-map@^1.5.1:
   version "1.5.1"
   resolved "https://registry.yarnpkg.com/convert-source-map/-/convert-source-map-1.5.1.tgz#b8278097b9bc229365de5c62cf5fcaed8b5599e5"
+  integrity sha1-uCeAl7m8IpNl3lxiz1/K7YtVmeU=
 
 copy-descriptor@^0.1.0:
   version "0.1.1"
@@ -2678,9 +2679,10 @@ pako@~1.0.5:
   version "1.0.6"
   resolved "https://registry.yarnpkg.com/pako/-/pako-1.0.6.tgz#0101211baa70c4bca4a0f63f2206e97b7dfaf258"
 
-parcel-bundler@^1.9.7:
+parcel-bundler@1.9.7:
   version "1.9.7"
   resolved "https://registry.yarnpkg.com/parcel-bundler/-/parcel-bundler-1.9.7.tgz#5cd00850dea0254d377005d55ab4bf60429ba2bc"
+  integrity sha512-x+RiXe/C+aOoFuw+acH/NKjKmUJ/2zbFWFUS/KE5jBk2ErsN0Dc3OxLpmEaeIMU4oMPWFeNm5mRXcXdeUwf7GA==
   dependencies:
     ansi-to-html "^0.6.4"
     babel-code-frame "^6.26.0"

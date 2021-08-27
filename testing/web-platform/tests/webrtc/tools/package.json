@@ -6,10 +6,10 @@
     "lint": "eslint -c .eslintrc.js ../*.html ../*.js"
   },
   "devDependencies": {
-    "eslint": "^7.24.0",
-    "eslint-plugin-html": "^4.0.0",
-    "jscodeshift": "^0.5.1",
-    "jsdom": "^16.5.3"
+    "eslint": "7.32.0",
+    "eslint-plugin-html": "4.0.6",
+    "jscodeshift": "0.5.1",
+    "jsdom": "16.7.0"
   },
   "license": "BSD",
   "private": true

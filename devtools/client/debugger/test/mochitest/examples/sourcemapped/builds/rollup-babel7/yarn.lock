@@ -1052,9 +1052,10 @@ resolve@^1.3.2:
   dependencies:
     path-parse "^1.0.5"
 
-rollup-plugin-babel@^4.0.0-beta.7:
+rollup-plugin-babel@4.0.0-beta.7:
   version "4.0.0-beta.7"
   resolved "https://registry.yarnpkg.com/rollup-plugin-babel/-/rollup-plugin-babel-4.0.0-beta.7.tgz#8c38a685f8009fc6fbf1d31597cb3c5f8060caf5"
+  integrity sha512-T3aOyLwlmslTkraLbZYiBu2UPqilYYROhenguALO/eknJR7SCyUvo1nab5/a8vLEzDBc6acauWnZcUE7N5k57g==
   dependencies:
     "@babel/helper-module-imports" "7.0.0-beta.51"
     rollup-pluginutils "^2.3.0"
@@ -1066,9 +1067,10 @@ rollup-pluginutils@^2.3.0:
     estree-walker "^0.5.2"
     micromatch "^2.3.11"
 
-rollup@^0.63.0:
+rollup@0.63.4:
   version "0.63.4"
   resolved "https://registry.yarnpkg.com/rollup/-/rollup-0.63.4.tgz#cb58bf6c2a6c38542cae250684c962799ad7c00c"
+  integrity sha512-IGTH7u0P6bmu7cXL0g11UDYTR9WKku70cYlqVyOYdqLoQopBGmCbGC3SMeheqHymnehHe/5yf6BJ6BEoxQBVTQ==
   dependencies:
     "@types/estree" "0.0.39"
     "@types/node" "*"

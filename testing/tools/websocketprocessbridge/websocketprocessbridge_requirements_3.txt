@@ -2,13 +2,13 @@
 
 six
 vcversioner==2.16.0.0
-twisted>=18.7.0
+twisted==21.7.0
 
 # websocket adapter for twisted, might be built into twisted someday
 autobahn
 
-psutil>=5.6.3
+psutil==5.8.0
 
 # Needed by iceserver
-ipaddr>=2.2.0
+ipaddr==2.2.0
 passlib==1.6.5
