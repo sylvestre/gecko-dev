@@ -7,7 +7,7 @@
     "prHourlyLimit": 0,
     "includeForks": true,
     "includePaths": [
-        "**",
+        "tools/**",
         "third_party/python/requirements.*"
     ],
     "ignorePaths": [
