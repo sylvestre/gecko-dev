@@ -89,7 +89,6 @@ wrapt==1.12.1 \
     # via astroid
 
 # The following packages are considered to be unsafe in a requirements file:
-setuptools==57.5.0 \
-    --hash=sha256:60d78588f15b048f86e35cdab73003d8b21dd45108ee61a6693881a427f22073 \
-    --hash=sha256:d9d3266d50f59c6967b9312844470babbdb26304fe740833a5f8d89829ba3a24
-    # via astroid
+setuptools==58.2.0 \
+    --hash=sha256:2551203ae6955b9876741a26ab3e767bb3242dafe86a32a749ea0d78b6792f11 \
+    --hash=sha256:2c55bdb85d5bb460bd2e3b12052b677879cffcf46c0c688f2e5bf51d36001145
