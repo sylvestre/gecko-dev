@@ -5,7 +5,7 @@ backports-abc==0.5
 boto3==1.15.6
 botocore==1.18.6
 certifi==2020.6.20
-chardet==3.0.4
+chardet==4.0.0
 colorama==0.4.4
 commonmark==0.9.1
 docutils==0.16
