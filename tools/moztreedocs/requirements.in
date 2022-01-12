@@ -17,7 +17,7 @@ importlib-metadata==3.0.0
 importlib-resources==3.0.0
 Jinja2==2.11.2
 jmespath==0.10.0
-jsonschema==3.2.0
+jsonschema==4.4.0
 livereload==2.6.3
 Markdown==3.3.4
 MarkupSafe==1.1.1
