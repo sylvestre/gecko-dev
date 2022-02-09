@@ -39,7 +39,7 @@
     "eslint-plugin-fetch-options": "^0.0.5",
     "eslint-plugin-html": "^6.0.0",
     "eslint-plugin-no-unsanitized": "^4.0.0",
-    "eslint-plugin-prettier": "^3.0.0",
+    "eslint-plugin-prettier": "^3.0.0 || ^4.0.0",
     "prettier": "^1.19.1"
   },
   "engines": {
