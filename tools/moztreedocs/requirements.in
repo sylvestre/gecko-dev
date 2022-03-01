@@ -13,7 +13,7 @@ fluent.pygments==1.0
 fluent.syntax==0.18.1
 idna==2.10
 imagesize==1.2.0
-importlib-metadata==3.0.0
+importlib-metadata==4.11.2
 importlib-resources==3.0.0
 Jinja2==2.11.2
 jmespath==0.10.0
