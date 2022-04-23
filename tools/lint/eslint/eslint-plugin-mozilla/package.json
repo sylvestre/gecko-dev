@@ -30,7 +30,7 @@
   },
   "devDependencies": {
     "eslint": "8.13.0",
-    "mocha": "9.2.0"
+    "mocha": "9.2.2"
   },
   "peerDependencies": {
     "eslint": "^7.23.0 || ^8.0.0",
