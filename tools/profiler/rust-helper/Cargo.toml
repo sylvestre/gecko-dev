@@ -9,7 +9,7 @@ rustc-demangle = "0.1"
 uuid = "0.8"
 
 [dependencies.object]
-version = "0.28"
+version = "0.29"
 optional = true
 default-features = false
 features = ["std", "read_core", "elf"]
