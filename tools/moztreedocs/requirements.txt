@@ -126,9 +126,9 @@ markdown==3.3.4 \
     # via
     #   -r requirements.in
     #   sphinx-markdown-tables
-markdown-it-py==2.0.0 \
-    --hash=sha256:15cc69c5b7c493ba8603722b710e39ce3fab2961994179fb4fa1c99b070d2059 \
-    --hash=sha256:c138a596f6c9988e0b5fa3299bc38ffa76c75076bc178e8dfac40a84343c7022
+markdown-it-py==2.1.0 \
+    --hash=sha256:93de681e5c021a432c63147656fe21790bc01231e0cd2da73626f1aa3ac0fe27 \
+    --hash=sha256:cf7e59fed14b5ae17c0006eff14a2d9a00ed5f3a846148153899a0224e2c07da
     # via
     #   mdit-py-plugins
     #   myst-parser
