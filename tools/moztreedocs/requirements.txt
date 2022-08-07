@@ -212,8 +212,8 @@ packaging==20.4 \
     # via
     #   -r requirements.in
     #   sphinx
-parsimonious==0.7.0 \
-    --hash=sha256:396d424f64f834f9463e81ba79a331661507a21f1ed7b644f7f6a744006fd938
+parsimonious==0.9.0 \
+    --hash=sha256:b2ad1ae63a2f65bd78f5e0a8ac510a98f3607a43f1db2a8d46636a5d9e4a30c1
     # via
     #   -r requirements.in
     #   sphinx-js
