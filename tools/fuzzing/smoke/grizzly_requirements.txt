@@ -25,8 +25,9 @@ fasteners==0.16.3 \
     # via
     #   fuzzmanager
     #   grizzly-framework
-ffpuppet==0.8.7 \
-    --hash=sha256:ed68871d5b88d0852722dca2332e61d893749523d660a97dfa11018e0b9c040d
+ffpuppet==0.9.1 \
+    --hash=sha256:537bc31b9ca6231b10f890de588a9510d2d2d756e255aa2f9aa120646a33d701 \
+    --hash=sha256:7aed8d2c8bd933abeab75e7633541a93077d9310cf48587f051d03e66c2c12c7
     # via grizzly-framework
 fuzzmanager==0.4.1 \
     --hash=sha256:2bb17b5a725d8d6f03eb9979a75416a1137b7456c95a581a50c7b542fbf3d174
