@@ -372,9 +372,9 @@ sphinx-copybutton==0.5.0 \
     --hash=sha256:9684dec7434bd73f0eea58dda93f9bb879d24bff2d8b187b1f2ec08dfe7b5f48 \
     --hash=sha256:a0c059daadd03c27ba750da534a92a63e7a36a7736dcf684f26ee346199787f6
     # via -r requirements.in
-sphinx-js==3.0.1 \
-    --hash=sha256:00d8d8bb4fe0e4c8cf940c7412af257c7fb83eaedc69d79765f9a012d719ce20 \
-    --hash=sha256:6dd8e79c5ad09fef389af5021d7a672066f6e12a51130497f6c611544d62734b
+sphinx-js==3.1.2 \
+    --hash=sha256:04fe0d2fec6d39b505d70500d0132cfa0efc834760c9598048c1a9dbbc175732 \
+    --hash=sha256:4503accb74ba3a15e0e59e20ec18b15be1932b2c8e8b82e03ace39a415899785
     # via -r requirements.in
 sphinx-markdown-tables==0.0.15 \
     --hash=sha256:24a37662d86ee8bceb7d4f7003df0b25bc52401369d1ddc40d13ae7b58697031 \
