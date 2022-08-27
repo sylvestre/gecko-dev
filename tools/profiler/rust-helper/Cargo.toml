@@ -15,7 +15,7 @@ default-features = false
 features = ["std", "read_core", "elf"]
 
 [dependencies.thin-vec]
-version = "0.2.1"
+version = "0.2.8"
 features = ["gecko-ffi"]
 
 [features]
