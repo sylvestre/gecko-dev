@@ -1,0 +1,20 @@
+{
+    "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+    "extends": [
+        "config:base"
+    ],
+    "prConcurrentLimit": 5,
+    "prHourlyLimit": 0,
+    "branchConcurrentLimit": 5,
+    "includeForks": true,
+    "includePaths": [
+        "tools/**",
+        "third_party/python/requirements.*"
+    ],
+    "ignorePaths": [
+        "third_party/"
+    ],
+    "pip_requirements": {
+        "fileMatch": ["(^|/).*requirements.*\\.(in|txt)$"]
+    }
+}
