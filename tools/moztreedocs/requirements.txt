@@ -26,9 +26,9 @@ backports-abc==0.5 \
     --hash=sha256:033be54514a03e255df75c5aee8f9e672f663f93abb723444caec8fe43437bde \
     --hash=sha256:52089f97fe7a9aa0d3277b220c1d730a85aefd64e1b2664696fe35317c5470a7
     # via -r requirements.in
-boto3==1.16.63 \
-    --hash=sha256:1c0003609e63e8cff51dee7a49e904bcdb20e140b5f7a10a03006289fd8c8dc1 \
-    --hash=sha256:c919dac9773115025e1e2a7e462f60ca082e322bb6f4354247523e4226133b0b
+boto3==1.24.75 \
+    --hash=sha256:7bfa2242df9b1fa73e17f4d7f79f6b22560f55d5da2e27e578e585ef6e4b14a7 \
+    --hash=sha256:e0757717091f7014683e69a31d88d41f960f24eddaf338c1949e63fd67ee2b5c
     # via -r requirements.in
 botocore==1.19.63 \
     --hash=sha256:ad4adfcc195b5401d84b0c65d3a89e507c1d54c201879c8761ff10ef5c361e21 \
