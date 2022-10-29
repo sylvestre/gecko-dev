@@ -12,8 +12,8 @@ charset-normalizer==2.0.8 \
     --hash=sha256:735e240d9a8506778cd7a453d97e817e536bb1fc29f4f6961ce297b9c7a917b0 \
     --hash=sha256:83fcdeb225499d6344c8f7f34684c2981270beacc32ede2e669e94f7fa544405
     # via requests
-cssbeautifier==1.14.0 \
-    --hash=sha256:20be1f47f20762db32c78124ff44d351ba13894fa8e7cfe34014b672f9f6ecb2
+cssbeautifier==1.14.7 \
+    --hash=sha256:be7f1ea7a7b009f0172c2c0d0bebb2d136346e786f7182185ea944affb52135a
     # via grizzly-framework
 editorconfig==0.12.3 \
     --hash=sha256:6b0851425aa875b08b16789ee0eeadbd4ab59666e9ebe728e526314c4a2e52c1
