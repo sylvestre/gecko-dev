@@ -15,7 +15,7 @@ idna==2.10
 imagesize==1.2.0
 importlib-metadata==3.0.0
 importlib-resources==3.0.0
-Jinja2==2.11.2
+Jinja2==2.11.3
 jmespath==0.10.0
 jsonschema==3.2.0
 livereload==2.6.3
