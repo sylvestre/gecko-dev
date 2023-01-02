@@ -45,8 +45,9 @@ jsbeautifier==1.14.0 \
     # via
     #   cssbeautifier
     #   grizzly-framework
-lithium-reducer==0.6.1 \
-    --hash=sha256:ea2f77f496fc57bcb4d74209210c2ec84b1b327a7b707f98655f85575b6fcc16
+lithium-reducer==0.6.2 \
+    --hash=sha256:487fb9d2e6bc88c09d4427fa123ce24001190686e30f25bdb80c63d008e0d098 \
+    --hash=sha256:4b22a8ead342250a9d90571f86efcf9717afcf13edf958b3be45dff39b156b65
     # via grizzly-framework
 prefpicker==1.1.2 \
     --hash=sha256:1404cb0e7c07acca060a09fcc3d9203ae2d8784741b6fe97600a707b9b3ff75e \
