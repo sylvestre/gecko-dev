@@ -2,7 +2,7 @@ alabaster==0.7.12
 charset-normalizer==2.0.12
 docutils==0.16
 idna==2.10
-imagesize==1.2.0
+imagesize==1.4.1
 markupsafe==2.0.1
 packaging==20.9
 requests==2.27.1
