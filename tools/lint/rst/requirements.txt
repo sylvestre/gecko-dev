@@ -150,9 +150,9 @@ rstcheck==3.5.0 \
     --hash=sha256:30c36768c4bd617a85ab93c31facaf410582e53803fde624845eb00c1430070c \
     --hash=sha256:d4b035300b7d898403544f38c3a4980171ce85f487d25e188347bbafb6ee58c0
     # via -r tools/lint/rst/requirements.in
-snowballstemmer==2.0.0 \
-    --hash=sha256:209f257d7533fdb3cb73bdbd24f436239ca3b2fa67d56f6ff88e86be08cc5ef0 \
-    --hash=sha256:df3bac3df4c2c01363f3dd2cfa78cce2840a79b9f1c2d2de9ce8d31683992f52
+snowballstemmer==2.2.0 \
+    --hash=sha256:09b16deb8547d3412ad7b590689584cd0fe25ec8db3be37788be3810cbf19cb1 \
+    --hash=sha256:c8e1716e83cc398ae16824e5572ae04e0d9fc2c6b985fb0f900f5f0c96ecba1a
     # via
     #   -r tools/lint/rst/requirements.in
     #   sphinx

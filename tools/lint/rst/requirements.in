@@ -6,7 +6,7 @@ imagesize==1.2.0
 markupsafe==2.0.1
 packaging==20.9
 requests==2.27.1
-snowballstemmer==2.0.0
+snowballstemmer==2.2.0
 sphinxcontrib-applehelp==1.0.2
 sphinxcontrib-htmlhelp==2.0.0
 rstcheck==3.5.0
