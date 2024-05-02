@@ -7,7 +7,7 @@ license = "MPL-2.0"
 [dependencies]
 memmap2 = "0.9"
 rustc-demangle = "0.1"
-uuid = "1.0"
+uuid = "1.8.0"
 
 [dependencies.object]
 version = "0.32.0"
