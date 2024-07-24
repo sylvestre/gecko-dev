@@ -6,7 +6,7 @@ imagesize==1.4.1
 importlib-metadata==6.0.0
 markupsafe==2.0.1
 packaging==21.0
-requests==2.27.1
+requests==2.32.3
 snowballstemmer==2.2.0
 sphinxcontrib-applehelp==1.0.4
 sphinxcontrib-htmlhelp==2.0.1
