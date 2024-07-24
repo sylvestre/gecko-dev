@@ -24,9 +24,9 @@ charset-normalizer==2.0.12 \
     # via
     #   -r ./tools/lint/rst/requirements.in
     #   requests
-docutils==0.18.1 \
-    --hash=sha256:23010f129180089fbcd3bc08cfefccb3b890b0050e1ca00c867036e9d161b98c \
-    --hash=sha256:679987caf361a7539d76e584cbeddc311e3aee937877c87346f31debc63e9d06
+docutils==0.21.2 \
+    --hash=sha256:3a6b18732edf182daa3cd12775bbb338cf5691468f91eeeb109deff6ebfa986f \
+    --hash=sha256:dafca5b9e384f0e419294eb4d2ff9fa826435bf15f15b7bd45723e8ad76811b2
     # via
     #   -r ./tools/lint/rst/requirements.in
     #   rstcheck
