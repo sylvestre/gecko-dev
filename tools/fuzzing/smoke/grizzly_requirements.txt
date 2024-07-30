@@ -143,9 +143,9 @@ lithium-reducer==2.0.0 \
     --hash=sha256:28029f9f6c088739f01aecdfc5dd571ba9a272ac1389b3577e297372649c0c82 \
     --hash=sha256:b83f350106ce16b17b595e1c09e4861f1d0d71bfd382f06cac0a0a1c6a43a4fa
     # via grizzly-framework
-prefpicker==1.1.2 \
-    --hash=sha256:1404cb0e7c07acca060a09fcc3d9203ae2d8784741b6fe97600a707b9b3ff75e \
-    --hash=sha256:ea25b33e92a342a0bf2c38f5588dd4baf9d381f70faf7ae2145ca5cad49a2644
+prefpicker==1.24.0 \
+    --hash=sha256:bb3de2ae0ee41d34000b3ef7fedc9e3a2f3c070d84f9ad03bcf22afe2c7794e3 \
+    --hash=sha256:f01153cb0e53b066cc96e1c94858607811d8568b888ff482c4f8240051438101
     # via grizzly-framework
 psutil==5.9.4 \
     --hash=sha256:149555f59a69b33f056ba1c4eb22bb7bf24332ce631c44a319cec09f876aaeff \
