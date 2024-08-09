@@ -112,8 +112,9 @@ editorconfig==0.12.3 \
     # via
     #   cssbeautifier
     #   jsbeautifier
-fasteners==0.16.3 \
-    --hash=sha256:8408e52656455977053871990bd25824d85803b9417aa348f10ba29ef0c751f7
+fasteners==0.19 \
+    --hash=sha256:758819cb5d94cdedf4e836988b74de396ceacb8e2794d21f82d131fd9ee77237 \
+    --hash=sha256:b4f37c3ac52d8a445af3a66bce57b33b5e90b97c696b7b984f530cf8f0ded09c
     # via
     #   fuzzmanager
     #   grizzly-framework
