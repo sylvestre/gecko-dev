@@ -126,9 +126,9 @@ ffpuppet==0.11.2 \
 fuzzmanager==0.4.1 \
     --hash=sha256:2bb17b5a725d8d6f03eb9979a75416a1137b7456c95a581a50c7b542fbf3d174
     # via grizzly-framework
-grizzly-framework==0.19.0 \
-    --hash=sha256:229e7559efa2832000c24cd664f99a75413fbb632a2e6acbb927520e7462b5dd \
-    --hash=sha256:7848612e3baa49674af4858b5f5c909659d211a852cdb14d73a3a50a18801a4b
+grizzly-framework==0.24.2 \
+    --hash=sha256:7126069aec94c08348330c24e89a4143c3c40c63b52444ddd566df5bd27522a0 \
+    --hash=sha256:bfbece96e50c7bcd9b63def44aae8e1f6c8e949f37e5b501cf78c24cc577d358
     # via -r tools/fuzzing/smoke/grizzly_requirements.in
 idna==3.3 \
     --hash=sha256:84d9dd047ffa80596e0f246e2eab0b391788b0503584e8945f2368256d2735ff \
